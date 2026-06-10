@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DIB â€” Plataforma de GestÃ£o de Projetos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --navy:#0c1622;
+    --navy-2:#13202f;
+    --navy-3:#1c2c3e;
+    --gold:#5b8cff;
+    --gold-soft:#aac3f6;
+    --blue:#3b82f6;
+    --blue-d:#5b9bff;
+    --canvas:#0a121c;
+    --card:#13202f;
+    --card-2:#1a2939;
+    --ink:#eaf1fa;
+    --ink-2:#aab8cc;
+    --muted:#7e8ca2;
+    --line:#243648;
+    --line-2:#1b2939;
+    --green:#3ddc97;
+    --green-bg:rgba(61,220,151,.15);
+    --amber:#f5b942;
+    --amber-bg:rgba(245,185,66,.15);
+    --red:#ff6b6b;
+    --red-bg:rgba(255,107,107,.15);
+    --purple:#a78bfa;
+    --purple-bg:rgba(167,139,250,.16);
+    --gray:#9aa7b8;
+    --gray-bg:rgba(255,255,255,.06);
+    --shadow:0 1px 2px rgba(0,0,0,.25),0 8px 24px rgba(0,0,0,.28);
+    --shadow-lg:0 16px 48px rgba(0,0,0,.45);
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:var(--canvas); color:var(--ink);
+    -webkit-font-smoothing:antialiased; font-size:14.5px; line-height:1.5;
+  }
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink);background:transparent}
+  input::placeholder,textarea::placeholder{color:var(--muted)}
+  option{color:#13202f}
+  a{color:inherit;text-decoration:none}
+  .hide{display:none!important}
+
+  /* ---------- LOGO ---------- */
+  .logo{display:flex;align-items:center;gap:11px}
+  .side-logo{max-width:172px;max-height:42px;object-fit:contain;display:block}
+  .logo-mark-svg{width:34px;height:37px;flex:0 0 auto;color:#fff}
+  .logo.dark .logo-mark-svg{color:var(--ink)}
+  .logo-txt{line-height:1.05}
+  .logo-txt b{font-size:16.5px;font-weight:800;letter-spacing:.5px;color:#fff}
+  .logo-txt small{display:block;font-size:7.5px;letter-spacing:1.2px;color:var(--gold-soft);text-transform:uppercase;white-space:nowrap;margin-top:2px}
+  .logo.dark .logo-txt b{color:var(--ink)}
+  .logo.dark .logo-txt small{color:var(--muted)}
+
+  /* ---------- LOGIN ---------- */
+  #login{position:fixed;inset:0;display:grid;place-items:center;padding:24px;z-index:50;background:radial-gradient(900px 540px at 50% -6%,#16263c,var(--canvas))}
+  .login-minimal{width:100%;max-width:380px;text-align:center}
+  .login-card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-lg);padding:38px 30px}
+  .logo-lockup{display:flex;flex-direction:column;align-items:center;margin-bottom:26px}
+  .logo-lockup .logo-real{max-width:212px;max-height:66px;object-fit:contain;display:block}
+  .logo-lockup .logo-fallback{display:flex;align-items:center;gap:10px}
+  .logo-lockup .logo-fallback span{font-size:22px;font-weight:800;letter-spacing:1px;color:#fff}
+  .logo-tag{font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:14px}
+  .login-foot{margin-top:18px;color:var(--muted);font-size:12px}
+  #login .field input{text-align:center}
+  .login-art{
+    background:radial-gradient(1200px 600px at 80% -10%,#22325a,transparent),linear-gradient(160deg,var(--navy),#0a1322);
+    color:#fff;padding:54px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden
+  }
+  .login-art .grid-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:34px 34px;mask:radial-gradient(700px 500px at 70% 20%,#000,transparent)}
+  .login-art h1{font-size:34px;font-weight:800;line-height:1.15;margin-top:26px;max-width:460px;position:relative}
+  .login-art h1 i{color:var(--gold);font-style:normal}
+  .login-art p{color:#b9c4da;max-width:420px;margin-top:14px;position:relative;font-size:15px}
+  .art-feats{position:relative;display:flex;flex-direction:column;gap:12px;margin-top:30px}
+  .art-feat{display:flex;align-items:center;gap:12px;color:#d6deee;font-size:14px}
+  .art-feat .dot{width:30px;height:30px;border-radius:8px;background:rgba(201,162,75,.16);display:grid;place-items:center;color:var(--gold);font-size:15px;flex:0 0 auto}
+  .login-art footer{position:relative;color:#7e8cab;font-size:12.5px}
+
+  .login-form{background:var(--card);display:grid;place-items:center;padding:40px}
+  .login-box{width:100%;max-width:360px}
+  .login-box h2{font-size:23px;font-weight:800;color:var(--ink)}
+  .login-box .sub{color:var(--muted);margin-top:6px;margin-bottom:26px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:7px}
+  .field input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;outline:none;transition:.15s}
+  .field input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,107,255,.12)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:10px;font-weight:600;font-size:14px;transition:.15s;white-space:nowrap}
+  .btn-primary{background:var(--blue);color:#fff;width:100%}
+  .btn-primary:hover{background:var(--blue-d)}
+  .btn-ghost{background:var(--gray-bg);color:var(--ink)}
+  .btn-ghost:hover{background:rgba(255,255,255,.13)}
+  .btn-gold{background:linear-gradient(135deg,var(--gold),#b58a32);color:#26200f}
+  .btn-gold:hover{filter:brightness(1.05)}
+  .magic{margin-top:18px;padding:16px;border:1.5px dashed var(--line);border-radius:12px;background:var(--card-2);text-align:center}
+  .magic .ico{width:46px;height:46px;border-radius:50%;background:var(--green-bg);color:var(--green);display:grid;place-items:center;margin:0 auto 10px;font-size:20px}
+  .magic b{display:block;color:var(--ink)}
+  .magic small{color:var(--muted);display:block;margin:4px 0 14px}
+  .login-mini{margin-top:22px;color:var(--muted);font-size:12px;text-align:center}
+
+  /* ---------- APP SHELL ---------- */
+  #app{display:grid;grid-template-columns:264px 1fr;height:100vh;overflow:hidden}
+  .sidebar{background:var(--navy);color:#cdd6e6;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  .side-top{padding:18px 18px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+  .side-scroll{overflow-y:auto;flex:1;padding:14px 12px}
+  .side-label{font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:#6b7a98;padding:0 10px;margin:16px 0 8px}
+  .side-label:first-child{margin-top:4px}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:#c3cde0;font-weight:500;cursor:pointer;transition:.13s;font-size:13.5px}
+  .nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+  .nav-item.active{background:var(--blue);color:#fff;box-shadow:0 4px 14px rgba(47,107,255,.4)}
+  .nav-item .i{width:18px;text-align:center;font-size:15px;flex:0 0 auto}
+  .nav-item .cnt{margin-left:auto;font-size:11px;background:rgba(255,255,255,.12);padding:1px 8px;border-radius:20px;color:#cdd6e6}
+  .nav-item.active .cnt{background:rgba(255,255,255,.25);color:#fff}
+  .proj-item{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;cursor:pointer;transition:.13s;color:#c3cde0}
+  .proj-item:hover{background:rgba(255,255,255,.06);color:#fff}
+  .proj-item.active{background:rgba(47,107,255,.16);color:#fff;box-shadow:inset 0 0 0 1px rgba(47,107,255,.4)}
+  .proj-thumb{width:30px;height:30px;border-radius:8px;flex:0 0 auto;display:grid;place-items:center;font-weight:700;font-size:12px;color:#fff}
+  .proj-meta b{font-size:13px;font-weight:600;display:block}
+  .proj-meta small{font-size:11px;color:#8493b0}
+  .side-bottom{padding:12px;border-top:1px solid rgba(255,255,255,.07)}
+  .user-chip{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer}
+  .user-chip:hover{background:rgba(255,255,255,.06)}
+  .avatar{border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex:0 0 auto}
+  .user-chip .avatar{width:34px;height:34px;font-size:12px;background:linear-gradient(135deg,#3b6fe0,#1f4bb8)}
+  .user-chip b{font-size:13px;color:#fff;display:block}
+  .user-chip small{font-size:11px;color:#8493b0}
+
+  .main{height:100vh;overflow-y:auto;position:relative}
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(10,18,28,.82);backdrop-filter:blur(10px);padding:14px 28px;display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--line)}
+  .burger{display:none;width:40px;height:40px;border-radius:10px;background:var(--card);border:1px solid var(--line);font-size:18px;color:var(--ink)}
+  .crumb{font-size:13px;color:var(--muted)}
+  .crumb b{color:var(--ink)}
+  .search{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;width:260px;max-width:34vw}
+  .search input{border:none;outline:none;width:100%;background:none}
+  .top-btn{width:40px;height:40px;border-radius:10px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;font-size:16px;color:var(--ink);position:relative}
+  .top-btn .badge{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:10px;display:none;place-items:center;padding:0 4px}
+  .notif{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:10px;cursor:pointer;transition:.13s}
+  .notif:hover{background:var(--card-2)}
+  .notif-ico{width:36px;height:36px;border-radius:10px;background:var(--card-2);display:grid;place-items:center;font-size:16px;flex:0 0 auto}
+  .notif b{font-size:13.5px;color:var(--ink);display:block}
+  .notif small{font-size:12px;color:var(--muted)}
+  .content{padding:26px 28px 60px}
+
+  /* ---------- GENERIC UI ---------- */
+  .page-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+  .page-head h1{font-size:24px;font-weight:800;color:var(--ink);letter-spacing:-.3px}
+  .page-head p{color:var(--muted);margin-top:3px;font-size:13.5px}
+  .ph-actions{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
+  .btn-sm{padding:9px 14px;font-size:13px;border-radius:9px}
+
+  .cards{display:grid;gap:16px}
+  .grid-3{grid-template-columns:repeat(3,1fr)}
+  .grid-2{grid-template-columns:repeat(2,1fr)}
+  .grid-4{grid-template-columns:repeat(4,1fr)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .card-pad{padding:18px}
+
+  .stat{display:flex;flex-direction:column;gap:8px;padding:18px}
+  .stat .top{display:flex;align-items:center;justify-content:space-between}
+  .stat .ico{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:18px}
+  .stat .num{font-size:28px;font-weight:800;color:var(--ink);letter-spacing:-.5px}
+  .stat .lbl{font-size:12.5px;color:var(--muted);font-weight:500}
+
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:600;white-space:nowrap}
+  .badge .bdot{width:6px;height:6px;border-radius:50%;background:currentColor}
+  .b-green{background:var(--green-bg);color:var(--green)}
+  .b-amber{background:var(--amber-bg);color:var(--amber)}
+  .b-blue{background:rgba(91,140,255,.18);color:#8fb4ff}
+  .b-purple{background:var(--purple-bg);color:var(--purple)}
+  .b-gray{background:var(--gray-bg);color:var(--gray)}
+  .b-red{background:var(--red-bg);color:var(--red)}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:600;background:var(--gray-bg);color:var(--ink-2)}
+  .chip.ifc{background:rgba(91,155,255,.18);color:#8fb4ff}
+  .chip.dwg{background:rgba(245,160,66,.18);color:#f0b056}
+  .chip.pdf{background:rgba(255,107,107,.18);color:#ff8f8f}
+  .chip.rvt{background:rgba(61,220,151,.18);color:#5fe0ad}
+
+  .section-title{font-size:13px;font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.6px;margin:0 0 12px}
+
+  /* project header */
+  .proj-hero{display:flex;align-items:center;gap:18px;padding:20px;margin-bottom:20px;background:linear-gradient(120deg,var(--navy),#1a2741);border-radius:16px;color:#fff;position:relative;overflow:hidden}
+  .proj-hero .grid-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:30px 30px;mask:radial-gradient(500px 300px at 90% 10%,#000,transparent)}
+  .proj-hero .big-thumb{width:64px;height:64px;border-radius:14px;display:grid;place-items:center;font-weight:800;font-size:22px;flex:0 0 auto;position:relative;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+  .proj-hero h1{font-size:23px;font-weight:800;position:relative}
+  .proj-hero .ph-sub{color:#b9c4da;font-size:13px;margin-top:4px;position:relative;display:flex;gap:14px;flex-wrap:wrap}
+  .proj-hero .ph-sub span{display:inline-flex;align-items:center;gap:6px}
+  .proj-progress{margin-left:auto;text-align:right;position:relative}
+  .ring{--p:0;width:74px;height:74px;border-radius:50%;background:conic-gradient(var(--gold) calc(var(--p)*1%),rgba(255,255,255,.14) 0);display:grid;place-items:center}
+  .ring::before{content:"";position:absolute;width:56px;height:56px;border-radius:50%;background:var(--navy)}
+  .ring b{position:relative;font-size:17px;font-weight:800;color:#fff}
+
+  /* tabs */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:22px;overflow-x:auto}
+  .tab{padding:11px 16px;font-weight:600;font-size:13.5px;color:var(--muted);border-bottom:2.5px solid transparent;white-space:nowrap;transition:.13s}
+  .tab:hover{color:var(--ink)}
+  .tab.active{color:var(--blue);border-color:var(--blue)}
+  .tab .cnt{margin-left:7px;font-size:11px;background:var(--gray-bg);padding:1px 7px;border-radius:10px;color:var(--gray)}
+  .tab.active .cnt{background:rgba(91,140,255,.2);color:#8fb4ff}
+
+  /* discipline cards */
+  .disc{display:flex;align-items:center;gap:14px;padding:16px;cursor:pointer;transition:.13s}
+  .disc:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+  .disc .d-ico{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:0 0 auto}
+  .disc .d-body{flex:1;min-width:0}
+  .disc .d-body b{font-size:15px;color:var(--ink);display:block}
+  .disc .d-meta{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
+  .disc .d-wait{font-size:12px;color:var(--muted)}
+  .disc .d-wait b{display:inline;font-weight:700;color:var(--ink)}
+
+  /* version row */
+  .vrow{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--line-2)}
+  .vrow:last-child{border-bottom:none}
+  .vrow:hover{background:var(--card-2)}
+  .vtag{width:40px;height:40px;border-radius:10px;background:var(--navy);color:var(--gold);display:grid;place-items:center;font-weight:800;font-size:13px;flex:0 0 auto}
+  .vbody{flex:1;min-width:0}
+  .vbody b{font-size:14px;color:var(--ink)}
+  .vmeta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:12px;flex-wrap:wrap}
+  .vfiles{display:flex;gap:6px;flex-wrap:wrap}
+  .drive-link{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;font-weight:600;color:var(--ink);background:var(--card);transition:.13s}
+  .drive-link:hover{border-color:var(--blue);color:#8fb4ff;background:rgba(91,140,255,.12)}
+  .drive-ico{width:18px;height:18px}
+
+  /* timeline / atas / feedback */
+  .tline{position:relative;padding-left:30px}
+  .tline::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--line)}
+  .tnode{position:relative;padding-bottom:20px}
+  .tnode::before{content:"";position:absolute;left:-26px;top:4px;width:14px;height:14px;border-radius:50%;background:var(--card);border:3px solid var(--blue)}
+  .tnode.gold::before{border-color:var(--gold)}
+  .tnode.green::before{border-color:var(--green)}
+  .tnode .tdate{font-size:12px;color:var(--muted);font-weight:600}
+  .tnode .tcard{margin-top:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+  .tnode .tcard b{color:var(--ink)}
+  .tnode .tcard p{color:var(--ink-2);font-size:13px;margin-top:5px}
+
+  .fb{display:flex;gap:12px;padding:16px;border-bottom:1px solid var(--line-2)}
+  .fb:last-child{border:none}
+  .fb .avatar{width:38px;height:38px;font-size:13px}
+  .fb-body{flex:1}
+  .fb-head{display:flex;align-items:center;gap:8px}
+  .fb-head b{font-size:13.5px;color:var(--ink)}
+  .fb-head small{color:var(--muted);font-size:12px}
+  .fb-body p{font-size:13.5px;color:var(--ink-2);margin-top:5px}
+  .fb-on{margin-top:8px;font-size:12px;color:var(--muted)}
+
+  /* people / access */
+  .ptable{width:100%;border-collapse:collapse}
+  .ptable th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:12px 16px;border-bottom:1px solid var(--line)}
+  .ptable td{padding:14px 16px;border-bottom:1px solid var(--line-2);font-size:13.5px;vertical-align:middle}
+  .ptable tr:last-child td{border-bottom:none}
+  .pperson{display:flex;align-items:center;gap:11px}
+  .pperson .avatar{width:38px;height:38px;font-size:13px}
+  .pperson b{color:var(--ink);font-size:13.5px}
+  .pperson small{color:var(--muted);font-size:12px;display:block}
+  .folder-tags{display:flex;gap:6px;flex-wrap:wrap}
+  .ftag{font-size:11px;padding:3px 9px;border-radius:7px;background:rgba(255,255,255,.07);color:var(--ink-2);font-weight:600}
+  .ftag.all{background:rgba(91,140,255,.18);color:#8fb4ff}
+  .icon-btn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted);font-size:15px}
+  .icon-btn:hover{background:var(--gray-bg);color:var(--ink)}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(16,26,46,.5);backdrop-filter:blur(3px);z-index:60;display:grid;place-items:center;padding:20px}
+  .modal{background:var(--card);border-radius:16px;width:100%;max-width:480px;box-shadow:var(--shadow-lg);overflow:hidden;animation:pop .18s ease}
+  @keyframes pop{from{transform:scale(.96)translateY(8px);opacity:0}to{transform:none;opacity:1}}
+  .modal-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+  .modal-head h3{font-size:17px;font-weight:800;color:var(--ink)}
+  .modal-body{padding:22px;max-height:62vh;overflow-y:auto}
+  .modal-foot{padding:16px 22px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+  .field select,.field textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;outline:none;background:var(--card-2);color:var(--ink)}
+  .field textarea{resize:vertical;min-height:84px}
+  .field select:focus,.field textarea:focus{border-color:var(--blue)}
+  .checks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .check{display:flex;align-items:center;gap:9px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px}
+  .check input{accent-color:var(--blue);width:16px;height:16px}
+  .check.on{border-color:var(--blue);background:rgba(91,140,255,.14)}
+
+  /* toast */
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(40px);background:var(--navy);color:#fff;padding:13px 20px;border-radius:12px;font-size:13.5px;font-weight:500;box-shadow:var(--shadow-lg);z-index:80;opacity:0;transition:.25s;display:flex;align-items:center;gap:10px}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast .tk{color:var(--green)}
+
+  .empty{text-align:center;padding:50px 20px;color:var(--muted)}
+  .empty .e-ico{font-size:34px;margin-bottom:10px;opacity:.5}
+
+  /* version feedback inline */
+  .vitem{border-bottom:1px solid var(--line-2)}
+  .vitem:last-child{border-bottom:none}
+  .vitem .vrow{border-bottom:none}
+  .vfb{padding:2px 16px 14px 70px;display:flex;flex-direction:column;gap:10px}
+  .fb-mini{display:flex;gap:10px;background:var(--card-2);border:1px solid var(--line-2);border-radius:10px;padding:9px 12px}
+  .fb-mini .avatar{width:28px;height:28px;font-size:10px}
+  .fb-mini .fb-head b{font-size:12.5px;color:var(--ink)}
+  .fb-mini p{font-size:12.5px;color:var(--ink-2);margin-top:2px}
+
+  /* chat */
+  .chat-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .chat-tab{display:flex;align-items:center;gap:7px;padding:9px 14px;border-radius:10px;font-size:13px;font-weight:600;color:var(--ink-2);background:var(--card);border:1px solid var(--line);cursor:pointer;transition:.13s}
+  .chat-tab:hover{border-color:var(--blue);color:var(--ink)}
+  .chat-tab.active{background:rgba(91,140,255,.18);color:#8fb4ff;border-color:var(--blue)}
+  .chat-tab .cnt{font-size:11px;background:rgba(255,255,255,.12);padding:1px 7px;border-radius:10px}
+  .chat-members{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .chat-members .cm{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);border-radius:30px;padding:4px 13px 4px 4px;font-size:12.5px;color:var(--ink)}
+  .chat-members .cm .avatar{width:26px;height:26px;font-size:10px}
+  .chat-wrap{display:flex;flex-direction:column;height:62vh;min-height:400px;overflow:hidden;padding:0}
+  .chat-body{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px;background:linear-gradient(180deg,var(--navy),var(--card))}
+  .msg{display:flex;gap:10px;max-width:80%}
+  .msg.me{margin-left:auto;flex-direction:row-reverse}
+  .msg .avatar{width:32px;height:32px;font-size:11px;flex:0 0 auto}
+  .bubble{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:9px 13px;box-shadow:var(--shadow)}
+  .msg.me .bubble{background:var(--blue);border-color:var(--blue);color:#fff}
+  .bubble b{font-size:12px;display:block;margin-bottom:2px;color:var(--ink)}
+  .bubble p{font-size:13.5px}
+  .bubble .time{font-size:10.5px;color:var(--muted);display:block;text-align:right;margin-top:3px}
+  .msg.me .bubble .time{color:rgba(255,255,255,.7)}
+  .chat-input{display:flex;gap:10px;padding:12px;border-top:1px solid var(--line);background:var(--card)}
+  .chat-input input{flex:1;border:1.5px solid var(--line);border-radius:10px;padding:11px 14px;outline:none}
+  .chat-input input:focus{border-color:var(--blue)}
+
+  .scrim{display:none}
+
+  /* ---------- RESPONSIVE ---------- */
+  @media(max-width:1100px){.grid-4{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:920px){
+    #login{grid-template-columns:1fr}
+    .login-art{display:none}
+  }
+  @media(max-width:860px){
+    #app{grid-template-columns:1fr}
+    .sidebar{position:fixed;left:0;top:0;width:280px;z-index:70;transform:translateX(-100%);transition:transform .25s ease}
+    #app.nav-open .sidebar{transform:none}
+    #app.nav-open .scrim{display:block;position:fixed;inset:0;background:rgba(16,26,46,.45);z-index:65}
+    .burger{display:grid;place-items:center}
+    .search{display:none}
+    .content{padding:20px 16px 70px}
+    .topbar{padding:12px 16px}
+    .grid-3,.grid-2,.grid-4{grid-template-columns:1fr}
+    .proj-hero{flex-wrap:wrap}
+    .proj-progress{margin-left:0}
+    .page-head h1{font-size:21px}
+    .ph-actions{width:100%}
+    .ph-actions .btn{flex:1}
+    .ptable thead{display:none}
+    .ptable,.ptable tbody,.ptable tr,.ptable td{display:block;width:100%}
+    .ptable tr{border:1px solid var(--line);border-radius:12px;margin-bottom:12px;padding:6px}
+    .ptable td{border:none;padding:8px 12px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login">
+  <div class="login-minimal">
+    <div class="login-card">
+      <div class="logo-lockup">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAAwCAYAAABUmTXqAAAACXBIWXMAAAsTAAALEwEAmpwYAAAE7mlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgOS4xLWMwMDEgNzkuMTQ2Mjg5OSwgMjAyMy8wNi8yNS0yMDowMTo1NSAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0RXZ0PSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VFdmVudCMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIDI1LjAgKFdpbmRvd3MpIiB4bXA6Q3JlYXRlRGF0ZT0iMjAyMy0xMC0xM1QxNTo0Mjo1NC0wMzowMCIgeG1wOk1vZGlmeURhdGU9IjIwMjMtMTAtMTZUMTk6MzM6MzAtMDM6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMjMtMTAtMTZUMTk6MzM6MzAtMDM6MDAiIGRjOmZvcm1hdD0iaW1hZ2UvcG5nIiBwaG90b3Nob3A6Q29sb3JNb2RlPSIzIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjU4OTljY2ZmLTkyN2ItNTM0Yi05ODUxLWQwMzU0NTkzOTk5ZSIgeG1wTU06RG9jdW1lbnRJRD0i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" alt="DIB & DIB" class="logo-real" onerror="this.remove()" onload="var f=this.parentElement.querySelector('.logo-fallback'); if(f) f.remove()" />
+        <div class="logo-fallback">
+          <svg viewBox="0 0 92 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="DIB & DIB" style="width:30px;height:33px;color:#fff">
+            <rect x="10" y="10" width="18" height="80" rx="2" fill="currentColor"/>
+            <path d="M22 19 H46 C70 19 82 33 82 50 C82 67 70 81 46 81 H22" stroke="currentColor" stroke-width="18" fill="none"/>
+          </svg>
+          <span>DIB &amp; DIB</span>
+        </div>
+        <div class="logo-tag">A assinatura do seu novo imÃ³vel</div>
+      </div>
+
+      <div id="login-step1">
+        <div class="field" style="margin-bottom:12px">
+          <input id="email" type="email" placeholder="seu@email.com" value="pedro@dibedib.com.br" />
+        </div>
+        <button class="btn btn-primary" onclick="sendMagic()">Receber link de acesso</button>
+        <div class="login-mini">Acesso privado Â· vocÃª recebe um link no seu e-mail.</div>
+      </div>
+
+      <div id="login-step2" class="hide">
+        <div class="magic">
+          <div class="ico">âœ“</div>
+          <b>Link enviado!</b>
+          <small>Enviamos um acesso para <span id="email-echo">seu e-mail</span>. Clique abaixo para simular a abertura do link.</small>
+          <button class="btn btn-primary" style="width:100%" onclick="enterApp()">Abrir link e entrar</button>
+        </div>
+        <div class="login-mini">O link expira em 15 minutos e sÃ³ funciona uma vez.</div>
+      </div>
+    </div>
+    <div class="login-foot">Â© 2026 DIB &amp; DIB Â· Plataforma privada</div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hide">
+  <div class="scrim" onclick="toggleNav(false)"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="side-top">
+      <div class="logo">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAAwCAYAAABUmTXqAAAACXBIWXMAAAsTAAALEwEAmpwYAAAE7mlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgOS4xLWMwMDEgNzkuMTQ2Mjg5OSwgMjAyMy8wNi8yNS0yMDowMTo1NSAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0RXZ0PSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VFdmVudCMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIDI1LjAgKFdpbmRvd3MpIiB4bXA6Q3JlYXRlRGF0ZT0iMjAyMy0xMC0xM1QxNTo0Mjo1NC0wMzowMCIgeG1wOk1vZGlmeURhdGU9IjIwMjMtMTAtMTZUMTk6MzM6MzAtMDM6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMjMtMTAtMTZUMTk6MzM6MzAtMDM6MDAiIGRjOmZvcm1hdD0iaW1hZ2UvcG5nIiBwaG90b3Nob3A6Q29sb3JNb2RlPSIzIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjU4OTljY2ZmLTkyN2ItNTM0Yi05ODUxLWQwMzU0NTkzOTk5ZSIgeG1wTU06RG9jdW1lbnRJRD0i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" alt="DIB & DIB" class="side-logo" onload="var f=this.parentElement.querySelector('.side-fallback'); if(f) f.remove()" onerror="this.remove()" />
+        <div class="side-fallback" style="display:flex;align-items:center;gap:11px">
+          <svg class="logo-mark-svg" viewBox="0 0 92 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="DIB & DIB">
+            <rect x="10" y="10" width="18" height="80" rx="2" fill="currentColor"/>
+            <path d="M22 19 H46 C70 19 82 33 82 50 C82 67 70 81 46 81 H22" stroke="currentColor" stroke-width="18" fill="none"/>
+          </svg>
+          <div class="logo-txt"><b>DIB &amp; DIB</b><small>A assinatura do seu novo imÃ³vel</small></div>
+        </div>
+      </div>
+    </div>
+    <div class="side-scroll">
+      <div class="side-label">Menu</div>
+      <div class="nav-item active" data-nav="obras" onclick="go('obras')"><span class="i">â–¦</span> Minhas obras</div>
+
+      <div class="side-label">Obras / Projetos</div>
+      <div id="proj-list"></div>
+
+      <div class="side-label">AdministraÃ§Ã£o</div>
+      <div class="nav-item" data-nav="pessoas" onclick="go('pessoas')"><span class="i">â—‰</span> Pessoas &amp; acessos</div>
+    </div>
+    <div class="side-bottom">
+      <div class="user-chip" onclick="logout()">
+        <div class="avatar">PD</div>
+        <div style="flex:1"><b>Pedro Dib</b><small>Administrador</small></div>
+        <span style="color:#8493b0">âŽ‹</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <button class="burger" onclick="toggleNav(true)">â˜°</button>
+      <div class="crumb" id="crumb">Minhas obras</div>
+      <div class="search">ðŸ”Ž <input placeholder="Buscar projeto, disciplina..." /></div>
+      <button class="top-btn" onclick="openNotifs()">ðŸ””<span class="badge" id="notif-badge"></span></button>
+      <button class="top-btn" onclick="logout()" title="Sair">âŽ‹</button>
+    </div>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<!-- modal mount -->
+<div id="modal-mount"></div>
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   DADOS DE EXEMPLO  (em memÃ³ria â€” reinicia ao recarregar)
+   ============================================================ */
+const STATUS = {
+  dev:    {cls:'b-blue',   label:'Em desenvolvimento'},
+  wait:   {cls:'b-amber',  label:'Aguardando'},
+  review: {cls:'b-purple', label:'Em anÃ¡lise'},
+  ok:     {cls:'b-green',  label:'Aprovado'},
+  pend:   {cls:'b-gray',   label:'Pendente'},
+  redo:   {cls:'b-red',    label:'Revisar'},
+};
+const FILE_CLS = {IFC:'ifc',DWG:'dwg',PDF:'pdf',RVT:'rvt'};
+
+const DISC_ICONS = {
+  'Arquitetura':{i:'ðŸ›ï¸',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'},
+  'Estrutural':{i:'ðŸ—ï¸',c:'#f0b056',bg:'rgba(245,160,66,.16)'},
+  'Fachada':{i:'ðŸªŸ',c:'#5fe0ad',bg:'rgba(61,220,151,.16)'},
+  'InstalaÃ§Ãµes':{i:'ðŸ”§',c:'#bda6ff',bg:'rgba(167,139,250,.18)'},
+  'Paisagismo':{i:'ðŸŒ¿',c:'#5fe0ad',bg:'rgba(61,220,151,.16)'},
+  'CompatibilizaÃ§Ã£o':{i:'ðŸ§©',c:'#ff8f8f',bg:'rgba(255,107,107,.16)'},
+};
+
+const people = [
+  {id:1, nome:'Pedro Dib',       email:'pedro@dibedib.com.br',  papel:'Administrador', folders:'ALL', cor:'linear-gradient(135deg,#324a63,#16202b)'},
+  {id:2, nome:'Marina Dib',      email:'marina@dibedib.com.br', papel:'SÃ³cia / AnÃ¡lise', folders:'ALL', cor:'linear-gradient(135deg,#2f6bff,#1f50cc)'},
+  {id:3, nome:'Meta Arquitetura',email:'projetos@meta-arq.com', papel:'Arquitetura', folders:['Perimetral â€º Arquitetura','Freire AlemÃ£o â€º Arquitetura'], cor:'linear-gradient(135deg,#1f9d62,#0f6b41)'},
+  {id:4, nome:'Eng. Ricardo SÃ¡', email:'ricardo@calculo.eng',   papel:'Estrutural', folders:['Perimetral â€º Estrutural'], cor:'linear-gradient(135deg,#b9711a,#8a510f)'},
+  {id:5, nome:'Studio Fachadas', email:'contato@studiofach.com', papel:'Fachada', folders:['Freire AlemÃ£o â€º Fachada'], cor:'linear-gradient(135deg,#7a52cc,#523587)'},
+];
+
+const projects = [
+  {
+    id:'perimetral', nome:'Perimetral', local:'Rio de Janeiro Â· RJ',
+    cor:'linear-gradient(135deg,#2f6bff,#16357a)', progresso:62,
+    disciplinas:[
+      {nome:'Arquitetura', status:'review', aguardando:'AnÃ¡lise Dib & Dib',
+       versoes:[
+         {v:'v4', titulo:'Projeto executivo â€” revisÃ£o de layout', data:'05 jun 2026', autor:'Meta Arquitetura', status:'review', files:['IFC','DWG','PDF'], drive:'#', fb:[{autor:'Marina Dib', cor:people[1].cor, ini:'MD', quando:'hÃ¡ 2 dias', texto:'O recuo da torre ficou Ã³timo. SÃ³ confirmar se a vaga PNE atende a norma na garagem.'}]},
+         {v:'v3', titulo:'CompatibilizaÃ§Ã£o com estrutura', data:'21 mai 2026', autor:'Meta Arquitetura', status:'ok', files:['IFC','DWG'], drive:'#'},
+         {v:'v2', titulo:'Estudo preliminar aprovado', data:'02 mai 2026', autor:'Meta Arquitetura', status:'ok', files:['PDF'], drive:'#'},
+       ],
+       chat:[
+         {ini:'PD', autor:'Pedro Dib', cor:people[0].cor, hora:'08:42', texto:'Pessoal, a arquitetura v4 jÃ¡ estÃ¡ na pasta. Podem revisar?', me:true},
+         {ini:'MA', autor:'Meta Arquitetura', cor:people[2].cor, hora:'09:15', texto:'Recebido! Ajustamos o hall conforme a Ãºltima ata.'},
+       ]},
+      {nome:'Estrutural', status:'wait', aguardando:'Meta Arquitetura',
+       versoes:[
+         {v:'v2', titulo:'LanÃ§amento de pilares e vigas', data:'28 mai 2026', autor:'Eng. Ricardo SÃ¡', status:'wait', files:['IFC','DWG'], drive:'#', fb:[{autor:'Pedro Dib', cor:people[0].cor, ini:'PD', quando:'hÃ¡ 4 dias', texto:'Precisa receber a arquitetura v4 antes de fechar o lanÃ§amento. Vamos cobrar a Meta.'}]},
+         {v:'v1', titulo:'PrÃ©-dimensionamento', data:'10 mai 2026', autor:'Eng. Ricardo SÃ¡', status:'ok', files:['PDF'], drive:'#'},
+       ],
+       chat:[
+         {ini:'RS', autor:'Eng. Ricardo SÃ¡', cor:people[3].cor, hora:'10:03', texto:'Assim que aprovarem a arquitetura, fecho o lanÃ§amento estrutural.'},
+       ]},
+      {nome:'Fachada', status:'dev', aguardando:'Studio Fachadas',
+       versoes:[
+         {v:'v1', titulo:'Conceito de fachada ventilada', data:'30 mai 2026', autor:'Studio Fachadas', status:'dev', files:['PDF'], drive:'#'},
+       ],
+       chat:[]},
+      {nome:'InstalaÃ§Ãµes', status:'pend', aguardando:'A iniciar',
+       versoes:[], chat:[]},
+    ],
+    atas:[
+      {data:'04 jun 2026', titulo:'ReuniÃ£o de compatibilizaÃ§Ã£o', resumo:'Alinhado ajuste de prumadas hidrÃ¡ulicas e revisÃ£o do hall. Meta vai atualizar arquitetura atÃ© 09/06.', cls:'gold'},
+      {data:'20 mai 2026', titulo:'AprovaÃ§Ã£o do estudo preliminar', resumo:'Cliente aprovou implantaÃ§Ã£o e volumetria. Liberado avanÃ§o para executivo.', cls:'green'},
+    ],
+  },
+  {
+    id:'freire', nome:'Freire AlemÃ£o', local:'Copacabana Â· RJ',
+    cor:'linear-gradient(135deg,#c9a24b,#8a6a1f)', progresso:38,
+    disciplinas:[
+      {nome:'Arquitetura', status:'dev', aguardando:'Meta Arquitetura',
+       versoes:[
+         {v:'v2', titulo:'Plantas com ajustes do cliente', data:'03 jun 2026', autor:'Meta Arquitetura', status:'dev', files:['DWG','PDF'], drive:'#'},
+         {v:'v1', titulo:'Estudo de implantaÃ§Ã£o', data:'18 mai 2026', autor:'Meta Arquitetura', status:'ok', files:['PDF'], drive:'#'},
+       ],
+       chat:[
+         {ini:'PD', autor:'Pedro Dib', cor:people[0].cor, hora:'14:20', texto:'FamÃ­lia aprovou o programa. Meta, pode tocar as plantas.', me:true},
+         {ini:'MA', autor:'Meta Arquitetura', cor:people[2].cor, hora:'15:05', texto:'Perfeito, comeÃ§amos hoje. Subo a v3 na sexta.'},
+       ]},
+      {nome:'Fachada', status:'review', aguardando:'AnÃ¡lise Dib & Dib',
+       versoes:[
+         {v:'v1', titulo:'Proposta de revestimento em pedra', data:'31 mai 2026', autor:'Studio Fachadas', status:'review', files:['IFC','PDF'], drive:'#', fb:[{autor:'Pedro Dib', cor:people[0].cor, ini:'PD', quando:'hÃ¡ 1 dia', texto:'Gostei da pedra, mas vamos avaliar custo x manutenÃ§Ã£o antes de aprovar.'}]},
+       ],
+       chat:[]},
+      {nome:'Paisagismo', status:'pend', aguardando:'A iniciar', versoes:[], chat:[]},
+    ],
+    atas:[
+      {data:'02 jun 2026', titulo:'Briefing com a famÃ­lia', resumo:'Definido programa de necessidades: 4 suÃ­tes, home e Ã¡rea gourmet integrada. Meta inicia plantas.', cls:''},
+    ],
+  },
+];
+
+/* ============================================================
+   ESTADO + NAVEGAÃ‡ÃƒO
+   ============================================================ */
+let state = {view:'obras', projId:null, tab:'visao', chatDisc:null};
+
+function renderProjList(){
+  const el = document.getElementById('proj-list');
+  el.innerHTML = projects.map(p=>`
+    <div class="proj-item ${state.view==='proj'&&state.projId===p.id?'active':''}" onclick="openProj('${p.id}')">
+      <div class="proj-thumb" style="background:${p.cor}">${p.nome[0]}</div>
+      <div class="proj-meta"><b>${p.nome}</b><small>${p.disciplinas.length} disciplinas</small></div>
+    </div>`).join('');
+}
+
+function setActiveNav(){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.nav===state.view));
+}
+
+function go(view){ state.view=view; state.projId=null; render(); toggleNav(false); }
+function openProj(id){ state.view='proj'; state.projId=id; state.tab='visao'; state.chatDisc=null; render(); toggleNav(false); }
+
+function render(){
+  renderProjList(); setActiveNav();
+  const c = document.getElementById('content');
+  const crumb = document.getElementById('crumb');
+  if(state.view==='obras'){ crumb.innerHTML='<b>Minhas obras</b>'; c.innerHTML = viewObras(); }
+  else if(state.view==='pessoas'){ crumb.innerHTML='AdministraÃ§Ã£o â€º <b>Pessoas & acessos</b>'; c.innerHTML = viewPessoas(); }
+  else if(state.view==='proj'){ const p=proj(); crumb.innerHTML=`Projetos â€º <b>${p.nome}</b>`; c.innerHTML = viewProj(); }
+  document.querySelector('.main').scrollTop=0;
+  updateNotifBadge();
+}
+function proj(){ return projects.find(p=>p.id===state.projId); }
+
+/* ---------- helpers ---------- */
+function badge(st){ const s=STATUS[st]; return `<span class="badge ${s.cls}"><span class="bdot"></span>${s.label}</span>`; }
+function fileChips(files){ return files.map(f=>`<span class="chip ${FILE_CLS[f]}">â–¤ ${f}</span>`).join(''); }
+function allVersions(p){ return p.disciplinas.flatMap(d=>d.versoes.map(v=>({...v,disc:d.nome}))); }
+function countVersions(p){ return allVersions(p).length; }
+function allFeedbacks(p){ return p.disciplinas.flatMap(d=>d.versoes.flatMap(v=>(v.fb||[]).map(f=>({...f,disc:d.nome,ver:v.v})))); }
+function countFeedbacks(p){ return allFeedbacks(p).length; }
+function countChat(p){ return p.disciplinas.reduce((s,d)=>s+(d.chat||[]).length,0); }
+
+/* ============================================================
+   VIEW: MINHAS OBRAS
+   ============================================================ */
+function viewObras(){
+  return `
+    <div class="page-head">
+      <div><h1>Minhas obras</h1><p>Selecione uma obra para ver disciplinas, versÃµes, atas, feedbacks e chat.</p></div>
+      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalNewProject()">+ Nova obra</button></div>
+    </div>
+    <div class="cards grid-2">${projects.map(projCard).join('')}</div>`;
+}
+function projCard(p){
+    const waitList = p.disciplinas.filter(d=>d.status!=='ok'&&d.status!=='pend');
+    return `
+    <div class="card" style="cursor:pointer;overflow:hidden" onclick="openProj('${p.id}')">
+      <div style="height:6px;background:${p.cor}"></div>
+      <div class="card-pad">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="proj-thumb" style="width:42px;height:42px;border-radius:11px;font-size:16px;background:${p.cor}">${p.nome[0]}</div>
+          <div style="flex:1">
+            <b style="font-size:16px;color:var(--ink)">${p.nome}</b>
+            <div style="font-size:12.5px;color:var(--muted)">${p.local}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:20px;font-weight:800;color:var(--ink)">${countVersions(p)}</div>
+            <div style="font-size:11px;color:var(--muted)">versÃµes</div>
+          </div>
+        </div>
+        <div style="height:1px;background:var(--line-2);margin:14px 0"></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${waitList.length? waitList.map(d=>`
+            <div style="display:flex;align-items:center;gap:8px;font-size:12.5px">
+              ${badge(d.status)}
+              <span style="color:var(--ink-2)">${d.nome}</span>
+              <span style="margin-left:auto;color:var(--muted)">â†’ <b style="color:var(--ink)">${d.aguardando}</b></span>
+            </div>`).join('') : '<div style="font-size:12.5px;color:var(--muted)">Tudo em dia âœ“</div>'}
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ============================================================
+   VIEW: PROJETO (com abas)
+   ============================================================ */
+function viewProj(){
+  const p = proj();
+  const tabs = [
+    {id:'visao', label:'VisÃ£o geral'},
+    {id:'versoes', label:'VersÃµes', cnt:countVersions(p)},
+    {id:'atas', label:'Atas de reuniÃ£o', cnt:p.atas.length},
+    {id:'feedbacks', label:'Feedbacks', cnt:countFeedbacks(p)},
+    {id:'chat', label:'Chat', cnt:countChat(p)},
+    {id:'acessos', label:'Acessos', cnt:peopleOf(p).length},
+  ];
+  const hero = `
+    <div class="proj-hero">
+      <div class="grid-bg"></div>
+      <div class="big-thumb" style="background:${p.cor}">${p.nome[0]}</div>
+      <div>
+        <h1>${p.nome}</h1>
+        <div class="ph-sub">
+          <span>ðŸ“ ${p.local}</span><span>ðŸ—‚ï¸ ${p.disciplinas.length} disciplinas</span><span>ðŸ“‘ ${countVersions(p)} versÃµes</span>
+        </div>
+      </div>
+    </div>`;
+  const tabBar = `<div class="tabs">${tabs.map(t=>`
+      <div class="tab ${state.tab===t.id?'active':''}" onclick="setTab('${t.id}')">${t.label}${t.cnt!=null?`<span class="cnt">${t.cnt}</span>`:''}</div>`).join('')}</div>`;
+
+  let body='';
+  if(state.tab==='visao') body=tabVisao(p);
+  else if(state.tab==='versoes') body=tabVersoes(p);
+  else if(state.tab==='atas') body=tabAtas(p);
+  else if(state.tab==='feedbacks') body=tabFeedbacks(p);
+  else if(state.tab==='chat') body=tabChat(p);
+  else if(state.tab==='acessos') body=tabAcessos(p);
+
+  return hero + tabBar + body;
+}
+function setTab(t){ state.tab=t; render(); }
+
+function tabVisao(p){
+  const cards = p.disciplinas.map((d,i)=>{
+    const ic = DISC_ICONS[d.nome]||{i:'ðŸ“',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
+    return `
+    <div class="card disc" onclick="setTab('versoes')">
+      <div class="d-ico" style="background:${ic.bg};color:${ic.c}">${ic.i}</div>
+      <div class="d-body">
+        <b>${d.nome}</b>
+        <div class="d-meta">
+          ${badge(d.status)}
+          <span class="d-wait">Aguardando: <b>${d.aguardando}</b></span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:18px;font-weight:800;color:var(--ink)">${d.versoes.length}</div>
+        <div style="font-size:11px;color:var(--muted)">versÃµes</div>
+      </div>
+    </div>`;
+  }).join('');
+  return `
+    <div class="page-head" style="margin-bottom:14px">
+      <div><h1 style="font-size:18px">Disciplinas</h1></div>
+      <div class="ph-actions"><button class="btn btn-ghost btn-sm" onclick="modalNewDisc()">+ Disciplina</button></div>
+    </div>
+    <div class="cards grid-2">${cards}</div>`;
+}
+
+function tabVersoes(p){
+  const blocks = p.disciplinas.map(d=>{
+    const ic = DISC_ICONS[d.nome]||{i:'ðŸ“',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
+    const rows = d.versoes.length? d.versoes.map(v=>`
+      <div class="vitem"><div class="vrow">
+        <div class="vtag">${v.v.toUpperCase()}</div>
+        <div class="vbody">
+          <b>${v.titulo}</b>
+          <div class="vmeta"><span>ðŸ‘¤ ${v.autor}</span><span>ðŸ“… ${v.data}</span></div>
+        </div>
+        <div class="vfiles">${fileChips(v.files)}</div>
+        ${badge(v.status)}
+        <a class="drive-link" href="${v.drive}" onclick="openDrive(event)">
+          <svg class="drive-ico" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path fill="#0066da" d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z"/><path fill="#00ac47" d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z"/><path fill="#ea4335" d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z"/><path fill="#00832d" d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z"/><path fill="#2684fc" d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z"/><path fill="#ffba00" d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z"/></svg>
+          Abrir no Drive
+        </a>
+        <button class="drive-link" onclick="modalVersionFb('${d.nome}','${v.v}')">ðŸ’¬ ${(v.fb||[]).length}</button>
+      </div>
+      ${(v.fb&&v.fb.length)?`<div class="vfb">${v.fb.map(f=>`<div class="fb-mini"><div class="avatar" style="background:${f.cor}">${f.ini}</div><div><div class="fb-head"><b>${f.autor}</b><small>Â· ${f.quando}</small></div><p>${f.texto}</p></div></div>`).join('')}</div>`:''}
+      </div>`).join('') : `<div class="empty" style="padding:26px"><div class="e-ico">ðŸ“‚</div>Nenhuma versÃ£o ainda nesta disciplina.</div>`;
+    return `
+      <div class="card" style="margin-bottom:16px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:11px;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--card-2)">
+          <div class="d-ico" style="width:34px;height:34px;border-radius:9px;font-size:15px;background:${ic.bg};color:${ic.c}">${ic.i}</div>
+          <b style="font-size:14.5px;color:var(--ink)">${d.nome}</b>
+          ${badge(d.status)}
+          <span style="margin-left:auto;font-size:12px;color:var(--muted)">Aguardando: <b style="color:var(--ink)">${d.aguardando}</b></span>
+        </div>
+        ${rows}
+      </div>`;
+  }).join('');
+  return `
+    <div class="page-head" style="margin-bottom:16px">
+      <div><h1 style="font-size:18px">VersÃµes de projeto</h1><p>Cada versÃ£o aponta para a pasta/arquivo no Google Drive (IFC, DWG, PDFâ€¦).</p></div>
+      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalNewVersion()">+ Nova versÃ£o</button></div>
+    </div>
+    ${blocks}`;
+}
+
+function tabAtas(p){
+  const nodes = p.atas.map(a=>`
+    <div class="tnode ${a.cls}">
+      <div class="tdate">ðŸ“… ${a.data}</div>
+      <div class="tcard"><b>${a.titulo}</b><p>${a.resumo}</p>
+        <div style="margin-top:10px"><a class="drive-link" href="#" onclick="openDrive(event)">ðŸ“„ Ata completa no Drive</a></div>
+      </div>
+    </div>`).join('');
+  return `
+    <div class="page-head" style="margin-bottom:18px">
+      <div><h1 style="font-size:18px">Atas de reuniÃ£o</h1></div>
+      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalNewAta()">+ Nova ata</button></div>
+    </div>
+    <div class="tline">${nodes||'<div class="empty">Sem atas registradas.</div>'}</div>`;
+}
+
+function tabFeedbacks(p){
+  const rows = allFeedbacks(p).map(f=>`
+    <div class="fb">
+      <div class="avatar" style="background:${f.cor}">${f.ini}</div>
+      <div class="fb-body">
+        <div class="fb-head"><b>${f.autor}</b><small>Â· ${f.quando}</small></div>
+        <p>${f.texto}</p>
+        <div class="fb-on">ðŸ“Ž sobre <a onclick="setTab('versoes')" style="color:var(--blue);cursor:pointer;font-weight:600">${f.disc} Â· ${f.ver.toUpperCase()}</a></div>
+      </div>
+    </div>`).join('');
+  return `
+    <div class="page-head" style="margin-bottom:16px">
+      <div><h1 style="font-size:18px">Feedbacks das versÃµes</h1><p>Todos os comentÃ¡rios feitos nas versÃµes. Para comentar, abra uma versÃ£o na aba <b>VersÃµes</b>.</p></div>
+      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="setTab('versoes')">+ Comentar numa versÃ£o</button></div>
+    </div>
+    <div class="card">${rows||'<div class="empty"><div class="e-ico">ðŸ’¬</div>Nenhum feedback ainda. Abra uma versÃ£o para comentar.</div>'}</div>`;
+}
+
+/* ----- Chat por Ã¡rea/disciplina (entre quem tem acesso Ã  pasta) ----- */
+function tabChat(p){
+  const discs = p.disciplinas;
+  if(!state.chatDisc || !discs.find(x=>x.nome===state.chatDisc)) state.chatDisc = discs[0].nome;
+  const d = discs.find(x=>x.nome===state.chatDisc);
+  const members = peopleOfDisc(p, d.nome);
+  const msgs = (d.chat||[]).map(m=>`
+    <div class="msg ${m.me?'me':''}">
+      ${m.me?'':`<div class="avatar" style="background:${m.cor}">${m.ini}</div>`}
+      <div class="bubble">
+        ${m.me?'':`<b>${m.autor}</b>`}
+        <p>${m.texto}</p>
+        <span class="time">${m.hora}</span>
+      </div>
+    </div>`).join('');
+  const tabsHtml = discs.map(x=>{
+    const ic = DISC_ICONS[x.nome]||{i:'ðŸ“',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
+    return `<div class="chat-tab ${x.nome===d.nome?'active':''}" onclick="setChatDisc('${x.nome.replace(/'/g,"\\'")}')">${ic.i} ${x.nome}${(x.chat||[]).length?`<span class="cnt">${x.chat.length}</span>`:''}</div>`;
+  }).join('');
+  return `
+    <div class="page-head" style="margin-bottom:14px">
+      <div><h1 style="font-size:18px">Chat por Ã¡rea</h1><p>Converse com quem tem acesso Ã  pasta de cada disciplina.</p></div>
+    </div>
+    <div class="chat-tabs">${tabsHtml}</div>
+    <div class="chat-members">${members.map(m=>`<div class="cm"><div class="avatar" style="background:${m.cor}">${initials(m.nome)}</div><span>${m.nome.split(' ')[0]}</span></div>`).join('')}</div>
+    <div class="card chat-wrap">
+      <div class="chat-body" id="chat-body">${msgs||'<div class="empty">Comece a conversa sobre '+d.nome+'.</div>'}</div>
+      <div class="chat-input">
+        <input id="chat-text" placeholder="Mensagem para a equipe de ${d.nome}..." onkeydown="if(event.key==='Enter')sendChat()" />
+        <button class="btn btn-primary btn-sm" onclick="sendChat()">Enviar</button>
+      </div>
+    </div>`;
+}
+function setChatDisc(discName){ state.chatDisc=discName; render(); }
+function sendChat(){
+  const i=document.getElementById('chat-text'); const t=i.value.trim(); if(!t)return;
+  const p=proj(); const d=p.disciplinas.find(x=>x.nome===state.chatDisc); d.chat=d.chat||[];
+  const h=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  d.chat.push({ini:'PD',autor:'Pedro Dib',cor:people[0].cor,hora:h,texto:t,me:true});
+  render(); const b=document.getElementById('chat-body'); if(b)b.scrollTop=b.scrollHeight;
+}
+
+/* ----- Feedback dentro de uma versÃ£o ----- */
+function modalVersionFb(discName,vv){
+  state._fbTarget={disc:discName,v:vv};
+  const p=proj(); const d=p.disciplinas.find(x=>x.nome===discName); const v=d.versoes.find(x=>x.v===vv);
+  const list=(v.fb||[]).map(f=>`<div class="fb"><div class="avatar" style="background:${f.cor}">${f.ini}</div><div class="fb-body"><div class="fb-head"><b>${f.autor}</b><small>Â· ${f.quando}</small></div><p>${f.texto}</p></div></div>`).join('')||'<div class="empty" style="padding:24px"><div class="e-ico">ðŸ’¬</div>Seja o primeiro a comentar esta versÃ£o.</div>';
+  openModal(`<div class="modal">
+    <div class="modal-head"><h3>ðŸ’¬ ${discName} Â· ${vv.toUpperCase()}</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-body" style="padding:6px"><div>${list}</div></div>
+    <div class="modal-foot" style="flex-direction:column;align-items:stretch;gap:10px">
+      <textarea id="vfb-text" placeholder="Escreva um feedback sobre esta versÃ£o..." style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;resize:vertical;min-height:64px;outline:none"></textarea>
+      <button class="btn btn-primary btn-sm" onclick="addVersionFb()" style="align-self:flex-end">Publicar feedback</button>
+    </div>
+  </div>`);
+}
+function addVersionFb(){
+  const t=document.getElementById('vfb-text').value.trim(); if(!t){toast('Escreva algo primeiro');return;}
+  const p=proj(); const d=p.disciplinas.find(x=>x.nome===state._fbTarget.disc); const v=d.versoes.find(x=>x.v===state._fbTarget.v);
+  v.fb=v.fb||[]; v.fb.push({autor:'Pedro Dib',cor:people[0].cor,ini:'PD',quando:'agora',texto:t});
+  closeModal(); render(); toast('Feedback publicado na versÃ£o âœ“');
+}
+
+function peopleOf(p){
+  return people.filter(per=> per.folders==='ALL' || per.folders.some(f=>f.startsWith(p.nome)));
+}
+function peopleOfDisc(p, discName){
+  const folder = `${p.nome} â€º ${discName}`;
+  return people.filter(per=> per.folders==='ALL' || per.folders.includes(folder));
+}
+
+/* ============================================================
+   NOTIFICAÃ‡Ã•ES
+   ============================================================ */
+function getNotifications(){
+  const items=[];
+  projects.forEach(p=>{
+    p.disciplinas.forEach(d=>{
+      if(d.status==='review'){
+        items.push({icon:'ðŸ”',title:`${d.nome} aguardando anÃ¡lise Dib & Dib`,sub:p.nome,pid:p.id,tab:'versoes'});
+      } else if(d.status==='redo'){
+        items.push({icon:'ðŸ”',title:`${d.nome} precisa de revisÃ£o`,sub:p.nome,pid:p.id,tab:'versoes'});
+      } else if(d.status==='wait'){
+        items.push({icon:'â³',title:`Aguardando ${d.aguardando}`,sub:`${p.nome} Â· ${d.nome}`,pid:p.id,tab:'versoes'});
+      }
+    });
+    allFeedbacks(p).forEach(f=>{
+      items.push({icon:'ðŸ’¬',title:`Feedback de ${f.autor}`,sub:`${p.nome} Â· ${f.disc} ${f.ver.toUpperCase()}`,pid:p.id,tab:'feedbacks'});
+    });
+  });
+  return items;
+}
+function updateNotifBadge(){
+  const n=getNotifications().length;
+  const b=document.getElementById('notif-badge');
+  if(!b) return;
+  if(n>0){ b.textContent=n>9?'9+':n; b.style.display='grid'; }
+  else { b.style.display='none'; }
+}
+function openNotifs(){
+  const items=getNotifications();
+  window._notifItems=items;
+  const list=items.map((n,i)=>`
+    <div class="notif" onclick="goNotif(${i})">
+      <div class="notif-ico">${n.icon}</div>
+      <div><b>${n.title}</b><small>${n.sub}</small></div>
+    </div>`).join('');
+  openModal(`<div class="modal">
+    <div class="modal-head"><h3>ðŸ”” NotificaÃ§Ãµes</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-body" style="padding:8px">${list||'<div class="empty"><div class="e-ico">ðŸŽ‰</div>Tudo em dia, sem pendÃªncias.</div>'}</div>
+  </div>`);
+}
+function goNotif(i){
+  const n=window._notifItems[i];
+  closeModal();
+  if(n.pid){ openProj(n.pid); state.tab=n.tab||'visao'; render(); }
+}
+function tabAcessos(p){
+  const rows = peopleOf(p).map(per=>{
+    const folders = per.folders==='ALL'
+      ? '<span class="ftag all">Todas as pastas</span>'
+      : per.folders.filter(f=>f.startsWith(p.nome)).map(f=>`<span class="ftag">${f.replace(p.nome+' â€º ','')}</span>`).join('');
+    return `<tr>
+      <td><div class="pperson"><div class="avatar" style="background:${per.cor}">${initials(per.nome)}</div><div><b>${per.nome}</b><small>${per.email}</small></div></div></td>
+      <td>${per.papel}</td>
+      <td><div class="folder-tags">${folders}</div></td>
+      <td style="text-align:right"><button class="icon-btn" onclick="toast('Em breve: editar permissÃµes')">âœŽ</button></td>
+    </tr>`;
+  }).join('');
+  return `
+    <div class="page-head" style="margin-bottom:16px">
+      <div><h1 style="font-size:18px">Quem tem acesso a ${p.nome}</h1><p>Cada pessoa sÃ³ enxerga as pastas liberadas para ela.</p></div>
+      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalInvite('${p.id}')">+ Convidar pessoa</button></div>
+    </div>
+    <div class="card" style="overflow:hidden"><table class="ptable">
+      <thead><tr><th>Pessoa</th><th>Papel</th><th>Pastas liberadas</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+}
+
+/* ============================================================
+   VIEW: PESSOAS & ACESSOS (global)
+   ============================================================ */
+function viewPessoas(){
+  const rows = people.map(per=>{
+    const folders = per.folders==='ALL'
+      ? '<span class="ftag all">Todas as pastas</span>'
+      : per.folders.map(f=>`<span class="ftag">${f}</span>`).join('');
+    return `<tr>
+      <td><div class="pperson"><div class="avatar" style="background:${per.cor}">${initials(per.nome)}</div><div><b>${per.nome}</b><small>${per.email}</small></div></div></td>
+      <td>${per.papel}</td>
+      <td><div class="folder-tags">${folders}</div></td>
+      <td style="text-align:right"><button class="icon-btn" onclick="toast('Em breve: editar permissÃµes')">âœŽ</button> <button class="icon-btn" onclick="toast('Em breve: revogar acesso')">ðŸ—‘</button></td>
+    </tr>`;
+  }).join('');
+  return `
+    <div class="page-head">
+      <div><h1>Pessoas &amp; acessos</h1><p>Convide por link mÃ¡gico e defina exatamente quais pastas cada pessoa pode ver.</p></div>
+      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalInvite(null)">+ Convidar pessoa</button></div>
+    </div>
+    <div class="card" style="overflow:hidden"><table class="ptable">
+      <thead><tr><th>Pessoa</th><th>Papel</th><th>Pastas liberadas</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="card card-pad" style="margin-top:16px;display:flex;gap:14px;align-items:center;background:var(--card-2)">
+      <div style="font-size:26px">ðŸ”</div>
+      <div><b style="color:var(--ink)">Acesso privado por link mÃ¡gico</b>
+      <p style="color:var(--muted);font-size:13px;margin-top:3px">NinguÃ©m entra sem ser convidado. O convidado recebe um link no e-mail, confirma a identidade e passa a ver somente as pastas autorizadas.</p></div>
+    </div>`;
+}
+
+/* ============================================================
+   MODAIS
+   ============================================================ */
+function openModal(html){ document.getElementById('modal-mount').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()">${html}</div>`; }
+function closeModal(){ document.getElementById('modal-mount').innerHTML=''; }
+
+function modalNewVersion(){
+  const p=proj();
+  const opts = p.disciplinas.map(d=>`<option>${d.nome}</option>`).join('');
+  openModal(`<div class="modal">
+    <div class="modal-head"><h3>Nova versÃ£o</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Disciplina</label><select id="m-disc">${opts}</select></div>
+      <div class="field"><label>TÃ­tulo da versÃ£o</label><input id="m-title" placeholder="Ex.: Executivo â€” revisÃ£o de layout"/></div>
+      <div class="field"><label>Link do Google Drive (pasta ou arquivo)</label><input id="m-drive" placeholder="https://drive.google.com/..."/></div>
+      <div class="field"><label>Tipos de arquivo</label>
+        <div class="checks">
+          ${['IFC','DWG','PDF','RVT'].map(f=>`<label class="check" onclick="this.classList.toggle('on')"><input type="checkbox" value="${f}"> ${f}</label>`).join('')}
+        </div>
+      </div>
+      <div class="field"><label>Status inicial</label><select id="m-status">
+        ${Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}
+      </select></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveVersion()">Salvar versÃ£o</button></div>
+  </div>`);
+}
+function saveVersion(){
+  const p=proj();
+  const discName=document.getElementById('m-disc').value;
+  const title=document.getElementById('m-title').value||'Nova versÃ£o';
+  const files=[...document.querySelectorAll('.checks input:checked')].map(i=>i.value);
+  const status=document.getElementById('m-status').value;
+  const d=p.disciplinas.find(x=>x.nome===discName);
+  const v='v'+(d.versoes.length+1);
+  d.versoes.unshift({v,titulo:title,data:'09 jun 2026',autor:'Pedro Dib',status,files:files.length?files:['PDF'],drive:document.getElementById('m-drive').value||'#'});
+  d.status=status;
+  closeModal(); state.tab='versoes'; render(); toast('VersÃ£o '+v.toUpperCase()+' adicionada âœ“');
+}
+
+function modalInvite(pid){
+  const folderList = [];
+  projects.forEach(p=>p.disciplinas.forEach(d=>folderList.push(`${p.nome} â€º ${d.nome}`)));
+  openModal(`<div class="modal">
+    <div class="modal-head"><h3>Convidar pessoa</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Nome</label><input id="i-nome" placeholder="Nome da pessoa ou escritÃ³rio"/></div>
+      <div class="field"><label>E-mail (recebe o link mÃ¡gico)</label><input id="i-email" type="email" placeholder="email@empresa.com"/></div>
+      <div class="field"><label>Papel</label><input id="i-papel" placeholder="Ex.: Arquitetura, Estrutural, Cliente..."/></div>
+      <div class="field"><label>Pastas que pode acessar</label>
+        <div class="checks" style="grid-template-columns:1fr">
+          <label class="check" onclick="this.classList.toggle('on')"><input type="checkbox" value="ALL"> ðŸ”“ Todas as pastas</label>
+          ${folderList.map(f=>`<label class="check" onclick="this.classList.toggle('on')"><input type="checkbox" value="${f}"> ${f}</label>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveInvite()">âœ‰ï¸ Enviar convite</button></div>
+  </div>`);
+}
+function saveInvite(){
+  const nome=document.getElementById('i-nome').value||'Novo convidado';
+  const email=document.getElementById('i-email').value||'email@empresa.com';
+  const papel=document.getElementById('i-papel').value||'Convidado';
+  const checked=[...document.querySelectorAll('.checks input:checked')].map(i=>i.value);
+  const folders = checked.includes('ALL')||checked.length===0 ? (checked.includes('ALL')?'ALL':[]) : checked;
+  const cores=['linear-gradient(135deg,#2f6bff,#1f50cc)','linear-gradient(135deg,#1f9d62,#0f6b41)','linear-gradient(135deg,#b9711a,#8a510f)','linear-gradient(135deg,#7a52cc,#523587)'];
+  people.push({id:Date.now(),nome,email,papel,folders:folders.length===0?[]:folders,cor:cores[people.length%cores.length]});
+  closeModal(); render(); toast('Convite enviado para '+email+' âœ“');
+}
+
+function modalNewAta(){
+  openModal(`<div class="modal">
+    <div class="modal-head"><h3>Nova ata de reuniÃ£o</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-body">
+      <div class="field"><label>TÃ­tulo</label><input id="a-title" placeholder="Ex.: ReuniÃ£o de compatibilizaÃ§Ã£o"/></div>
+      <div class="field"><label>Resumo / decisÃµes</label><textarea id="a-res" placeholder="Principais pontos e prÃ³ximos passos..."></textarea></div>
+      <div class="field"><label>Link da ata completa (Drive)</label><input id="a-drive" placeholder="https://drive.google.com/..."/></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveAta()">Salvar ata</button></div>
+  </div>`);
+}
+function saveAta(){
+  const p=proj();
+  p.atas.unshift({data:'09 jun 2026',titulo:document.getElementById('a-title').value||'Nova reuniÃ£o',resumo:document.getElementById('a-res').value||'â€”',cls:'gold'});
+  closeModal(); state.tab='atas'; render(); toast('Ata registrada âœ“');
+}
+
+function modalNewDisc(){
+  const opts=Object.keys(DISC_ICONS).map(d=>`<option>${d}</option>`).join('');
+  openModal(`<div class="modal">
+    <div class="modal-head"><h3>Nova disciplina</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Disciplina</label><select id="d-name">${opts}</select></div>
+      <div class="field"><label>Aguardando quem?</label><input id="d-wait" placeholder="Ex.: Meta Arquitetura"/></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveDisc()">Adicionar</button></div>
+  </div>`);
+}
+function saveDisc(){
+  const p=proj();
+  p.disciplinas.push({nome:document.getElementById('d-name').value,status:'pend',aguardando:document.getElementById('d-wait').value||'A iniciar',versoes:[],chat:[]});
+  closeModal(); render(); toast('Disciplina adicionada âœ“');
+}
+
+function modalNewProject(){
+  openModal(`<div class="modal">
+    <div class="modal-head"><h3>Novo projeto / obra</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Nome da obra</label><input id="p-name" placeholder="Ex.: Perimetral"/></div>
+      <div class="field"><label>Local</label><input id="p-local" placeholder="Ex.: Rio de Janeiro Â· RJ"/></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveProject()">Criar projeto</button></div>
+  </div>`);
+}
+function saveProject(){
+  const name=document.getElementById('p-name').value||'Novo Projeto';
+  const cores=['linear-gradient(135deg,#2f6bff,#16357a)','linear-gradient(135deg,#c9a24b,#8a6a1f)','linear-gradient(135deg,#1f9d62,#0f6b41)','linear-gradient(135deg,#7a52cc,#523587)'];
+  projects.push({id:'p'+Date.now(),nome:name,local:document.getElementById('p-local').value||'â€”',cor:cores[projects.length%cores.length],progresso:0,
+    disciplinas:[{nome:'Arquitetura',status:'pend',aguardando:'A iniciar',versoes:[],chat:[]}],atas:[]});
+  closeModal(); openProj(projects[projects.length-1].id); toast('Projeto criado âœ“');
+}
+
+/* ============================================================
+   UTIL
+   ============================================================ */
+function initials(n){ return n.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase(); }
+function openDrive(e){ e.preventDefault(); toast('ðŸ”— No app real, abre a pasta/arquivo no Google Drive'); }
+function toast(msg){ const t=document.getElementById('toast'); t.innerHTML=`<span class="tk">â—</span>${msg}`; t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),2600); }
+function toggleNav(open){ document.getElementById('app').classList.toggle('nav-open',open); }
+
+/* ============================================================
+   LOGIN FLOW
+   ============================================================ */
+function sendMagic(){
+  const em=document.getElementById('email').value.trim();
+  if(!em||!em.includes('@')){toast('Digite um e-mail vÃ¡lido');return;}
+  document.getElementById('email-echo').textContent=em;
+  document.getElementById('login-step1').classList.add('hide');
+  document.getElementById('login-step2').classList.remove('hide');
+}
+function enterApp(){
+  document.getElementById('login').classList.add('hide');
+  document.getElementById('app').classList.remove('hide');
+  render();
+}
+function logout(){
+  document.getElementById('app').classList.add('hide');
+  document.getElementById('login').classList.remove('hide');
+  document.getElementById('login-step1').classList.remove('hide');
+  document.getElementById('login-step2').classList.add('hide');
+}
+</script>
+</body>
+</html>
