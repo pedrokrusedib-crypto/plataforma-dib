@@ -475,6 +475,25 @@ create policy atas_delete on public.atas
 
 
 -- ============================================================
+-- 12b) GRANTS — privilégios de tabela para o role authenticated
+--      RLS por si só não libera acesso: o Postgres exige GRANT
+--      na tabela antes de avaliar as políticas de RLS.
+-- ============================================================
+grant usage on schema public to authenticated;
+
+grant select, update on public.profiles to authenticated;
+grant select, insert, update, delete on public.invites to authenticated;
+grant select, insert, delete on public.invite_obras to authenticated;
+grant select, insert, delete on public.obra_access to authenticated;
+grant select, insert, update, delete on public.obras to authenticated;
+grant select, insert, update, delete on public.disciplinas to authenticated;
+grant select, insert, update, delete on public.versoes to authenticated;
+grant select, insert, update, delete on public.versao_feedback to authenticated;
+grant select, insert, update, delete on public.disciplina_chat to authenticated;
+grant select, insert, update, delete on public.atas to authenticated;
+
+
+-- ============================================================
 -- 13) SEED — controlador inicial
 -- ============================================================
 insert into public.invites (email, nome, papel, cor, role, status)
