@@ -418,8 +418,8 @@
       <div class="side-label">Obras / Projetos</div>
       <div id="proj-list"></div>
 
-      <div class="side-label">Administração</div>
-      <div class="nav-item" data-nav="pessoas" onclick="go('pessoas')"><span class="i">◉</span> Pessoas &amp; acessos</div>
+      <div class="side-label" data-admin-only>Administração</div>
+      <div class="nav-item" data-nav="pessoas" data-admin-only onclick="go('pessoas')"><span class="i">◉</span> Pessoas &amp; acessos</div>
     </div>
     <div class="side-bottom">
       <div class="user-chip" onclick="logout()">
@@ -509,7 +509,7 @@ function relativeTime(ts){
    CARREGAMENTO DE DADOS (Supabase)
    ============================================================ */
 async function loadData(){
-  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes] = await Promise.all([
+  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes] = await Promise.all([
     sb.from('obras').select('*').order('ordem'),
     sb.from('disciplinas').select('*').order('ordem'),
     sb.from('versoes').select('*'),
@@ -518,9 +518,11 @@ async function loadData(){
     sb.from('atas').select('*').order('data',{ascending:false}),
     sb.from('profiles').select('*'),
     sb.from('obra_access').select('*'),
+    sb.from('invites').select('*'),
+    sb.from('invite_obras').select('*'),
   ]);
 
-  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes})){
+  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes})){
     if(res.error) console.error(`Erro ao carregar ${nome}:`, res.error);
   }
 
@@ -532,6 +534,8 @@ async function loadData(){
   const atasRows = atasRes.data||[];
   const profRows = profRes.data||[];
   const accessRows = accessRes.data||[];
+  const invitesRows = invitesRes.data||[];
+  const inviteObrasRows = inviteObrasRes.data||[];
 
   const profileById = Object.fromEntries(profRows.map(p=>[p.id,p]));
   function authorInfo(autorId, autorNome){
@@ -561,11 +565,20 @@ async function loadData(){
   });
 
   const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
-  people = profRows.map(pr=>{
-    const folders = pr.role==='controlador' ? 'ALL'
-      : accessRows.filter(a=>a.user_id===pr.id).map(a=>obraNomeById[a.obra_id]).filter(Boolean);
-    return {id:pr.id, nome:pr.nome, email:pr.email, papel:pr.papel, folders, cor:pr.cor||DEFAULT_COR};
+  const activePeople = profRows.map(pr=>{
+    const obraIds = accessRows.filter(a=>a.user_id===pr.id).map(a=>a.obra_id);
+    const folders = pr.role==='controlador' ? 'ALL' : obraIds.map(id=>obraNomeById[id]).filter(Boolean);
+    return {id:pr.id, nome:pr.nome, email:pr.email, papel:pr.papel, role:pr.role, folders, obraIds, cor:pr.cor||DEFAULT_COR, pending:false};
   });
+
+  const profileEmails = new Set(profRows.map(p=>p.email));
+  const pendingInvites = invitesRows.filter(inv=>inv.status==='active' && !profileEmails.has(inv.email)).map(inv=>{
+    const obraIds = inviteObrasRows.filter(io=>io.email===inv.email).map(io=>io.obra_id);
+    const folders = inv.role==='controlador' ? 'ALL' : obraIds.map(id=>obraNomeById[id]).filter(Boolean);
+    return {id:'invite:'+inv.email, nome:inv.nome||inv.email, email:inv.email, papel:inv.papel||'', role:inv.role, folders, obraIds, cor:inv.cor||DEFAULT_COR, pending:true};
+  });
+
+  people = [...activePeople, ...pendingInvites];
 }
 
 /* ============================================================
@@ -921,13 +934,13 @@ function tabAcessos(p){
       <td><div class="pperson"><div class="avatar" style="background:${per.cor}">${initials(per.nome)}</div><div><b>${per.nome}</b><small>${per.email}</small></div></div></td>
       <td>${per.papel}</td>
       <td><div class="folder-tags">${folders}</div></td>
-      <td style="text-align:right"><button class="icon-btn" onclick="toast('Em breve: editar permissões')">✎</button></td>
+      <td style="text-align:right"><button class="icon-btn" onclick="modalInvite('${p.id}','${per.email}')">✎</button></td>
     </tr>`;
   }).join('');
   return `
     <div class="page-head" style="margin-bottom:16px">
       <div><h1 style="font-size:18px">Quem tem acesso a ${p.nome}</h1><p>Cada pessoa só enxerga as pastas liberadas para ela.</p></div>
-      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalInvite('${p.id}')">+ Convidar pessoa</button></div>
+      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalInvite('${p.id}', null)">+ Convidar pessoa</button></div>
     </div>
     <div class="card" style="overflow:hidden"><table class="ptable">
       <thead><tr><th>Pessoa</th><th>Papel</th><th>Pastas liberadas</th><th></th></tr></thead>
@@ -941,18 +954,19 @@ function viewPessoas(){
   const rows = people.map(per=>{
     const folders = per.folders==='ALL'
       ? '<span class="ftag all">Todas as obras</span>'
-      : per.folders.map(f=>`<span class="ftag">${f}</span>`).join('');
+      : (per.folders.length ? per.folders.map(f=>`<span class="ftag">${f}</span>`).join('') : '<span class="ftag">Nenhuma obra</span>');
+    const papel = per.pending ? `${per.papel} <span class="ftag" style="opacity:.7">Convite pendente</span>` : per.papel;
     return `<tr>
       <td><div class="pperson"><div class="avatar" style="background:${per.cor}">${initials(per.nome)}</div><div><b>${per.nome}</b><small>${per.email}</small></div></div></td>
-      <td>${per.papel}</td>
+      <td>${papel}</td>
       <td><div class="folder-tags">${folders}</div></td>
-      <td style="text-align:right"><button class="icon-btn" onclick="toast('Em breve: editar permissões')">✎</button> <button class="icon-btn" onclick="toast('Em breve: revogar acesso')">🗑</button></td>
+      <td style="text-align:right"><button class="icon-btn" onclick="modalInvite(null,'${per.email}')">✎</button> <button class="icon-btn" onclick="revokeAccess('${per.email}')">🗑</button></td>
     </tr>`;
   }).join('');
   return `
     <div class="page-head">
       <div><h1>Pessoas &amp; acessos</h1><p>Convide por link mágico e defina exatamente quais pastas cada pessoa pode ver.</p></div>
-      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalInvite(null)">+ Convidar pessoa</button></div>
+      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalInvite(null, null)">+ Convidar pessoa</button></div>
     </div>
     <div class="card" style="overflow:hidden"><table class="ptable">
       <thead><tr><th>Pessoa</th><th>Papel</th><th>Pastas liberadas</th><th></th></tr></thead>
@@ -1011,34 +1025,83 @@ async function saveVersion(){
   await loadData(); render(); toast('Versão adicionada ✓');
 }
 
-function modalInvite(pid){
-  const folderList = [];
-  projects.forEach(p=>p.disciplinas.forEach(d=>folderList.push(`${p.nome} › ${d.nome}`)));
+function modalInvite(obraId, personEmail){
+  const per = personEmail ? people.find(x=>x.email===personEmail) : null;
+  const role = per ? per.role : 'membro';
+  const selectedObraIds = per ? (per.folders==='ALL' ? [] : (per.obraIds||[])) : (obraId ? [obraId] : []);
+  const obrasChecks = projects.map(p=>{
+    const on = selectedObraIds.includes(p.id);
+    return `<label class="check ${on?'on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}" ${on?'checked':''}> ${p.nome}</label>`;
+  }).join('');
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>Convidar pessoa</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-head"><h3>${per?'Editar acesso':'Convidar pessoa'}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
-      <div class="field"><label>Nome</label><input id="i-nome" placeholder="Nome da pessoa ou escritório"/></div>
-      <div class="field"><label>E-mail (recebe o link mágico)</label><input id="i-email" type="email" placeholder="email@empresa.com"/></div>
-      <div class="field"><label>Papel</label><input id="i-papel" placeholder="Ex.: Arquitetura, Estrutural, Cliente..."/></div>
-      <div class="field"><label>Pastas que pode acessar</label>
-        <div class="checks" style="grid-template-columns:1fr">
-          <label class="check" onclick="this.classList.toggle('on')"><input type="checkbox" value="ALL"> 🔓 Todas as pastas</label>
-          ${folderList.map(f=>`<label class="check" onclick="this.classList.toggle('on')"><input type="checkbox" value="${f}"> ${f}</label>`).join('')}
-        </div>
+      <div class="field"><label>Nome</label><input id="i-nome" value="${per?per.nome:''}" placeholder="Nome da pessoa ou escritório"/></div>
+      <div class="field"><label>E-mail (recebe o link mágico)</label><input id="i-email" type="email" value="${per?per.email:''}" ${per?'readonly':''} placeholder="email@empresa.com"/></div>
+      <div class="field"><label>Papel</label><input id="i-papel" value="${per?per.papel:''}" placeholder="Ex.: Arquitetura, Estrutural, Cliente..."/></div>
+      <div class="field"><label>Função</label><select id="i-role" onchange="toggleInviteObras()">
+        <option value="membro" ${role==='membro'?'selected':''}>Membro</option>
+        <option value="controlador" ${role==='controlador'?'selected':''}>Administrador (acesso total)</option>
+      </select></div>
+      <div class="field" id="i-obras-field" style="${role==='controlador'?'display:none':''}"><label>Obras que pode acessar</label>
+        <div class="checks" style="grid-template-columns:1fr">${obrasChecks}</div>
       </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveInvite()">✉️ Enviar convite</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveInvite('${per?per.email:''}')">✉️ ${per?'Salvar':'Enviar convite'}</button></div>
   </div>`);
 }
-function saveInvite(){
-  const nome=document.getElementById('i-nome').value||'Novo convidado';
-  const email=document.getElementById('i-email').value||'email@empresa.com';
-  const papel=document.getElementById('i-papel').value||'Convidado';
-  const checked=[...document.querySelectorAll('.checks input:checked')].map(i=>i.value);
-  const folders = checked.includes('ALL')||checked.length===0 ? (checked.includes('ALL')?'ALL':[]) : checked;
+function toggleInviteObras(){
+  const role=document.getElementById('i-role').value;
+  document.getElementById('i-obras-field').style.display = role==='controlador'?'none':'';
+}
+async function saveInvite(existingEmail){
+  const nome=document.getElementById('i-nome').value.trim()||'Novo convidado';
+  const email=document.getElementById('i-email').value.trim().toLowerCase();
+  const papel=document.getElementById('i-papel').value.trim()||'Convidado';
+  const role=document.getElementById('i-role').value;
+  if(!email){toast('Informe o e-mail');return;}
+  const obraIds=[...document.querySelectorAll('#i-obras-field input:checked')].map(i=>i.value);
+  const per = existingEmail ? people.find(x=>x.email===existingEmail) : null;
   const cores=['linear-gradient(135deg,#2f6bff,#1f50cc)','linear-gradient(135deg,#1f9d62,#0f6b41)','linear-gradient(135deg,#b9711a,#8a510f)','linear-gradient(135deg,#7a52cc,#523587)'];
-  people.push({id:Date.now(),nome,email,papel,folders:folders.length===0?[]:folders,cor:cores[people.length%cores.length]});
-  closeModal(); render(); toast('Convite enviado para '+email+' ✓');
+  const cor = (per&&per.cor) || cores[people.length%cores.length];
+
+  const {error:invErr}=await sb.from('invites').upsert({
+    email, nome, papel, role, cor, status:'active', created_by:session.user.id
+  });
+  if(invErr){toast('Erro ao salvar convite: '+invErr.message);return;}
+
+  if(per && !per.pending){
+    await sb.from('profiles').update({nome,papel,role,cor}).eq('id',per.id);
+    if(role==='membro'){
+      const current = per.obraIds||[];
+      const toAdd = obraIds.filter(id=>!current.includes(id));
+      const toRemove = current.filter(id=>!obraIds.includes(id));
+      if(toAdd.length) await sb.from('obra_access').insert(toAdd.map(obra_id=>({user_id:per.id,obra_id})));
+      for(const obra_id of toRemove){
+        await sb.from('obra_access').delete().eq('user_id',per.id).eq('obra_id',obra_id);
+      }
+    }
+  }
+
+  await sb.from('invite_obras').delete().eq('email',email);
+  if(role==='membro' && obraIds.length){
+    await sb.from('invite_obras').insert(obraIds.map(obra_id=>({email,obra_id})));
+  }
+
+  closeModal(); await loadData(); render();
+  toast(per?'Acesso atualizado ✓':'Convite enviado para '+email+' ✓');
+}
+async function revokeAccess(email){
+  if(profile && email===profile.email){toast('Você não pode revogar seu próprio acesso');return;}
+  if(!confirm('Revogar todo o acesso de '+email+'?')) return;
+  const per = people.find(x=>x.email===email);
+  await sb.from('invites').update({status:'revoked'}).eq('email',email);
+  await sb.from('invite_obras').delete().eq('email',email);
+  if(per && !per.pending){
+    await sb.from('obra_access').delete().eq('user_id',per.id);
+  }
+  await loadData(); render();
+  toast('Acesso revogado para '+email);
 }
 
 function modalNewAta(){
@@ -1160,6 +1223,8 @@ function renderUserChip(){
   document.getElementById('user-avatar').style.background=profile.cor||'linear-gradient(135deg,#324a63,#16202b)';
   document.getElementById('user-nome').textContent=profile.nome||profile.email;
   document.getElementById('user-papel').textContent=profile.papel||(profile.role==='controlador'?'Administrador':'Membro');
+  document.querySelectorAll('[data-admin-only]').forEach(el=>el.style.display = isControlador()?'':'none');
+  if(!isControlador() && state.view==='pessoas'){ state.view='obras'; }
 }
 
 async function enterApp(){
