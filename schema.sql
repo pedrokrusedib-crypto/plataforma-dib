@@ -404,7 +404,7 @@ create policy versoes_update on public.versoes
 
 drop policy if exists versoes_delete on public.versoes;
 create policy versoes_delete on public.versoes
-  for delete using (public.is_controlador());
+  for delete using (public.is_controlador() or created_by = auth.uid());
 
 -- ---- versao_feedback ----
 drop policy if exists versao_feedback_select on public.versao_feedback;

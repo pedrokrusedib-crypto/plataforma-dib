@@ -551,7 +551,7 @@ async function loadData(){
             const a = authorInfo(f.autor_id, f.autor_nome);
             return {id:f.id, autor:a.nome, cor:a.cor, ini:initials(a.nome), quando:relativeTime(f.created_at), texto:f.texto};
           });
-          return {id:v.id, v:'v'+v.numero, titulo:v.titulo, data:formatDate(v.data), autor:v.autor_nome||'—', status:v.status, files:v.files||[], drive:v.drive_url||'#', fb};
+          return {id:v.id, v:'v'+v.numero, titulo:v.titulo, data:formatDate(v.data), autor:v.autor_nome||'—', status:v.status, files:v.files||[], drive:v.drive_url||'#', fb, created_by:v.created_by};
         });
       const chat = chatRows.filter(c=>c.disciplina_id===d.id).map(c=>{
         const a = authorInfo(c.autor_id, c.autor_nome);
@@ -636,8 +636,9 @@ function viewObras(){
 function projCard(p){
     const waitList = p.disciplinas.filter(d=>d.status!=='ok'&&d.status!=='pend');
     return `
-    <div class="card" style="cursor:pointer;overflow:hidden" onclick="openProj('${p.id}')">
+    <div class="card" style="cursor:pointer;overflow:hidden;position:relative" onclick="openProj('${p.id}')">
       <div style="height:6px;background:${p.cor}"></div>
+      ${isControlador()?`<button class="icon-btn" title="Excluir obra" style="position:absolute;top:14px;right:14px;background:var(--card)" onclick="event.stopPropagation();deleteObra('${p.id}')">🗑</button>`:''}
       <div class="card-pad">
         <div style="display:flex;align-items:center;gap:12px">
           <div class="proj-thumb" style="width:42px;height:42px;border-radius:11px;font-size:16px;background:${p.cor}">${p.nome[0]}</div>
@@ -746,6 +747,7 @@ function tabVersoes(p){
           Abrir no Drive
         </a>
         <button class="drive-link" onclick="modalVersionFb('${d.nome}','${v.v}')">💬 ${(v.fb||[]).length}</button>
+        ${canDeleteVersao(v)?`<button class="icon-btn" title="Excluir versão" onclick="deleteVersao('${v.id}')">🗑</button>`:''}
       </div>
       ${(v.fb&&v.fb.length)?`<div class="vfb">${v.fb.map(f=>`<div class="fb-mini"><div class="avatar" style="background:${f.cor}">${f.ini}</div><div><div class="fb-head"><b>${f.autor}</b><small>· ${f.quando}</small></div><p>${f.texto}</p></div></div>`).join('')}</div>`:''}
       </div>`).join('') : `<div class="empty" style="padding:26px"><div class="e-ico">📂</div>Nenhuma versão ainda nesta disciplina.</div>`;
@@ -1101,6 +1103,25 @@ async function revokeAccess(email){
   }
   await loadData(); render();
   toast('Acesso revogado para '+email);
+}
+
+function canDeleteVersao(v){
+  return isControlador() || (!!session && v.created_by===session.user.id);
+}
+async function deleteVersao(versaoId){
+  if(!confirm('Excluir esta versão? Essa ação não pode ser desfeita.')) return;
+  const {error} = await sb.from('versoes').delete().eq('id',versaoId);
+  if(error){ toast('Erro ao excluir versão: '+error.message); return; }
+  await loadData(); render();
+  toast('Versão excluída ✓');
+}
+async function deleteObra(obraId){
+  const p = projects.find(x=>x.id===obraId);
+  if(!confirm('Excluir a obra "'+(p?p.nome:'')+'"? Todas as disciplinas, versões, atas e acessos relacionados também serão excluídos. Essa ação não pode ser desfeita.')) return;
+  const {error} = await sb.from('obras').delete().eq('id',obraId);
+  if(error){ toast('Erro ao excluir obra: '+error.message); return; }
+  await loadData(); render();
+  toast('Obra excluída ✓');
 }
 
 function modalNewAta(){
