@@ -128,8 +128,7 @@
   .proj-meta b{font-size:13px;font-weight:600;display:block}
   .proj-meta small{font-size:11px;color:#8493b0}
   .side-bottom{padding:12px;border-top:1px solid rgba(255,255,255,.07)}
-  .user-chip{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer}
-  .user-chip:hover{background:rgba(255,255,255,.06)}
+  .user-chip{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px}
   .avatar{border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex:0 0 auto}
   .user-chip .avatar{width:34px;height:34px;font-size:12px;background:linear-gradient(135deg,#3b6fe0,#1f4bb8)}
   .user-chip b{font-size:13px;color:#fff;display:block}
@@ -422,10 +421,10 @@
       <div class="nav-item" data-nav="pessoas" data-admin-only onclick="go('pessoas')"><span class="i">◉</span> Pessoas &amp; acessos</div>
     </div>
     <div class="side-bottom">
-      <div class="user-chip" onclick="logout()">
+      <div class="user-chip">
         <div class="avatar" id="user-avatar">PD</div>
         <div style="flex:1"><b id="user-nome">Pedro Dib</b><small id="user-papel">Administrador</small></div>
-        <span style="color:#8493b0">⎋</span>
+        <span style="color:#8493b0;cursor:pointer" onclick="logout()" title="Sair">⎋</span>
       </div>
     </div>
   </aside>
