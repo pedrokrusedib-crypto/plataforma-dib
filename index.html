@@ -371,9 +371,9 @@
 
       <div id="login-step1">
         <div class="field" style="margin-bottom:12px">
-          <input id="email" type="email" placeholder="seu@email.com" value="pedro@dibedib.com.br" />
+          <input id="email" type="email" placeholder="seu@email.com" />
         </div>
-        <button class="btn btn-primary" onclick="sendMagic()">Receber link de acesso</button>
+        <button class="btn btn-primary" id="btn-send-magic" onclick="sendMagicLink()">Receber link de acesso</button>
         <div class="login-mini">Acesso privado · você recebe um link no seu e-mail.</div>
       </div>
 
@@ -381,10 +381,19 @@
         <div class="magic">
           <div class="ico">✓</div>
           <b>Link enviado!</b>
-          <small>Enviamos um acesso para <span id="email-echo">seu e-mail</span>. Clique abaixo para simular a abertura do link.</small>
-          <button class="btn btn-primary" style="width:100%" onclick="enterApp()">Abrir link e entrar</button>
+          <small>Enviamos um acesso para <span id="email-echo">seu e-mail</span>. Abra o link recebido neste mesmo navegador para entrar.</small>
+          <button class="btn btn-ghost" style="width:100%" onclick="showStep('login-step1')">Usar outro e-mail</button>
         </div>
-        <div class="login-mini">O link expira em 15 minutos e só funciona uma vez.</div>
+        <div class="login-mini">O link expira em alguns minutos e só funciona uma vez.</div>
+      </div>
+
+      <div id="login-step3" class="hide">
+        <div class="magic">
+          <div class="ico">⚠️</div>
+          <b>Acesso não autorizado</b>
+          <small>O e-mail <span id="email-unauth"></span> ainda não tem acesso liberado a esta plataforma. Fale com o administrador para ser convidado.</small>
+          <button class="btn btn-ghost" style="width:100%" onclick="logout()">Sair</button>
+        </div>
       </div>
     </div>
     <div class="login-foot">© 2026 DIB &amp; DIB · Plataforma privada</div>
@@ -414,8 +423,8 @@
     </div>
     <div class="side-bottom">
       <div class="user-chip" onclick="logout()">
-        <div class="avatar">PD</div>
-        <div style="flex:1"><b>Pedro Dib</b><small>Administrador</small></div>
+        <div class="avatar" id="user-avatar">PD</div>
+        <div style="flex:1"><b id="user-nome">Pedro Dib</b><small id="user-papel">Administrador</small></div>
         <span style="color:#8493b0">⎋</span>
       </div>
     </div>
@@ -438,7 +447,18 @@
 <div id="modal-mount"></div>
 <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* ============================================================
+   SUPABASE
+   ============================================================ */
+const SUPABASE_URL = 'https://ctkbfvalqfcjebxfylry.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_wPNwxdMjtFzdp2UcExI3UA_P9ULTDyw';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let session = null;
+let profile = null;
+
 /* ============================================================
    DADOS DE EXEMPLO  (em memória — reinicia ao recarregar)
    ============================================================ */
@@ -1053,26 +1073,78 @@ function toast(msg){ const t=document.getElementById('toast'); t.innerHTML=`<spa
 function toggleNav(open){ document.getElementById('app').classList.toggle('nav-open',open); }
 
 /* ============================================================
-   LOGIN FLOW
+   LOGIN FLOW (Supabase Auth — magic link)
    ============================================================ */
-function sendMagic(){
-  const em=document.getElementById('email').value.trim();
+function showStep(id){
+  ['login-step1','login-step2','login-step3'].forEach(s=>{
+    document.getElementById(s).classList.toggle('hide', s!==id);
+  });
+}
+
+async function sendMagicLink(){
+  const em=document.getElementById('email').value.trim().toLowerCase();
   if(!em||!em.includes('@')){toast('Digite um e-mail válido');return;}
+  const btn=document.getElementById('btn-send-magic');
+  btn.disabled=true; btn.textContent='Enviando...';
+  const {error}=await sb.auth.signInWithOtp({
+    email:em,
+    options:{emailRedirectTo:window.location.origin+window.location.pathname}
+  });
+  btn.disabled=false; btn.textContent='Receber link de acesso';
+  if(error){toast('Erro ao enviar link: '+error.message);return;}
   document.getElementById('email-echo').textContent=em;
-  document.getElementById('login-step1').classList.add('hide');
-  document.getElementById('login-step2').classList.remove('hide');
+  showStep('login-step2');
 }
-function enterApp(){
-  document.getElementById('login').classList.add('hide');
-  document.getElementById('app').classList.remove('hide');
-  render();
-}
-function logout(){
+
+function showLogin(){
   document.getElementById('app').classList.add('hide');
   document.getElementById('login').classList.remove('hide');
-  document.getElementById('login-step1').classList.remove('hide');
-  document.getElementById('login-step2').classList.add('hide');
+  showStep('login-step1');
 }
+
+function showUnauthorized(){
+  document.getElementById('app').classList.add('hide');
+  document.getElementById('login').classList.remove('hide');
+  document.getElementById('email-unauth').textContent=session.user.email;
+  showStep('login-step3');
+}
+
+function renderUserChip(){
+  if(!profile) return;
+  document.getElementById('user-avatar').textContent=initials(profile.nome||profile.email);
+  document.getElementById('user-avatar').style.background=profile.cor||'linear-gradient(135deg,#324a63,#16202b)';
+  document.getElementById('user-nome').textContent=profile.nome||profile.email;
+  document.getElementById('user-papel').textContent=profile.papel||(profile.role==='controlador'?'Administrador':'Membro');
+}
+
+async function enterApp(){
+  document.getElementById('login').classList.add('hide');
+  document.getElementById('app').classList.remove('hide');
+  renderUserChip();
+  render();
+}
+
+async function logout(){
+  await sb.auth.signOut();
+}
+
+async function handleSession(sess){
+  session=sess;
+  if(!session){ profile=null; showLogin(); return; }
+  const {data,error}=await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
+  if(error){ toast('Erro ao carregar perfil: '+error.message); return; }
+  if(!data){ profile=null; showUnauthorized(); return; }
+  profile=data;
+  await enterApp();
+}
+
+async function initAuth(){
+  const {data}=await sb.auth.getSession();
+  await handleSession(data.session);
+  sb.auth.onAuthStateChange((_event,sess)=>{ handleSession(sess); });
+}
+
+initAuth();
 </script>
 </body>
 </html>
