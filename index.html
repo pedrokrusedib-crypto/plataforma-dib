@@ -481,75 +481,92 @@ const DISC_ICONS = {
   'Compatibilização':{i:'🧩',c:'#ff8f8f',bg:'rgba(255,107,107,.16)'},
 };
 
-const people = [
-  {id:1, nome:'Pedro Dib',       email:'pedro@dibedib.com.br',  papel:'Administrador', folders:'ALL', cor:'linear-gradient(135deg,#324a63,#16202b)'},
-  {id:2, nome:'Marina Dib',      email:'marina@dibedib.com.br', papel:'Sócia / Análise', folders:'ALL', cor:'linear-gradient(135deg,#2f6bff,#1f50cc)'},
-  {id:3, nome:'Meta Arquitetura',email:'projetos@meta-arq.com', papel:'Arquitetura', folders:['Perimetral › Arquitetura','Freire Alemão › Arquitetura'], cor:'linear-gradient(135deg,#1f9d62,#0f6b41)'},
-  {id:4, nome:'Eng. Ricardo Sá', email:'ricardo@calculo.eng',   papel:'Estrutural', folders:['Perimetral › Estrutural'], cor:'linear-gradient(135deg,#b9711a,#8a510f)'},
-  {id:5, nome:'Studio Fachadas', email:'contato@studiofach.com', papel:'Fachada', folders:['Freire Alemão › Fachada'], cor:'linear-gradient(135deg,#7a52cc,#523587)'},
-];
+let people = [];
+let projects = [];
 
-const projects = [
-  {
-    id:'perimetral', nome:'Perimetral', local:'Rio de Janeiro · RJ',
-    cor:'linear-gradient(135deg,#2f6bff,#16357a)', progresso:62,
-    disciplinas:[
-      {nome:'Arquitetura', status:'review', aguardando:'Análise Dib & Dib',
-       versoes:[
-         {v:'v4', titulo:'Projeto executivo — revisão de layout', data:'05 jun 2026', autor:'Meta Arquitetura', status:'review', files:['IFC','DWG','PDF'], drive:'#', fb:[{autor:'Marina Dib', cor:people[1].cor, ini:'MD', quando:'há 2 dias', texto:'O recuo da torre ficou ótimo. Só confirmar se a vaga PNE atende a norma na garagem.'}]},
-         {v:'v3', titulo:'Compatibilização com estrutura', data:'21 mai 2026', autor:'Meta Arquitetura', status:'ok', files:['IFC','DWG'], drive:'#'},
-         {v:'v2', titulo:'Estudo preliminar aprovado', data:'02 mai 2026', autor:'Meta Arquitetura', status:'ok', files:['PDF'], drive:'#'},
-       ],
-       chat:[
-         {ini:'PD', autor:'Pedro Dib', cor:people[0].cor, hora:'08:42', texto:'Pessoal, a arquitetura v4 já está na pasta. Podem revisar?', me:true},
-         {ini:'MA', autor:'Meta Arquitetura', cor:people[2].cor, hora:'09:15', texto:'Recebido! Ajustamos o hall conforme a última ata.'},
-       ]},
-      {nome:'Estrutural', status:'wait', aguardando:'Meta Arquitetura',
-       versoes:[
-         {v:'v2', titulo:'Lançamento de pilares e vigas', data:'28 mai 2026', autor:'Eng. Ricardo Sá', status:'wait', files:['IFC','DWG'], drive:'#', fb:[{autor:'Pedro Dib', cor:people[0].cor, ini:'PD', quando:'há 4 dias', texto:'Precisa receber a arquitetura v4 antes de fechar o lançamento. Vamos cobrar a Meta.'}]},
-         {v:'v1', titulo:'Pré-dimensionamento', data:'10 mai 2026', autor:'Eng. Ricardo Sá', status:'ok', files:['PDF'], drive:'#'},
-       ],
-       chat:[
-         {ini:'RS', autor:'Eng. Ricardo Sá', cor:people[3].cor, hora:'10:03', texto:'Assim que aprovarem a arquitetura, fecho o lançamento estrutural.'},
-       ]},
-      {nome:'Fachada', status:'dev', aguardando:'Studio Fachadas',
-       versoes:[
-         {v:'v1', titulo:'Conceito de fachada ventilada', data:'30 mai 2026', autor:'Studio Fachadas', status:'dev', files:['PDF'], drive:'#'},
-       ],
-       chat:[]},
-      {nome:'Instalações', status:'pend', aguardando:'A iniciar',
-       versoes:[], chat:[]},
-    ],
-    atas:[
-      {data:'04 jun 2026', titulo:'Reunião de compatibilização', resumo:'Alinhado ajuste de prumadas hidráulicas e revisão do hall. Meta vai atualizar arquitetura até 09/06.', cls:'gold'},
-      {data:'20 mai 2026', titulo:'Aprovação do estudo preliminar', resumo:'Cliente aprovou implantação e volumetria. Liberado avanço para executivo.', cls:'green'},
-    ],
-  },
-  {
-    id:'freire', nome:'Freire Alemão', local:'Copacabana · RJ',
-    cor:'linear-gradient(135deg,#c9a24b,#8a6a1f)', progresso:38,
-    disciplinas:[
-      {nome:'Arquitetura', status:'dev', aguardando:'Meta Arquitetura',
-       versoes:[
-         {v:'v2', titulo:'Plantas com ajustes do cliente', data:'03 jun 2026', autor:'Meta Arquitetura', status:'dev', files:['DWG','PDF'], drive:'#'},
-         {v:'v1', titulo:'Estudo de implantação', data:'18 mai 2026', autor:'Meta Arquitetura', status:'ok', files:['PDF'], drive:'#'},
-       ],
-       chat:[
-         {ini:'PD', autor:'Pedro Dib', cor:people[0].cor, hora:'14:20', texto:'Família aprovou o programa. Meta, pode tocar as plantas.', me:true},
-         {ini:'MA', autor:'Meta Arquitetura', cor:people[2].cor, hora:'15:05', texto:'Perfeito, começamos hoje. Subo a v3 na sexta.'},
-       ]},
-      {nome:'Fachada', status:'review', aguardando:'Análise Dib & Dib',
-       versoes:[
-         {v:'v1', titulo:'Proposta de revestimento em pedra', data:'31 mai 2026', autor:'Studio Fachadas', status:'review', files:['IFC','PDF'], drive:'#', fb:[{autor:'Pedro Dib', cor:people[0].cor, ini:'PD', quando:'há 1 dia', texto:'Gostei da pedra, mas vamos avaliar custo x manutenção antes de aprovar.'}]},
-       ],
-       chat:[]},
-      {nome:'Paisagismo', status:'pend', aguardando:'A iniciar', versoes:[], chat:[]},
-    ],
-    atas:[
-      {data:'02 jun 2026', titulo:'Briefing com a família', resumo:'Definido programa de necessidades: 4 suítes, home e área gourmet integrada. Meta inicia plantas.', cls:''},
-    ],
-  },
-];
+const DEFAULT_COR = 'linear-gradient(135deg,#5b6b85,#34404f)';
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+function formatDate(d){
+  if(!d) return '';
+  const dt = new Date(d+'T00:00:00');
+  return `${String(dt.getDate()).padStart(2,'0')} ${MESES[dt.getMonth()]} ${dt.getFullYear()}`;
+}
+function formatHora(ts){
+  return new Date(ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+function relativeTime(ts){
+  const min = Math.floor((Date.now()-new Date(ts).getTime())/60000);
+  if(min<1) return 'agora';
+  if(min<60) return `há ${min} min`;
+  const h = Math.floor(min/60);
+  if(h<24) return `há ${h}h`;
+  const d = Math.floor(h/24);
+  return `há ${d} dia${d>1?'s':''}`;
+}
+
+/* ============================================================
+   CARREGAMENTO DE DADOS (Supabase)
+   ============================================================ */
+async function loadData(){
+  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes] = await Promise.all([
+    sb.from('obras').select('*').order('ordem'),
+    sb.from('disciplinas').select('*').order('ordem'),
+    sb.from('versoes').select('*'),
+    sb.from('versao_feedback').select('*').order('created_at'),
+    sb.from('disciplina_chat').select('*').order('created_at'),
+    sb.from('atas').select('*').order('data',{ascending:false}),
+    sb.from('profiles').select('*'),
+    sb.from('obra_access').select('*'),
+  ]);
+
+  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes})){
+    if(res.error) console.error(`Erro ao carregar ${nome}:`, res.error);
+  }
+
+  const obrasRows = obrasRes.data||[];
+  const discRows = discRes.data||[];
+  const versRows = versRes.data||[];
+  const fbRows = fbRes.data||[];
+  const chatRows = chatRes.data||[];
+  const atasRows = atasRes.data||[];
+  const profRows = profRes.data||[];
+  const accessRows = accessRes.data||[];
+
+  const profileById = Object.fromEntries(profRows.map(p=>[p.id,p]));
+  function authorInfo(autorId, autorNome){
+    const pr = autorId && profileById[autorId];
+    return {nome:(pr&&pr.nome)||autorNome||'—', cor:(pr&&pr.cor)||DEFAULT_COR};
+  }
+
+  projects = obrasRows.map(o=>{
+    const disciplinas = discRows.filter(d=>d.obra_id===o.id).map(d=>{
+      const versoes = versRows.filter(v=>v.disciplina_id===d.id)
+        .sort((a,b)=>b.numero-a.numero)
+        .map(v=>{
+          const fb = fbRows.filter(f=>f.versao_id===v.id).map(f=>{
+            const a = authorInfo(f.autor_id, f.autor_nome);
+            return {id:f.id, autor:a.nome, cor:a.cor, ini:initials(a.nome), quando:relativeTime(f.created_at), texto:f.texto};
+          });
+          return {id:v.id, v:'v'+v.numero, titulo:v.titulo, data:formatDate(v.data), autor:v.autor_nome||'—', status:v.status, files:v.files||[], drive:v.drive_url||'#', fb};
+        });
+      const chat = chatRows.filter(c=>c.disciplina_id===d.id).map(c=>{
+        const a = authorInfo(c.autor_id, c.autor_nome);
+        return {id:c.id, ini:initials(a.nome), autor:a.nome, cor:a.cor, hora:formatHora(c.created_at), texto:c.texto, me: !!session && c.autor_id===session.user.id};
+      });
+      return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', versoes, chat};
+    });
+    const atas = atasRows.filter(a=>a.obra_id===o.id).map(a=>({id:a.id, data:formatDate(a.data), titulo:a.titulo, resumo:a.resumo||'', cls:a.cls||''}));
+    return {id:o.id, nome:o.nome, local:o.local||'', cor:o.cor||DEFAULT_COR, progresso:o.progresso||0, disciplinas, atas};
+  });
+
+  const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
+  people = profRows.map(pr=>{
+    const folders = pr.role==='controlador' ? 'ALL'
+      : accessRows.filter(a=>a.user_id===pr.id).map(a=>obraNomeById[a.obra_id]).filter(Boolean);
+    return {id:pr.id, nome:pr.nome, email:pr.email, papel:pr.papel, folders, cor:pr.cor||DEFAULT_COR};
+  });
+}
 
 /* ============================================================
    ESTADO + NAVEGAÇÃO
@@ -839,9 +856,8 @@ function addVersionFb(){
 function peopleOf(p){
   return people.filter(per=> per.folders==='ALL' || per.folders.some(f=>f.startsWith(p.nome)));
 }
-function peopleOfDisc(p, discName){
-  const folder = `${p.nome} › ${discName}`;
-  return people.filter(per=> per.folders==='ALL' || per.folders.includes(folder));
+function peopleOfDisc(p, _discName){
+  return peopleOf(p);
 }
 
 /* ============================================================
@@ -893,8 +909,8 @@ function goNotif(i){
 function tabAcessos(p){
   const rows = peopleOf(p).map(per=>{
     const folders = per.folders==='ALL'
-      ? '<span class="ftag all">Todas as pastas</span>'
-      : per.folders.filter(f=>f.startsWith(p.nome)).map(f=>`<span class="ftag">${f.replace(p.nome+' › ','')}</span>`).join('');
+      ? '<span class="ftag all">Todas as obras</span>'
+      : '<span class="ftag">Acesso à obra</span>';
     return `<tr>
       <td><div class="pperson"><div class="avatar" style="background:${per.cor}">${initials(per.nome)}</div><div><b>${per.nome}</b><small>${per.email}</small></div></div></td>
       <td>${per.papel}</td>
@@ -918,7 +934,7 @@ function tabAcessos(p){
 function viewPessoas(){
   const rows = people.map(per=>{
     const folders = per.folders==='ALL'
-      ? '<span class="ftag all">Todas as pastas</span>'
+      ? '<span class="ftag all">Todas as obras</span>'
       : per.folders.map(f=>`<span class="ftag">${f}</span>`).join('');
     return `<tr>
       <td><div class="pperson"><div class="avatar" style="background:${per.cor}">${initials(per.nome)}</div><div><b>${per.nome}</b><small>${per.email}</small></div></div></td>
@@ -1121,6 +1137,7 @@ async function enterApp(){
   document.getElementById('login').classList.add('hide');
   document.getElementById('app').classList.remove('hide');
   renderUserChip();
+  await loadData();
   render();
 }
 
@@ -1141,7 +1158,10 @@ async function handleSession(sess){
 async function initAuth(){
   const {data}=await sb.auth.getSession();
   await handleSession(data.session);
-  sb.auth.onAuthStateChange((_event,sess)=>{ handleSession(sess); });
+  sb.auth.onAuthStateChange((event,sess)=>{
+    if(event==='INITIAL_SESSION') return;
+    handleSession(sess);
+  });
 }
 
 initAuth();
