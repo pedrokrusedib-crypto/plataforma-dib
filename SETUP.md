@@ -27,8 +27,8 @@ A plataforma usa **somente login por link mágico** (sem senha). Em **Authentica
 
 Em **Authentication → URL Configuration**:
 
-- **Site URL**: a URL de produção (ex.: `https://plataforma-dib.vercel.app`).
-- **Redirect URLs**: adicione essa mesma URL de produção e, se for testar localmente, também `http://localhost:8080`.
+- **Site URL**: a URL de produção, ex.: `https://pedrokrusedib-crypto.github.io/plataforma-dib/`.
+- **Redirect URLs**: adicione essa mesma URL de produção (com `/**` no final, ex.: `https://pedrokrusedib-crypto.github.io/plataforma-dib/**`) e, se for testar localmente, também `http://localhost:8080` e `http://localhost:8080/**`.
 
 O link mágico enviado por e-mail redireciona de volta para `window.location.origin + window.location.pathname` (o mesmo endereço de onde o login foi pedido). Se essa URL não estiver na lista de Redirect URLs, o Supabase recusa o redirecionamento.
 
@@ -36,16 +36,17 @@ O link mágico enviado por e-mail redireciona de volta para `window.location.ori
 
 O serviço de e-mail padrão do Supabase tem limite baixo de envios (poucos e-mails por hora) — suficiente para testes, mas não para uso real. Para produção, configure um provedor SMTP próprio em **Authentication → Settings → SMTP Settings** (ex.: Resend, Postmark, SendGrid).
 
-## 3. Deploy no Vercel
+## 3. Deploy no GitHub Pages
 
-O app é um único `index.html` estático, sem build.
+O app é um único `index.html` estático na raiz do repositório, sem build — perfeito para o GitHub Pages.
 
-1. Suba o repositório para o GitHub (se ainda não estiver lá).
-2. No [Vercel](https://vercel.com), clique em **Add New → Project** e importe o repositório.
-3. Em **Framework Preset**, escolha **Other**.
-4. Deixe **Build Command** vazio e **Output Directory** no padrão (raiz do projeto).
-5. Clique em **Deploy**.
-6. Depois do primeiro deploy, copie a URL gerada (ex.: `https://plataforma-dib.vercel.app`) e volte ao passo 2 para configurar **Site URL** e **Redirect URLs** no Supabase com essa URL.
+1. Suba o repositório para o GitHub (se ainda não estiver lá). O repositório precisa ser **público** para usar o GitHub Pages no plano gratuito.
+2. No GitHub, vá em **Settings → Pages**.
+3. Em **Build and deployment → Source**, escolha **Deploy from a branch**.
+4. Em **Branch**, escolha `main` e a pasta `/ (root)`, depois **Save**.
+5. Em alguns minutos o site fica disponível em `https://<usuário>.github.io/<repositório>/` (ex.: `https://pedrokrusedib-crypto.github.io/plataforma-dib/`).
+6. Volte ao passo 2 (acima) para configurar **Site URL** e **Redirect URLs** no Supabase com essa URL.
+7. Toda vez que houver `git push` para `main`, o GitHub Pages republica o site automaticamente.
 
 ## 4. Gerenciar pessoas e permissões
 
