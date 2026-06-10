@@ -617,7 +617,7 @@ function viewObras(){
   return `
     <div class="page-head">
       <div><h1>Minhas obras</h1><p>Selecione uma obra para ver disciplinas, versões, atas, feedbacks e chat.</p></div>
-      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalNewProject()">+ Nova obra</button></div>
+      <div class="ph-actions">${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewProject()">+ Nova obra</button>':''}</div>
     </div>
     <div class="cards grid-2">${projects.map(projCard).join('')}</div>`;
 }
@@ -712,7 +712,7 @@ function tabVisao(p){
   return `
     <div class="page-head" style="margin-bottom:14px">
       <div><h1 style="font-size:18px">Disciplinas</h1></div>
-      <div class="ph-actions"><button class="btn btn-ghost btn-sm" onclick="modalNewDisc()">+ Disciplina</button></div>
+      <div class="ph-actions">${isControlador()?'<button class="btn btn-ghost btn-sm" onclick="modalNewDisc()">+ Disciplina</button>':''}</div>
     </div>
     <div class="cards grid-2">${cards}</div>`;
 }
@@ -767,7 +767,7 @@ function tabAtas(p){
   return `
     <div class="page-head" style="margin-bottom:18px">
       <div><h1 style="font-size:18px">Atas de reunião</h1></div>
-      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalNewAta()">+ Nova ata</button></div>
+      <div class="ph-actions">${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewAta()">+ Nova ata</button>':''}</div>
     </div>
     <div class="tline">${nodes||'<div class="empty">Sem atas registradas.</div>'}</div>`;
 }
@@ -824,12 +824,15 @@ function tabChat(p){
     </div>`;
 }
 function setChatDisc(discName){ state.chatDisc=discName; render(); }
-function sendChat(){
+async function sendChat(){
   const i=document.getElementById('chat-text'); const t=i.value.trim(); if(!t)return;
-  const p=proj(); const d=p.disciplinas.find(x=>x.nome===state.chatDisc); d.chat=d.chat||[];
-  const h=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  d.chat.push({ini:'PD',autor:'Pedro Dib',cor:people[0].cor,hora:h,texto:t,me:true});
-  render(); const b=document.getElementById('chat-body'); if(b)b.scrollTop=b.scrollHeight;
+  const p=proj(); const d=p.disciplinas.find(x=>x.nome===state.chatDisc);
+  const {error}=await sb.from('disciplina_chat').insert({
+    disciplina_id:d.id, autor_id:session.user.id, autor_nome:profile.nome, texto:t
+  });
+  if(error){toast('Erro ao enviar mensagem: '+error.message);return;}
+  await loadData(); render();
+  const b=document.getElementById('chat-body'); if(b)b.scrollTop=b.scrollHeight;
 }
 
 /* ----- Feedback dentro de uma versão ----- */
@@ -846,11 +849,14 @@ function modalVersionFb(discName,vv){
     </div>
   </div>`);
 }
-function addVersionFb(){
+async function addVersionFb(){
   const t=document.getElementById('vfb-text').value.trim(); if(!t){toast('Escreva algo primeiro');return;}
   const p=proj(); const d=p.disciplinas.find(x=>x.nome===state._fbTarget.disc); const v=d.versoes.find(x=>x.v===state._fbTarget.v);
-  v.fb=v.fb||[]; v.fb.push({autor:'Pedro Dib',cor:people[0].cor,ini:'PD',quando:'agora',texto:t});
-  closeModal(); render(); toast('Feedback publicado na versão ✓');
+  const {error}=await sb.from('versao_feedback').insert({
+    versao_id:v.id, autor_id:session.user.id, autor_nome:profile.nome, texto:t
+  });
+  if(error){toast('Erro ao publicar feedback: '+error.message);return;}
+  closeModal(); await loadData(); render(); toast('Feedback publicado na versão ✓');
 }
 
 function peopleOf(p){
@@ -985,17 +991,24 @@ function modalNewVersion(){
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveVersion()">Salvar versão</button></div>
   </div>`);
 }
-function saveVersion(){
+async function saveVersion(){
   const p=proj();
   const discName=document.getElementById('m-disc').value;
   const title=document.getElementById('m-title').value||'Nova versão';
   const files=[...document.querySelectorAll('.checks input:checked')].map(i=>i.value);
   const status=document.getElementById('m-status').value;
+  const drive=document.getElementById('m-drive').value||'#';
   const d=p.disciplinas.find(x=>x.nome===discName);
-  const v='v'+(d.versoes.length+1);
-  d.versoes.unshift({v,titulo:title,data:'09 jun 2026',autor:'Pedro Dib',status,files:files.length?files:['PDF'],drive:document.getElementById('m-drive').value||'#'});
-  d.status=status;
-  closeModal(); state.tab='versoes'; render(); toast('Versão '+v.toUpperCase()+' adicionada ✓');
+  const {error}=await sb.from('versoes').insert({
+    disciplina_id:d.id, titulo:title, autor_nome:profile.nome, status,
+    files:files.length?files:['PDF'], drive_url:drive, created_by:session.user.id
+  });
+  if(error){toast('Erro ao salvar versão: '+error.message);return;}
+  if(isControlador()){
+    await sb.from('disciplinas').update({status}).eq('id',d.id);
+  }
+  closeModal(); state.tab='versoes';
+  await loadData(); render(); toast('Versão adicionada ✓');
 }
 
 function modalInvite(pid){
@@ -1039,10 +1052,17 @@ function modalNewAta(){
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveAta()">Salvar ata</button></div>
   </div>`);
 }
-function saveAta(){
+async function saveAta(){
   const p=proj();
-  p.atas.unshift({data:'09 jun 2026',titulo:document.getElementById('a-title').value||'Nova reunião',resumo:document.getElementById('a-res').value||'—',cls:'gold'});
-  closeModal(); state.tab='atas'; render(); toast('Ata registrada ✓');
+  const titulo=document.getElementById('a-title').value||'Nova reunião';
+  const resumo=document.getElementById('a-res').value||'—';
+  const drive=document.getElementById('a-drive').value||null;
+  const {error}=await sb.from('atas').insert({
+    obra_id:p.id, titulo, resumo, drive_url:drive, cls:'gold', created_by:session.user.id
+  });
+  if(error){toast('Erro ao registrar ata: '+error.message);return;}
+  closeModal(); state.tab='atas';
+  await loadData(); render(); toast('Ata registrada ✓');
 }
 
 function modalNewDisc(){
@@ -1056,10 +1076,15 @@ function modalNewDisc(){
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveDisc()">Adicionar</button></div>
   </div>`);
 }
-function saveDisc(){
+async function saveDisc(){
   const p=proj();
-  p.disciplinas.push({nome:document.getElementById('d-name').value,status:'pend',aguardando:document.getElementById('d-wait').value||'A iniciar',versoes:[],chat:[]});
-  closeModal(); render(); toast('Disciplina adicionada ✓');
+  const nome=document.getElementById('d-name').value;
+  const aguardando=document.getElementById('d-wait').value||'A iniciar';
+  const {error}=await sb.from('disciplinas').insert({
+    obra_id:p.id, nome, status:'pend', aguardando, ordem:p.disciplinas.length+1
+  });
+  if(error){toast('Erro ao adicionar disciplina: '+error.message);return;}
+  closeModal(); await loadData(); render(); toast('Disciplina adicionada ✓');
 }
 
 function modalNewProject(){
@@ -1072,18 +1097,22 @@ function modalNewProject(){
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveProject()">Criar projeto</button></div>
   </div>`);
 }
-function saveProject(){
+async function saveProject(){
   const name=document.getElementById('p-name').value||'Novo Projeto';
+  const local=document.getElementById('p-local').value||'—';
   const cores=['linear-gradient(135deg,#2f6bff,#16357a)','linear-gradient(135deg,#c9a24b,#8a6a1f)','linear-gradient(135deg,#1f9d62,#0f6b41)','linear-gradient(135deg,#7a52cc,#523587)'];
-  projects.push({id:'p'+Date.now(),nome:name,local:document.getElementById('p-local').value||'—',cor:cores[projects.length%cores.length],progresso:0,
-    disciplinas:[{nome:'Arquitetura',status:'pend',aguardando:'A iniciar',versoes:[],chat:[]}],atas:[]});
-  closeModal(); openProj(projects[projects.length-1].id); toast('Projeto criado ✓');
+  const cor=cores[projects.length%cores.length];
+  const {data,error}=await sb.from('obras').insert({nome:name, local, cor, progresso:0, ordem:projects.length+1}).select().single();
+  if(error){toast('Erro ao criar projeto: '+error.message);return;}
+  await sb.from('disciplinas').insert({obra_id:data.id, nome:'Arquitetura', status:'pend', aguardando:'A iniciar', ordem:1});
+  closeModal(); await loadData(); openProj(data.id); toast('Projeto criado ✓');
 }
 
 /* ============================================================
    UTIL
    ============================================================ */
 function initials(n){ return n.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase(); }
+function isControlador(){ return !!profile && profile.role==='controlador'; }
 function openDrive(e){ e.preventDefault(); toast('🔗 No app real, abre a pasta/arquivo no Google Drive'); }
 function toast(msg){ const t=document.getElementById('toast'); t.innerHTML=`<span class="tk">●</span>${msg}`; t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),2600); }
 function toggleNav(open){ document.getElementById('app').classList.toggle('nav-open',open); }
