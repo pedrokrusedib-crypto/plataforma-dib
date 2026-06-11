@@ -487,6 +487,7 @@ const DISC_ICONS = {
 
 let people = [];
 let projects = [];
+let dismissedNotifs = new Set();
 
 const DEFAULT_COR = 'linear-gradient(135deg,#5b6b85,#34404f)';
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -513,7 +514,7 @@ function relativeTime(ts){
    CARREGAMENTO DE DADOS (Supabase)
    ============================================================ */
 async function loadData(){
-  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes] = await Promise.all([
+  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes] = await Promise.all([
     sb.from('obras').select('*').order('ordem'),
     sb.from('disciplinas').select('*').order('ordem'),
     sb.from('versoes').select('*'),
@@ -524,11 +525,13 @@ async function loadData(){
     sb.from('obra_access').select('*'),
     sb.from('invites').select('*'),
     sb.from('invite_obras').select('*'),
+    sb.from('notif_dismissals').select('notif_key'),
   ]);
 
-  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes})){
+  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes,notif_dismissals:notifDismissalsRes})){
     if(res.error) console.error(`Erro ao carregar ${nome}:`, res.error);
   }
+  dismissedNotifs = new Set((notifDismissalsRes.data||[]).map(r=>r.notif_key));
 
   const obrasRows = obrasRes.data||[];
   const discRows = discRes.data||[];
@@ -909,18 +912,18 @@ function getNotifications(){
   projects.forEach(p=>{
     p.disciplinas.forEach(d=>{
       if(d.status==='review'){
-        items.push({icon:'🔍',title:`${d.nome} aguardando análise Dib & Dib`,sub:p.nome,pid:p.id,tab:'versoes'});
+        items.push({key:`disc:${d.id}:${d.status}`,icon:'🔍',title:`${d.nome} aguardando análise Dib & Dib`,sub:p.nome,pid:p.id,tab:'versoes'});
       } else if(d.status==='redo'){
-        items.push({icon:'🔁',title:`${d.nome} precisa de revisão`,sub:p.nome,pid:p.id,tab:'versoes'});
+        items.push({key:`disc:${d.id}:${d.status}`,icon:'🔁',title:`${d.nome} precisa de revisão`,sub:p.nome,pid:p.id,tab:'versoes'});
       } else if(d.status==='wait'){
-        items.push({icon:'⏳',title:`Aguardando ${d.aguardando}`,sub:`${p.nome} · ${d.nome}`,pid:p.id,tab:'versoes'});
+        items.push({key:`disc:${d.id}:${d.status}`,icon:'⏳',title:`Aguardando ${d.aguardando}`,sub:`${p.nome} · ${d.nome}`,pid:p.id,tab:'versoes'});
       }
     });
     allFeedbacks(p).forEach(f=>{
-      items.push({icon:'💬',title:`Feedback de ${f.autor}`,sub:`${p.nome} · ${f.disc} ${f.ver.toUpperCase()}`,pid:p.id,tab:'feedbacks'});
+      items.push({key:`fb:${f.id}`,icon:'💬',title:`Feedback de ${f.autor}`,sub:`${p.nome} · ${f.disc} ${f.ver.toUpperCase()}`,pid:p.id,tab:'feedbacks'});
     });
   });
-  return items;
+  return items.filter(n=>!dismissedNotifs.has(n.key));
 }
 function updateNotifBadge(){
   const n=getNotifications().length;
@@ -935,12 +938,22 @@ function openNotifs(){
   const list=items.map((n,i)=>`
     <div class="notif" onclick="goNotif(${i})">
       <div class="notif-ico">${n.icon}</div>
-      <div><b>${n.title}</b><small>${n.sub}</small></div>
+      <div style="flex:1"><b>${n.title}</b><small>${n.sub}</small></div>
+      <button class="icon-btn" title="Dispensar" onclick="event.stopPropagation();dismissNotif(${i})">✕</button>
     </div>`).join('');
   openModal(`<div class="modal">
     <div class="modal-head"><h3>🔔 Notificações</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body" style="padding:8px">${list||'<div class="empty"><div class="e-ico">🎉</div>Tudo em dia, sem pendências.</div>'}</div>
   </div>`);
+}
+async function dismissNotif(i){
+  const n=window._notifItems[i];
+  if(!n||!n.key) return;
+  dismissedNotifs.add(n.key);
+  const {error}=await sb.from('notif_dismissals').insert({user_id:session.user.id, notif_key:n.key});
+  if(error){ toast('Erro ao dispensar notificação: '+error.message); }
+  updateNotifBadge();
+  openNotifs();
 }
 function goNotif(i){
   const n=window._notifItems[i];

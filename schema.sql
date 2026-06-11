@@ -185,6 +185,18 @@ create index if not exists atas_obra_id_idx on public.atas(obra_id);
 
 
 -- ============================================================
+-- 9b) NOTIF_DISMISSALS — notificações dispensadas por usuário
+--     (cada pessoa fecha/limpa suas próprias notificações)
+-- ============================================================
+create table if not exists public.notif_dismissals (
+  user_id    uuid not null references public.profiles(id) on delete cascade,
+  notif_key  text not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, notif_key)
+);
+
+
+-- ============================================================
 -- 10) FUNÇÕES DE APOIO PARA RLS
 --     security definer + search_path fixo: rodam com privilégio
 --     do dono (postgres), que tem BYPASSRLS, evitando recursão.
@@ -297,6 +309,7 @@ alter table public.versoes         enable row level security;
 alter table public.versao_feedback enable row level security;
 alter table public.disciplina_chat enable row level security;
 alter table public.atas            enable row level security;
+alter table public.notif_dismissals enable row level security;
 
 -- ---- profiles ----
 drop policy if exists profiles_select on public.profiles;
@@ -473,6 +486,19 @@ drop policy if exists atas_delete on public.atas;
 create policy atas_delete on public.atas
   for delete using (public.is_controlador());
 
+-- ---- notif_dismissals ----
+drop policy if exists notif_dismissals_select on public.notif_dismissals;
+create policy notif_dismissals_select on public.notif_dismissals
+  for select using (user_id = auth.uid());
+
+drop policy if exists notif_dismissals_insert on public.notif_dismissals;
+create policy notif_dismissals_insert on public.notif_dismissals
+  for insert with check (user_id = auth.uid());
+
+drop policy if exists notif_dismissals_delete on public.notif_dismissals;
+create policy notif_dismissals_delete on public.notif_dismissals
+  for delete using (user_id = auth.uid());
+
 
 -- ============================================================
 -- 12b) GRANTS — privilégios de tabela para o role authenticated
@@ -491,6 +517,7 @@ grant select, insert, update, delete on public.versoes to authenticated;
 grant select, insert, update, delete on public.versao_feedback to authenticated;
 grant select, insert, update, delete on public.disciplina_chat to authenticated;
 grant select, insert, update, delete on public.atas to authenticated;
+grant select, insert, delete on public.notif_dismissals to authenticated;
 
 
 -- ============================================================
