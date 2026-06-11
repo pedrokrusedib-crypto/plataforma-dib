@@ -205,7 +205,7 @@
   /* discipline cards */
   .disc{display:flex;align-items:center;gap:14px;padding:16px;cursor:pointer;transition:.13s}
   .disc:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
-  .disc .d-ico{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:0 0 auto}
+  .disc .d-ico{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:20px;font-weight:800;flex:0 0 auto}
   .disc .d-body{flex:1;min-width:0}
   .disc .d-body b{font-size:15px;color:var(--ink);display:block}
   .disc .d-meta{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
@@ -347,9 +347,12 @@
 
   /* ---------- PDF viewer ---------- */
   .pdf-modal{background:var(--card);border-radius:16px;width:100%;max-width:960px;height:90vh;box-shadow:var(--shadow-lg);overflow:hidden;display:flex;flex-direction:column;animation:pop .18s ease}
+  .pdf-modal:fullscreen,.pdf-modal:-webkit-full-screen{max-width:none;width:100vw;height:100vh;border-radius:0}
   .pdf-toolbar{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
   .pdf-toolbar b{flex:1;font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pdf-nav{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2)}
+  .pdf-zoom{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);border-left:1px solid var(--line);padding-left:12px}
+  .pdf-zoom span{min-width:42px;text-align:center;cursor:pointer;user-select:none}
   .pdf-body{flex:1;overflow:auto;background:var(--canvas);display:flex;justify-content:center;padding:20px}
   .pdf-canvas-wrap{position:relative;display:inline-block;cursor:crosshair;height:fit-content}
   .pdf-canvas-wrap canvas{display:block;box-shadow:var(--shadow-lg)}
@@ -362,6 +365,24 @@
   .pdf-popup-foot{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
   .pdf-popup small{color:var(--muted);display:block;margin-bottom:6px}
   .pdf-popup p{font-size:12.5px;color:var(--ink-2);max-height:120px;overflow-y:auto}
+
+  /* ---------- Calendário de prazos ---------- */
+  .agenda-layout{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
+  .cal-card{padding:16px}
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .cal-head b{font-size:13.5px;color:var(--ink);text-transform:capitalize}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cal-dow{text-align:center;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;padding:4px 0}
+  .cal-cell{position:relative;aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;color:var(--ink-2)}
+  .cal-cell.has{cursor:pointer;background:var(--card-2)}
+  .cal-cell.has:hover{background:rgba(91,140,255,.16)}
+  .cal-cell.today{box-shadow:inset 0 0 0 1.5px var(--blue)}
+  .cal-cell.sel{background:rgba(91,140,255,.26);color:var(--ink)}
+  .cal-dots{display:flex;gap:2px}
+  .cal-dot{width:5px;height:5px;border-radius:50%}
+  .cal-preview{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;max-height:220px;overflow-y:auto}
+  .cal-preview-item{padding:8px 0;border-bottom:1px solid var(--line-2)}
+  .cal-preview-item:last-child{border-bottom:none}
 
   .scrim{display:none}
 
@@ -390,6 +411,7 @@
     .ptable,.ptable tbody,.ptable tr,.ptable td{display:block;width:100%}
     .ptable tr{border:1px solid var(--line);border-radius:12px;margin-bottom:12px;padding:6px}
     .ptable td{border:none;padding:8px 12px}
+    .agenda-layout{grid-template-columns:1fr}
   }
 </style>
 </head>
@@ -474,7 +496,7 @@
     <div class="topbar">
       <button class="burger" onclick="toggleNav(true)">☰</button>
       <div class="crumb" id="crumb">Minhas obras</div>
-      <div class="search">🔎 <input placeholder="Buscar projeto, disciplina..." /></div>
+      <div class="search">🔎 <input id="search-input" placeholder="Buscar projeto, disciplina..." autocomplete="off" oninput="onSearchInput(this.value)" /></div>
       <button class="top-btn" onclick="openNotifs()">🔔<span class="badge" id="notif-badge"></span></button>
       <button class="top-btn" onclick="logout()" title="Sair">⎋</button>
     </div>
@@ -734,7 +756,7 @@ async function loadData(){
 /* ============================================================
    ESTADO + NAVEGAÇÃO
    ============================================================ */
-let state = {view:'obras', projId:null, tab:'visao', chatDisc:null};
+let state = {view:'obras', projId:null, tab:'visao', chatDisc:null, search:''};
 
 function renderProjList(){
   const el = document.getElementById('proj-list');
@@ -751,6 +773,17 @@ function setActiveNav(){
 
 function go(view){ state.view=view; state.projId=null; render(); toggleNav(false); }
 function openProj(id){ state.view='proj'; state.projId=id; state.tab='visao'; state.chatDisc=null; render(); toggleNav(false); }
+
+function normalizeSearch(s){
+  return (s||'').toLowerCase()
+    .replace(/[áàâã]/g,'a').replace(/[éèê]/g,'e').replace(/[íì]/g,'i')
+    .replace(/[óòôõ]/g,'o').replace(/[úù]/g,'u').replace(/ç/g,'c');
+}
+function onSearchInput(v){
+  state.search = v;
+  if(v.trim() && state.view!=='obras'){ state.view='obras'; state.projId=null; }
+  render();
+}
 
 function render(){
   renderProjList(); setActiveNav();
@@ -798,12 +831,18 @@ function countChat(p){ return p.disciplinas.reduce((s,d)=>s+(d.chat||[]).length,
    VIEW: MINHAS OBRAS
    ============================================================ */
 function viewObras(){
+  const q = normalizeSearch(state.search);
+  const list = q ? projects.filter(p=>
+    normalizeSearch(p.nome).includes(q) ||
+    normalizeSearch(p.local||'').includes(q) ||
+    p.disciplinas.some(d=>normalizeSearch(d.nome).includes(q))
+  ) : projects;
   return `
     <div class="page-head">
       <div><h1>Minhas obras</h1><p>Selecione uma obra para ver disciplinas, versões, atas, feedbacks e chat.</p></div>
       <div class="ph-actions">${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewProject()">+ Nova obra</button>':''}</div>
     </div>
-    <div class="cards grid-2">${projects.map(projCard).join('')}</div>`;
+    ${list.length?`<div class="cards grid-2">${list.map(projCard).join('')}</div>`:`<div class="empty"><div class="e-ico">🔎</div>Nenhum resultado para "${state.search}".</div>`}`;
 }
 function projCard(p){
     const waitList = p.disciplinas.filter(d=>d.status!=='ok'&&d.status!=='pend');
@@ -847,6 +886,9 @@ function allPrazos(){
   return projects.flatMap(p=>p.prazos.map(pr=>({...pr, obraId:p.id, obraNome:p.nome, obraCor:p.cor})))
     .filter(pr=> isControlador() || pr.mencionados.some(m=>m.id===session.user.id));
 }
+function obraPrazos(p){
+  return p.prazos.filter(pr=> isControlador() || pr.mencionados.some(m=>m.id===session.user.id));
+}
 function prazoInfo(pr){
   const dias = daysUntil(pr.data);
   const atrasado = pr.status==='pendente' && dias<0;
@@ -859,7 +901,115 @@ function updateAgendaBadge(){
   if(n>0){ b.textContent=n>9?'9+':n; b.style.display=''; }
   else { b.style.display='none'; }
 }
+
+/* ============================================================
+   CALENDÁRIO DE PRAZOS (compartilhado: Agenda + Atas)
+   ============================================================ */
+const WEEKDAYS = ['D','S','T','Q','Q','S','S'];
+
+function prazoDotColor(pr){
+  if(pr.status==='concluido') return 'var(--green)';
+  const dias = daysUntil(pr.data);
+  if(dias<0) return 'var(--red)';
+  if(dias<=7) return 'var(--amber)';
+  return 'var(--blue)';
+}
+function calPreviewItem(pr){
+  let tag;
+  if(pr.status==='concluido') tag='<span class="badge b-green"><span class="bdot"></span>Concluído</span>';
+  else if(daysUntil(pr.data)<0) tag='<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>';
+  else tag='<span class="badge b-gray"><span class="bdot"></span>Pendente</span>';
+  return `
+    <div class="cal-preview-item">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <b style="font-size:12.5px;color:var(--ink)">${pr.titulo}</b>${tag}
+      </div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:2px">${pr.obraNome?pr.obraNome+' · ':''}${pr.disciplinaNome||''}</div>
+      ${pr.descricao?`<p style="font-size:12px;color:var(--ink-2);margin-top:4px">${pr.descricao}</p>`:''}
+    </div>`;
+}
+function calendarHTML(prazosList, calState, navFn, selectFn){
+  const map = {};
+  prazosList.forEach(pr=>{ (map[pr.data]=map[pr.data]||[]).push(pr); });
+  const y=calState.y, m=calState.m;
+  const startDow = new Date(y,m,1).getDay();
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const today = todayStr();
+  let cells='';
+  for(let i=0;i<startDow;i++) cells += `<div class="cal-cell"></div>`;
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dayItems = map[dateStr]||[];
+    const cls = ['cal-cell'];
+    if(dayItems.length) cls.push('has');
+    if(dateStr===today) cls.push('today');
+    if(dateStr===calState.sel) cls.push('sel');
+    const dots = dayItems.slice(0,4).map(pr=>`<span class="cal-dot" style="background:${prazoDotColor(pr)}"></span>`).join('');
+    cells += `<div class="${cls.join(' ')}" ${dayItems.length?`onclick="${selectFn}('${dateStr}')"`:''}>
+      <span>${d}</span>${dayItems.length?`<div class="cal-dots">${dots}</div>`:''}
+    </div>`;
+  }
+  const sel = calState.sel;
+  const selItems = sel ? (map[sel]||[]).sort((a,b)=>a.titulo<b.titulo?-1:1) : [];
+  const previewHtml = sel ? `
+    <div class="cal-preview">
+      <div style="font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:8px">${formatDate(sel)}</div>
+      ${selItems.length? selItems.map(calPreviewItem).join('') : '<div style="font-size:12.5px;color:var(--muted)">Nenhum prazo neste dia.</div>'}
+    </div>` : '';
+  return `
+    <div class="card cal-card">
+      <div class="cal-head">
+        <button class="icon-btn" onclick="${navFn}(-1)">‹</button>
+        <b>${MESES[m]} ${y}</b>
+        <button class="icon-btn" onclick="${navFn}(1)">›</button>
+      </div>
+      <div class="cal-grid">${WEEKDAYS.map(w=>`<div class="cal-dow">${w}</div>`).join('')}${cells}</div>
+      ${previewHtml}
+    </div>`;
+}
+function calNav(dir){
+  state.cal.m += dir;
+  if(state.cal.m<0){ state.cal.m=11; state.cal.y--; }
+  else if(state.cal.m>11){ state.cal.m=0; state.cal.y++; }
+  state.cal.sel=null;
+  render();
+}
+function calSelectDay(dateStr){
+  state.cal.sel = (state.cal.sel===dateStr) ? null : dateStr;
+  render();
+}
+
+let modalCal = null;
+function openCalendarModal(prazosList, title){
+  const now = new Date();
+  modalCal = {y:now.getFullYear(), m:now.getMonth(), sel:null, prazos:prazosList};
+  openModal(`<div class="modal" style="max-width:420px">
+    <div class="modal-head"><h3>📅 ${title}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body" id="modal-cal-body">${calendarHTML(modalCal.prazos, modalCal, 'calNavModal', 'calSelectDayModal')}</div>
+  </div>`);
+}
+function refreshModalCal(){
+  document.getElementById('modal-cal-body').innerHTML = calendarHTML(modalCal.prazos, modalCal, 'calNavModal', 'calSelectDayModal');
+}
+function calNavModal(dir){
+  modalCal.m += dir;
+  if(modalCal.m<0){ modalCal.m=11; modalCal.y--; }
+  else if(modalCal.m>11){ modalCal.m=0; modalCal.y++; }
+  modalCal.sel=null;
+  refreshModalCal();
+}
+function calSelectDayModal(dateStr){
+  modalCal.sel = (modalCal.sel===dateStr) ? null : dateStr;
+  refreshModalCal();
+}
+function openObraCalendar(pid){
+  const p = projects.find(x=>x.id===pid);
+  if(!p) return;
+  openCalendarModal(obraPrazos(p), `Calendário · ${p.nome}`);
+}
+
 function viewAgenda(){
+  if(!state.cal){ const now=new Date(); state.cal={y:now.getFullYear(), m:now.getMonth(), sel:null}; }
   const items = [...allPrazos()].sort((a,b)=> a.data<b.data?-1:a.data>b.data?1:0);
   const pendentes = items.filter(pr=>pr.status==='pendente');
   const concluidos = items.filter(pr=>pr.status==='concluido');
@@ -904,8 +1054,13 @@ function viewAgenda(){
       <div><h1>Agenda</h1><p>Prazos de entrega em que você foi mencionado.</p></div>
       <div class="ph-actions">${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewPrazo()">+ Novo prazo</button>':''}</div>
     </div>
-    ${pendentes.length?pendentes.map(prazoCard).join(''):'<div class="empty"><div class="e-ico">📅</div>Nenhum prazo pendente.</div>'}
-    ${concluidos.length?`<div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:22px 0 10px">Concluídos</div>${concluidos.map(prazoCard).join('')}`:''}`;
+    <div class="agenda-layout">
+      <div class="agenda-list">
+        ${pendentes.length?pendentes.map(prazoCard).join(''):'<div class="empty"><div class="e-ico">📅</div>Nenhum prazo pendente.</div>'}
+        ${concluidos.length?`<div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:22px 0 10px">Concluídos</div>${concluidos.map(prazoCard).join('')}`:''}
+      </div>
+      ${calendarHTML(items, state.cal, 'calNav', 'calSelectDay')}
+    </div>`;
 }
 
 /* ============================================================
@@ -953,7 +1108,7 @@ function tabVisao(p){
     const ic = DISC_ICONS[d.nome]||{i:'📁',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
     return `
     <div class="card disc" onclick="setTab('versoes')">
-      <div class="d-ico" style="background:${ic.bg};color:${ic.c}">${ic.i}</div>
+      <div class="d-ico" style="background:${ic.bg};color:${ic.c}">${d.nome[0].toUpperCase()}</div>
       <div class="d-body">
         <b>${d.nome}</b>
         <div class="d-meta">
@@ -1009,7 +1164,7 @@ function tabVersoes(p){
     return `
       <div class="card" style="margin-bottom:16px;overflow:hidden">
         <div style="display:flex;align-items:center;gap:11px;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--card-2)">
-          <div class="d-ico" style="width:34px;height:34px;border-radius:9px;font-size:15px;background:${ic.bg};color:${ic.c}">${ic.i}</div>
+          <div class="d-ico" style="width:34px;height:34px;border-radius:9px;font-size:15px;font-weight:800;background:${ic.bg};color:${ic.c}">${d.nome[0].toUpperCase()}</div>
           <b style="font-size:14.5px;color:var(--ink)">${d.nome}</b>
           ${badge(d.status)}
           ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
@@ -1038,7 +1193,10 @@ function tabAtas(p){
   return `
     <div class="page-head" style="margin-bottom:18px">
       <div><h1 style="font-size:18px">Atas de reunião</h1></div>
-      <div class="ph-actions">${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewAta()">+ Nova ata</button>':''}</div>
+      <div class="ph-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openObraCalendar('${p.id}')">📅 Ver calendário</button>
+        ${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewAta()">+ Nova ata</button>':''}
+      </div>
     </div>
     <div class="tline">${nodes||'<div class="empty">Sem atas registradas.</div>'}</div>`;
 }
@@ -1079,8 +1237,7 @@ function tabChat(p){
       </div>
     </div>`).join('');
   const tabsHtml = discs.map(x=>{
-    const ic = DISC_ICONS[x.nome]||{i:'📁',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
-    return `<div class="chat-tab ${x.nome===d.nome?'active':''}" onclick="setChatDisc('${x.nome.replace(/'/g,"\\'")}')">${ic.i} ${x.nome}${(x.chat||[]).length?`<span class="cnt">${x.chat.length}</span>`:''}</div>`;
+    return `<div class="chat-tab ${x.nome===d.nome?'active':''}" onclick="setChatDisc('${x.nome.replace(/'/g,"\\'")}')">${x.nome}${(x.chat||[]).length?`<span class="cnt">${x.chat.length}</span>`:''}</div>`;
   }).join('');
   return `
     <div class="page-head" style="margin-bottom:14px">
@@ -1265,7 +1422,10 @@ function viewPessoas(){
    MODAIS
    ============================================================ */
 function openModal(html){ document.getElementById('modal-mount').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()">${html}</div>`; }
-function closeModal(){ document.getElementById('modal-mount').innerHTML=''; }
+function closeModal(){
+  if(document.fullscreenElement) document.exitFullscreen();
+  document.getElementById('modal-mount').innerHTML='';
+}
 
 function modalNewVersion(){
   const p=proj();
@@ -1629,6 +1789,7 @@ async function updateProject(obraId){
    ============================================================ */
 let pdfState = null;
 let pendingAnot = null;
+const PDF_BASE_SCALE = 1.4;
 
 function findArquivo(arquivoId){
   for(const d of projects.flatMap(p=>p.disciplinas)){
@@ -1656,6 +1817,12 @@ async function openPdfViewer(arquivoId, page){
         <span id="pdf-page-info">— / —</span>
         <button class="icon-btn" onclick="pdfNextPage()">▶</button>
       </div>
+      <div class="pdf-zoom">
+        <button class="icon-btn" onclick="pdfZoomOut()">−</button>
+        <span id="pdf-zoom-info" onclick="pdfZoomReset()" title="Redefinir zoom">100%</span>
+        <button class="icon-btn" onclick="pdfZoomIn()">+</button>
+      </div>
+      <button class="icon-btn" onclick="pdfToggleFullscreen()" title="Tela cheia">⛶</button>
       <button class="icon-btn" onclick="closeModal()">✕</button>
     </div>
     <div class="pdf-body" id="pdf-body">
@@ -1666,7 +1833,7 @@ async function openPdfViewer(arquivoId, page){
     </div>
   </div>`);
 
-  pdfState = {arquivoId, anotacoes:ar.anotacoes||[], doc:null, pageNum:page||1, pageCount:1};
+  pdfState = {arquivoId, anotacoes:ar.anotacoes||[], doc:null, pageNum:page||1, pageCount:1, scale:PDF_BASE_SCALE};
   const loadingTask = pdfjsLib.getDocument(signed.signedUrl);
   pdfState.doc = await loadingTask.promise;
   pdfState.pageCount = pdfState.doc.numPages;
@@ -1681,15 +1848,29 @@ function openPdfViewerFromFeedback(arquivoId, pagina){
 
 async function renderPdfPage(){
   const page = await pdfState.doc.getPage(pdfState.pageNum);
-  const viewport = page.getViewport({scale:1.4});
+  const viewport = page.getViewport({scale:pdfState.scale});
   const canvas = document.getElementById('pdf-canvas');
   const ctx = canvas.getContext('2d');
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   await page.render({canvasContext:ctx, viewport}).promise;
   document.getElementById('pdf-page-info').textContent = `${pdfState.pageNum} / ${pdfState.pageCount}`;
+  const zoomInfo = document.getElementById('pdf-zoom-info');
+  if(zoomInfo) zoomInfo.textContent = Math.round(pdfState.scale/PDF_BASE_SCALE*100)+'%';
   closePdfPopup();
   renderPdfPins();
+}
+function pdfZoomIn(){ pdfState.scale = Math.min(3.4, +(pdfState.scale+0.2).toFixed(2)); renderPdfPage(); }
+function pdfZoomOut(){ pdfState.scale = Math.max(0.6, +(pdfState.scale-0.2).toFixed(2)); renderPdfPage(); }
+function pdfZoomReset(){ pdfState.scale = PDF_BASE_SCALE; renderPdfPage(); }
+function pdfToggleFullscreen(){
+  const el = document.querySelector('.pdf-modal');
+  if(!el) return;
+  if(!document.fullscreenElement){
+    (el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen).call(el);
+  } else {
+    (document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen).call(document);
+  }
 }
 function pdfPrevPage(){ if(pdfState.pageNum>1){ pdfState.pageNum--; renderPdfPage(); } }
 function pdfNextPage(){ if(pdfState.pageNum<pdfState.pageCount){ pdfState.pageNum++; renderPdfPage(); } }
