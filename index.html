@@ -179,11 +179,6 @@
   .b-gray{background:var(--gray-bg);color:var(--gray)}
   .b-red{background:var(--red-bg);color:var(--red)}
 
-  .chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:600;background:var(--gray-bg);color:var(--ink-2)}
-  .chip.ifc{background:rgba(91,155,255,.18);color:#8fb4ff}
-  .chip.dwg{background:rgba(245,160,66,.18);color:#f0b056}
-  .chip.pdf{background:rgba(255,107,107,.18);color:#ff8f8f}
-  .chip.rvt{background:rgba(61,220,151,.18);color:#5fe0ad}
 
   .section-title{font-size:13px;font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.6px;margin:0 0 12px}
 
@@ -225,7 +220,6 @@
   .vbody{flex:1;min-width:0}
   .vbody b{font-size:14px;color:var(--ink)}
   .vmeta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:12px;flex-wrap:wrap}
-  .vfiles{display:flex;gap:6px;flex-wrap:wrap}
   .drive-link{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;font-weight:600;color:var(--ink);background:var(--card);transition:.13s}
   .drive-link:hover{border-color:var(--blue);color:#8fb4ff;background:rgba(91,140,255,.12)}
   .drive-ico{width:18px;height:18px}
@@ -369,6 +363,10 @@
         <div class="field" style="margin-bottom:12px">
           <input id="email" type="email" placeholder="seu@email.com" />
         </div>
+        <label class="login-mini" style="display:flex;align-items:center;gap:8px;justify-content:center;cursor:pointer;margin-bottom:14px">
+          <input type="checkbox" id="remember-device" style="width:15px;height:15px;accent-color:var(--blue)">
+          Manter conectado neste dispositivo
+        </label>
         <button class="btn btn-primary" id="btn-send-magic" onclick="sendMagicLink()">Receber link de acesso</button>
         <div class="login-mini">Acesso privado · você recebe um link no seu e-mail.</div>
       </div>
@@ -450,7 +448,15 @@
    ============================================================ */
 const SUPABASE_URL = 'https://ctkbfvalqfcjebxfylry.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_wPNwxdMjtFzdp2UcExI3UA_P9ULTDyw';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const REMEMBER_KEY = 'dib_remember_device';
+const remembered = localStorage.getItem(REMEMBER_KEY) !== '0';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    storage: remembered ? window.localStorage : window.sessionStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+  }
+});
 
 let session = null;
 let profile = null;
@@ -466,7 +472,6 @@ const STATUS = {
   pend:   {cls:'b-gray',   label:'Pendente'},
   redo:   {cls:'b-red',    label:'Revisar'},
 };
-const FILE_CLS = {IFC:'ifc',DWG:'dwg',PDF:'pdf',RVT:'rvt'};
 
 const DISC_ICONS = {
   'Arquitetura':{i:'🏛️',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'},
@@ -612,7 +617,6 @@ function proj(){ return projects.find(p=>p.id===state.projId); }
 
 /* ---------- helpers ---------- */
 function badge(st){ const s=STATUS[st]; return `<span class="badge ${s.cls}"><span class="bdot"></span>${s.label}</span>`; }
-function fileChips(files){ return files.map(f=>`<span class="chip ${FILE_CLS[f]}">▤ ${f}</span>`).join(''); }
 function allVersions(p){ return p.disciplinas.flatMap(d=>d.versoes.map(v=>({...v,disc:d.nome}))); }
 function countVersions(p){ return allVersions(p).length; }
 function allFeedbacks(p){ return p.disciplinas.flatMap(d=>d.versoes.flatMap(v=>(v.fb||[]).map(f=>({...f,disc:d.nome,ver:v.v})))); }
@@ -635,7 +639,10 @@ function projCard(p){
     return `
     <div class="card" style="cursor:pointer;overflow:hidden;position:relative" onclick="openProj('${p.id}')">
       <div style="height:6px;background:${p.cor}"></div>
-      ${isControlador()?`<button class="icon-btn" title="Excluir obra" style="position:absolute;top:14px;right:14px;background:var(--card)" onclick="event.stopPropagation();deleteObra('${p.id}')">🗑</button>`:''}
+      ${isControlador()?`<div style="position:absolute;top:14px;right:14px;display:flex;gap:6px">
+        <button class="icon-btn" title="Editar obra" style="background:var(--card)" onclick="event.stopPropagation();modalEditProject('${p.id}')">✎</button>
+        <button class="icon-btn" title="Excluir obra" style="background:var(--card)" onclick="event.stopPropagation();deleteObra('${p.id}')">🗑</button>
+      </div>`:''}
       <div class="card-pad">
         <div style="display:flex;align-items:center;gap:12px">
           <div class="proj-thumb" style="width:42px;height:42px;border-radius:11px;font-size:16px;background:${p.cor}">${p.nome[0]}</div>
@@ -666,14 +673,15 @@ function projCard(p){
    ============================================================ */
 function viewProj(){
   const p = proj();
+  if(state.tab==='acessos' && !isControlador()) state.tab='visao';
   const tabs = [
     {id:'visao', label:'Visão geral'},
     {id:'versoes', label:'Versões', cnt:countVersions(p)},
     {id:'atas', label:'Atas de reunião', cnt:p.atas.length},
     {id:'feedbacks', label:'Feedbacks', cnt:countFeedbacks(p)},
     {id:'chat', label:'Chat', cnt:countChat(p)},
-    {id:'acessos', label:'Acessos', cnt:peopleOf(p).length},
   ];
+  if(isControlador()) tabs.push({id:'acessos', label:'Acessos', cnt:peopleOf(p).length});
   const hero = `
     <div class="proj-hero">
       <div class="grid-bg"></div>
@@ -737,7 +745,6 @@ function tabVersoes(p){
           <b>${v.titulo}</b>
           <div class="vmeta"><span>👤 ${v.autor}</span><span>📅 ${v.data}</span></div>
         </div>
-        <div class="vfiles">${fileChips(v.files)}</div>
         ${badge(v.status)}
         <a class="drive-link" href="${v.drive}" onclick="openDrive(event)">
           <svg class="drive-ico" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path fill="#0066da" d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z"/><path fill="#00ac47" d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z"/><path fill="#ea4335" d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z"/><path fill="#00832d" d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z"/><path fill="#2684fc" d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z"/><path fill="#ffba00" d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z"/></svg>
@@ -991,11 +998,6 @@ function modalNewVersion(){
       <div class="field"><label>Disciplina</label><select id="m-disc">${opts}</select></div>
       <div class="field"><label>Título da versão</label><input id="m-title" placeholder="Ex.: Executivo — revisão de layout"/></div>
       <div class="field"><label>Link do Google Drive (pasta ou arquivo)</label><input id="m-drive" placeholder="https://drive.google.com/..."/></div>
-      <div class="field"><label>Tipos de arquivo</label>
-        <div class="checks">
-          ${['IFC','DWG','PDF','RVT'].map(f=>`<label class="check" onclick="this.classList.toggle('on')"><input type="checkbox" value="${f}"> ${f}</label>`).join('')}
-        </div>
-      </div>
       <div class="field"><label>Status inicial</label><select id="m-status">
         ${Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}
       </select></div>
@@ -1007,13 +1009,12 @@ async function saveVersion(){
   const p=proj();
   const discName=document.getElementById('m-disc').value;
   const title=document.getElementById('m-title').value||'Nova versão';
-  const files=[...document.querySelectorAll('.checks input:checked')].map(i=>i.value);
   const status=document.getElementById('m-status').value;
   const drive=document.getElementById('m-drive').value||'#';
   const d=p.disciplinas.find(x=>x.nome===discName);
   const {error}=await sb.from('versoes').insert({
     disciplina_id:d.id, titulo:title, autor_nome:profile.nome, status,
-    files:files.length?files:['PDF'], drive_url:drive, created_by:session.user.id
+    drive_url:drive, created_by:session.user.id
   });
   if(error){toast('Erro ao salvar versão: '+error.message);return;}
   if(isControlador()){
@@ -1188,6 +1189,26 @@ async function saveProject(){
   closeModal(); await loadData(); openProj(data.id); toast('Projeto criado ✓');
 }
 
+function modalEditProject(obraId){
+  const p=projects.find(x=>x.id===obraId);
+  openModal(`<div class="modal">
+    <div class="modal-head"><h3>Editar obra</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Nome da obra</label><input id="p-name" value="${p.nome}" placeholder="Ex.: Perimetral"/></div>
+      <div class="field"><label>Local</label><input id="p-local" value="${p.local}" placeholder="Ex.: Rio de Janeiro · RJ"/></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="updateProject('${obraId}')">Salvar alterações</button></div>
+  </div>`);
+}
+async function updateProject(obraId){
+  const nome=document.getElementById('p-name').value.trim();
+  const local=document.getElementById('p-local').value.trim();
+  if(!nome){toast('Informe o nome da obra');return;}
+  const {error}=await sb.from('obras').update({nome,local}).eq('id',obraId);
+  if(error){toast('Erro ao atualizar obra: '+error.message);return;}
+  closeModal(); await loadData(); render(); toast('Obra atualizada ✓');
+}
+
 /* ============================================================
    UTIL
    ============================================================ */
@@ -1209,6 +1230,8 @@ function showStep(id){
 async function sendMagicLink(){
   const em=document.getElementById('email').value.trim().toLowerCase();
   if(!em||!em.includes('@')){toast('Digite um e-mail válido');return;}
+  const remember=document.getElementById('remember-device').checked;
+  localStorage.setItem(REMEMBER_KEY, remember?'1':'0');
   const btn=document.getElementById('btn-send-magic');
   btn.disabled=true; btn.textContent='Enviando...';
   const {error}=await sb.auth.signInWithOtp({
@@ -1224,6 +1247,7 @@ async function sendMagicLink(){
 function showLogin(){
   document.getElementById('app').classList.add('hide');
   document.getElementById('login').classList.remove('hide');
+  document.getElementById('remember-device').checked = remembered;
   showStep('login-step1');
 }
 
