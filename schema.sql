@@ -105,8 +105,6 @@ create table if not exists public.versoes (
   autor_nome    text,
   status        text not null
                 check (status in ('dev','wait','review','ok','pend','redo')),
-  files         text[] not null default '{}',
-  drive_url     text,
   created_by    uuid references public.profiles(id) on delete set null,
   created_at    timestamptz not null default now()
 );
@@ -197,6 +195,65 @@ create table if not exists public.notif_dismissals (
 
 
 -- ============================================================
+-- 9c) VERSAO_ARQUIVOS — uma versão pode ter vários PDFs e/ou
+--     links externos
+-- ============================================================
+create table if not exists public.versao_arquivos (
+  id         uuid primary key default gen_random_uuid(),
+  versao_id  uuid not null references public.versoes(id) on delete cascade,
+  tipo       text not null check (tipo in ('pdf','link')),
+  nome       text not null,
+  path       text, -- caminho no storage (tipo='pdf')
+  url        text, -- link externo (tipo='link')
+  ordem      int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists versao_arquivos_versao_id_idx on public.versao_arquivos(versao_id);
+
+
+-- ============================================================
+-- 9d) PDF_ANOTACOES — comentários (pins coloridos) sobre um
+--     PDF, em uma página/posição específica
+-- ============================================================
+create table if not exists public.pdf_anotacoes (
+  id         uuid primary key default gen_random_uuid(),
+  arquivo_id uuid not null references public.versao_arquivos(id) on delete cascade,
+  pagina     int not null default 1,
+  x          numeric not null,
+  y          numeric not null,
+  cor        text not null default '#f5b942',
+  texto      text not null,
+  autor_id   uuid references public.profiles(id) on delete set null,
+  autor_nome text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists pdf_anotacoes_arquivo_id_idx on public.pdf_anotacoes(arquivo_id);
+
+
+-- ============================================================
+-- 9e) MIGRAÇÃO — links antigos (versoes.drive_url) viram
+--     registros em versao_arquivos; colunas legadas removidas
+-- ============================================================
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='versoes' and column_name='drive_url') then
+    insert into public.versao_arquivos (versao_id, tipo, nome, url, ordem)
+    select id, 'link', 'Link', drive_url, 0
+    from public.versoes
+    where drive_url is not null and drive_url <> '#' and drive_url <> '';
+
+    alter table public.versoes drop column drive_url;
+  end if;
+
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='versoes' and column_name='files') then
+    alter table public.versoes drop column files;
+  end if;
+end $$;
+
+
+-- ============================================================
 -- 10) FUNÇÕES DE APOIO PARA RLS
 --     security definer + search_path fixo: rodam com privilégio
 --     do dono (postgres), que tem BYPASSRLS, evitando recursão.
@@ -245,6 +302,36 @@ as $$
       where oa.user_id = auth.uid() and d.id = p_disciplina_id
     );
 $$;
+
+
+-- ============================================================
+-- 10b) STORAGE — bucket privado para os PDFs das versões
+--      Caminho de cada arquivo: {disciplina_id}/{versao_id}/arquivo
+-- ============================================================
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('versao-arquivos', 'versao-arquivos', false, 52428800)
+on conflict (id) do nothing;
+
+drop policy if exists versao_arquivos_storage_select on storage.objects;
+create policy versao_arquivos_storage_select on storage.objects
+  for select using (
+    bucket_id = 'versao-arquivos'
+    and public.has_disciplina_access((storage.foldername(name))[1]::uuid)
+  );
+
+drop policy if exists versao_arquivos_storage_insert on storage.objects;
+create policy versao_arquivos_storage_insert on storage.objects
+  for insert with check (
+    bucket_id = 'versao-arquivos'
+    and public.has_disciplina_access((storage.foldername(name))[1]::uuid)
+  );
+
+drop policy if exists versao_arquivos_storage_delete on storage.objects;
+create policy versao_arquivos_storage_delete on storage.objects
+  for delete using (
+    bucket_id = 'versao-arquivos'
+    and public.has_disciplina_access((storage.foldername(name))[1]::uuid)
+  );
 
 
 -- ============================================================
@@ -310,6 +397,8 @@ alter table public.versao_feedback enable row level security;
 alter table public.disciplina_chat enable row level security;
 alter table public.atas            enable row level security;
 alter table public.notif_dismissals enable row level security;
+alter table public.versao_arquivos enable row level security;
+alter table public.pdf_anotacoes   enable row level security;
 
 -- ---- profiles ----
 drop policy if exists profiles_select on public.profiles;
@@ -499,6 +588,57 @@ drop policy if exists notif_dismissals_delete on public.notif_dismissals;
 create policy notif_dismissals_delete on public.notif_dismissals
   for delete using (user_id = auth.uid());
 
+-- ---- versao_arquivos ----
+drop policy if exists versao_arquivos_select on public.versao_arquivos;
+create policy versao_arquivos_select on public.versao_arquivos
+  for select using (
+    exists(select 1 from public.versoes v where v.id = versao_id and public.has_disciplina_access(v.disciplina_id))
+  );
+
+drop policy if exists versao_arquivos_insert on public.versao_arquivos;
+create policy versao_arquivos_insert on public.versao_arquivos
+  for insert with check (
+    exists(select 1 from public.versoes v where v.id = versao_id and public.has_disciplina_access(v.disciplina_id))
+  );
+
+drop policy if exists versao_arquivos_delete on public.versao_arquivos;
+create policy versao_arquivos_delete on public.versao_arquivos
+  for delete using (
+    public.is_controlador()
+    or exists(select 1 from public.versoes v where v.id = versao_id and v.created_by = auth.uid())
+  );
+
+-- ---- pdf_anotacoes ----
+drop policy if exists pdf_anotacoes_select on public.pdf_anotacoes;
+create policy pdf_anotacoes_select on public.pdf_anotacoes
+  for select using (
+    exists(
+      select 1 from public.versao_arquivos va
+      join public.versoes v on v.id = va.versao_id
+      where va.id = arquivo_id and public.has_disciplina_access(v.disciplina_id)
+    )
+  );
+
+drop policy if exists pdf_anotacoes_insert on public.pdf_anotacoes;
+create policy pdf_anotacoes_insert on public.pdf_anotacoes
+  for insert with check (
+    autor_id = auth.uid()
+    and exists(
+      select 1 from public.versao_arquivos va
+      join public.versoes v on v.id = va.versao_id
+      where va.id = arquivo_id and public.has_disciplina_access(v.disciplina_id)
+    )
+  );
+
+drop policy if exists pdf_anotacoes_update on public.pdf_anotacoes;
+create policy pdf_anotacoes_update on public.pdf_anotacoes
+  for update using (autor_id = auth.uid() or public.is_controlador())
+  with check (autor_id = auth.uid() or public.is_controlador());
+
+drop policy if exists pdf_anotacoes_delete on public.pdf_anotacoes;
+create policy pdf_anotacoes_delete on public.pdf_anotacoes
+  for delete using (autor_id = auth.uid() or public.is_controlador());
+
 
 -- ============================================================
 -- 12b) GRANTS — privilégios de tabela para o role authenticated
@@ -518,6 +658,8 @@ grant select, insert, update, delete on public.versao_feedback to authenticated;
 grant select, insert, update, delete on public.disciplina_chat to authenticated;
 grant select, insert, update, delete on public.atas to authenticated;
 grant select, insert, delete on public.notif_dismissals to authenticated;
+grant select, insert, delete on public.versao_arquivos to authenticated;
+grant select, insert, update, delete on public.pdf_anotacoes to authenticated;
 
 
 -- ============================================================
@@ -556,16 +698,16 @@ insert into public.disciplinas (id, obra_id, nome, status, aguardando, ordem) va
 on conflict (id) do nothing;
 
 -- versões (numero explícito para refletir a ordem cronológica v1..vN)
-insert into public.versoes (id, disciplina_id, numero, titulo, data, autor_nome, status, files, drive_url) values
-  ('c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 1, 'Estudo preliminar aprovado',              '2026-05-02', 'Meta Arquitetura', 'ok',     array['PDF'],            '#'),
-  ('c0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', 2, 'Compatibilização com estrutura',          '2026-05-21', 'Meta Arquitetura', 'ok',     array['IFC','DWG'],      '#'),
-  ('c0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 3, 'Projeto executivo — revisão de layout',   '2026-06-05', 'Meta Arquitetura', 'review', array['IFC','DWG','PDF'],'#'),
-  ('c0000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000002', 1, 'Pré-dimensionamento',                     '2026-05-10', 'Eng. Ricardo Sá',  'ok',     array['PDF'],            '#'),
-  ('c0000000-0000-0000-0000-000000000005', 'b0000000-0000-0000-0000-000000000002', 2, 'Lançamento de pilares e vigas',           '2026-05-28', 'Eng. Ricardo Sá',  'wait',   array['IFC','DWG'],      '#'),
-  ('c0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000003', 1, 'Conceito de fachada ventilada',           '2026-05-30', 'Studio Fachadas',  'dev',    array['PDF'],            '#'),
-  ('c0000000-0000-0000-0000-000000000007', 'b0000000-0000-0000-0000-000000000005', 1, 'Estudo de implantação',                   '2026-05-18', 'Meta Arquitetura', 'ok',     array['PDF'],            '#'),
-  ('c0000000-0000-0000-0000-000000000008', 'b0000000-0000-0000-0000-000000000005', 2, 'Plantas com ajustes do cliente',          '2026-06-03', 'Meta Arquitetura', 'dev',    array['DWG','PDF'],      '#'),
-  ('c0000000-0000-0000-0000-000000000009', 'b0000000-0000-0000-0000-000000000006', 1, 'Proposta de revestimento em pedra',       '2026-05-31', 'Studio Fachadas',  'review', array['IFC','PDF'],      '#')
+insert into public.versoes (id, disciplina_id, numero, titulo, data, autor_nome, status) values
+  ('c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 1, 'Estudo preliminar aprovado',              '2026-05-02', 'Meta Arquitetura', 'ok'),
+  ('c0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', 2, 'Compatibilização com estrutura',          '2026-05-21', 'Meta Arquitetura', 'ok'),
+  ('c0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 3, 'Projeto executivo — revisão de layout',   '2026-06-05', 'Meta Arquitetura', 'review'),
+  ('c0000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000002', 1, 'Pré-dimensionamento',                     '2026-05-10', 'Eng. Ricardo Sá',  'ok'),
+  ('c0000000-0000-0000-0000-000000000005', 'b0000000-0000-0000-0000-000000000002', 2, 'Lançamento de pilares e vigas',           '2026-05-28', 'Eng. Ricardo Sá',  'wait'),
+  ('c0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000003', 1, 'Conceito de fachada ventilada',           '2026-05-30', 'Studio Fachadas',  'dev'),
+  ('c0000000-0000-0000-0000-000000000007', 'b0000000-0000-0000-0000-000000000005', 1, 'Estudo de implantação',                   '2026-05-18', 'Meta Arquitetura', 'ok'),
+  ('c0000000-0000-0000-0000-000000000008', 'b0000000-0000-0000-0000-000000000005', 2, 'Plantas com ajustes do cliente',          '2026-06-03', 'Meta Arquitetura', 'dev'),
+  ('c0000000-0000-0000-0000-000000000009', 'b0000000-0000-0000-0000-000000000006', 1, 'Proposta de revestimento em pedra',       '2026-05-31', 'Studio Fachadas',  'review')
 on conflict (id) do nothing;
 
 -- feedback por versão

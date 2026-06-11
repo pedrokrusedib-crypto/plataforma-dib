@@ -322,6 +322,47 @@
   .chat-input input{flex:1;border:1.5px solid var(--line);border-radius:10px;padding:11px 14px;outline:none}
   .chat-input input:focus{border-color:var(--blue)}
 
+  /* ---------- attachments (PDFs / links) ---------- */
+  .vattach{padding:0 16px 14px 70px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .attach-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;font-size:12px;font-weight:600;color:var(--ink-2);background:var(--card-2);cursor:pointer;transition:.13s}
+  .attach-chip:hover{border-color:var(--blue);color:#8fb4ff}
+  .attach-chip.add{cursor:pointer;border-style:dashed;color:var(--muted)}
+  .attach-chip.add:hover{color:#8fb4ff}
+  .attach-chip .anot-count{background:var(--amber);color:#3a2a05;border-radius:8px;padding:0 5px;font-size:10.5px;font-weight:800}
+  .attach-chip .chip-x{margin-left:2px;color:var(--muted);font-weight:700}
+  .attach-chip .chip-x:hover{color:var(--red)}
+
+  .dropzone{border:1.5px dashed var(--line);border-radius:10px;padding:22px;text-align:center;cursor:pointer;color:var(--muted);transition:.13s}
+  .dropzone:hover,.dropzone.dragover{border-color:var(--blue);color:#8fb4ff;background:rgba(91,140,255,.08)}
+  .dz-ico{font-size:24px;margin-bottom:6px}
+  .file-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .file-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card-2)}
+  .chip-x{cursor:pointer;color:var(--muted);font-weight:700;padding:0 4px}
+  .chip-x:hover{color:var(--red)}
+  .link-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+  .link-row input{flex:1;padding:9px 11px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);font-size:12.5px}
+  .link-row input:focus{border-color:var(--blue);outline:none}
+
+  .fb-anot-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-left:2px;border:1px solid rgba(255,255,255,.3)}
+
+  /* ---------- PDF viewer ---------- */
+  .pdf-modal{background:var(--card);border-radius:16px;width:100%;max-width:960px;height:90vh;box-shadow:var(--shadow-lg);overflow:hidden;display:flex;flex-direction:column;animation:pop .18s ease}
+  .pdf-toolbar{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+  .pdf-toolbar b{flex:1;font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pdf-nav{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2)}
+  .pdf-body{flex:1;overflow:auto;background:var(--canvas);display:flex;justify-content:center;padding:20px}
+  .pdf-canvas-wrap{position:relative;display:inline-block;cursor:crosshair;height:fit-content}
+  .pdf-canvas-wrap canvas{display:block;box-shadow:var(--shadow-lg)}
+  .pdf-pin{position:absolute;width:20px;height:20px;border-radius:50% 50% 50% 0;transform:translate(-50%,-100%) rotate(45deg);border:2px solid rgba(0,0,0,.3);cursor:pointer}
+  .pdf-popup{position:absolute;z-index:10;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);padding:12px;width:240px}
+  .pdf-popup textarea{width:100%;min-height:60px;padding:8px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);resize:vertical;font-size:12.5px;color:var(--ink)}
+  .pdf-colors{display:flex;gap:6px;margin:8px 0}
+  .pdf-color{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent}
+  .pdf-color.sel{border-color:var(--ink)}
+  .pdf-popup-foot{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
+  .pdf-popup small{color:var(--muted);display:block;margin-bottom:6px}
+  .pdf-popup p{font-size:12.5px;color:var(--ink-2);max-height:120px;overflow-y:auto}
+
   .scrim{display:none}
 
   /* ---------- RESPONSIVE ---------- */
@@ -445,7 +486,10 @@
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
 /* ============================================================
    SUPABASE
    ============================================================ */
@@ -489,6 +533,71 @@ let people = [];
 let projects = [];
 let dismissedNotifs = new Set();
 
+const ANOT_COLORS = ['#f5b942','#ff6b6b','#3ddc97','#5b8cff','#a78bfa'];
+
+/* ============================================================
+   ANEXOS (PDFs / links) — estado dos modais de upload
+   ============================================================ */
+let pendingFiles = [];
+let pendingLinks = [];
+
+function sanitizeFilename(name){ return name.replace(/[^\w.\-]+/g,'_'); }
+
+function attachFieldsHtml(){
+  return `
+    <div class="field">
+      <label>Arquivos PDF</label>
+      <div class="dropzone" id="pdf-dropzone" onclick="document.getElementById('pdf-input').click()"
+           ondragover="event.preventDefault();this.classList.add('dragover')"
+           ondragleave="this.classList.remove('dragover')"
+           ondrop="onDropzoneDrop(event)">
+        <div class="dz-ico">📄</div>
+        <div>Arraste arquivos PDF aqui ou clique para selecionar</div>
+      </div>
+      <input type="file" id="pdf-input" accept="application/pdf" multiple style="display:none" onchange="onPdfInputChange(event)">
+      <div class="file-list" id="pdf-file-list"></div>
+    </div>
+    <div class="field">
+      <label>Links externos (Drive, etc.)</label>
+      <div id="link-list"></div>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="addPendingLink()">+ Link</button>
+    </div>`;
+}
+
+function renderPendingFiles(){
+  const el = document.getElementById('pdf-file-list');
+  if(!el) return;
+  el.innerHTML = pendingFiles.map((f,i)=>`<div class="file-chip">📄 ${f.name}<span class="chip-x" onclick="removePendingFile(${i})">✕</span></div>`).join('');
+}
+function addPendingFiles(fileList){
+  for(const f of fileList){
+    if(f.type==='application/pdf' || f.name.toLowerCase().endsWith('.pdf')) pendingFiles.push(f);
+  }
+  renderPendingFiles();
+}
+function removePendingFile(i){ pendingFiles.splice(i,1); renderPendingFiles(); }
+function onDropzoneDrop(e){
+  e.preventDefault(); e.currentTarget.classList.remove('dragover');
+  addPendingFiles(e.dataTransfer.files);
+}
+function onPdfInputChange(e){
+  addPendingFiles(e.target.files);
+  e.target.value='';
+}
+
+function renderPendingLinks(){
+  const el = document.getElementById('link-list');
+  if(!el) return;
+  el.innerHTML = pendingLinks.map((l,i)=>`
+    <div class="link-row">
+      <input placeholder="Nome do link" value="${l.nome}" oninput="pendingLinks[${i}].nome=this.value">
+      <input placeholder="https://..." value="${l.url}" oninput="pendingLinks[${i}].url=this.value">
+      <span class="chip-x" onclick="removePendingLink(${i})">✕</span>
+    </div>`).join('');
+}
+function addPendingLink(){ pendingLinks.push({nome:'',url:''}); renderPendingLinks(); }
+function removePendingLink(i){ pendingLinks.splice(i,1); renderPendingLinks(); }
+
 const DEFAULT_COR = 'linear-gradient(135deg,#5b6b85,#34404f)';
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 
@@ -514,7 +623,7 @@ function relativeTime(ts){
    CARREGAMENTO DE DADOS (Supabase)
    ============================================================ */
 async function loadData(){
-  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes] = await Promise.all([
+  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes, arquivosRes, anotacoesRes] = await Promise.all([
     sb.from('obras').select('*').order('ordem'),
     sb.from('disciplinas').select('*').order('ordem'),
     sb.from('versoes').select('*'),
@@ -526,9 +635,11 @@ async function loadData(){
     sb.from('invites').select('*'),
     sb.from('invite_obras').select('*'),
     sb.from('notif_dismissals').select('notif_key'),
+    sb.from('versao_arquivos').select('*').order('ordem'),
+    sb.from('pdf_anotacoes').select('*').order('created_at'),
   ]);
 
-  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes,notif_dismissals:notifDismissalsRes})){
+  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes,notif_dismissals:notifDismissalsRes,versao_arquivos:arquivosRes,pdf_anotacoes:anotacoesRes})){
     if(res.error) console.error(`Erro ao carregar ${nome}:`, res.error);
   }
   dismissedNotifs = new Set((notifDismissalsRes.data||[]).map(r=>r.notif_key));
@@ -543,6 +654,8 @@ async function loadData(){
   const accessRows = accessRes.data||[];
   const invitesRows = invitesRes.data||[];
   const inviteObrasRows = inviteObrasRes.data||[];
+  const arquivosRows = arquivosRes.data||[];
+  const anotacoesRows = anotacoesRes.data||[];
 
   const profileById = Object.fromEntries(profRows.map(p=>[p.id,p]));
   function authorInfo(autorId, autorNome){
@@ -559,7 +672,14 @@ async function loadData(){
             const a = authorInfo(f.autor_id, f.autor_nome);
             return {id:f.id, autor:a.nome, cor:a.cor, ini:initials(a.nome), quando:relativeTime(f.created_at), texto:f.texto};
           });
-          return {id:v.id, v:'v'+v.numero, titulo:v.titulo, data:formatDate(v.data), autor:v.autor_nome||'—', status:v.status, files:v.files||[], drive:v.drive_url||'#', fb, created_by:v.created_by};
+          const arquivos = arquivosRows.filter(ar=>ar.versao_id===v.id).map(ar=>{
+            const anotacoes = anotacoesRows.filter(an=>an.arquivo_id===ar.id).map(an=>{
+              const a = authorInfo(an.autor_id, an.autor_nome);
+              return {id:an.id, pagina:an.pagina, x:an.x, y:an.y, cor:an.cor, texto:an.texto, autor:a.nome, autorCor:a.cor, ini:initials(a.nome), quando:relativeTime(an.created_at), autor_id:an.autor_id};
+            });
+            return {id:ar.id, tipo:ar.tipo, nome:ar.nome, path:ar.path, url:ar.url, ordem:ar.ordem, anotacoes};
+          });
+          return {id:v.id, v:'v'+v.numero, titulo:v.titulo, data:formatDate(v.data), autor:v.autor_nome||'—', status:v.status, arquivos, fb, created_by:v.created_by};
         });
       const chat = chatRows.filter(c=>c.disciplina_id===d.id).map(c=>{
         const a = authorInfo(c.autor_id, c.autor_nome);
@@ -638,7 +758,14 @@ function versaoVigente(d){
 }
 function allVersions(p){ return p.disciplinas.flatMap(d=>d.versoes.map(v=>({...v,disc:d.nome}))); }
 function countVersions(p){ return allVersions(p).length; }
-function allFeedbacks(p){ return p.disciplinas.flatMap(d=>d.versoes.flatMap(v=>(v.fb||[]).map(f=>({...f,disc:d.nome,ver:v.v})))); }
+function allFeedbacks(p){
+  const fbs = p.disciplinas.flatMap(d=>d.versoes.flatMap(v=>(v.fb||[]).map(f=>({...f,disc:d.nome,ver:v.v,type:'feedback'}))));
+  const anots = p.disciplinas.flatMap(d=>d.versoes.flatMap(v=>(v.arquivos||[]).flatMap(ar=>(ar.anotacoes||[]).map(a=>({
+    id:a.id, autor:a.autor, cor:a.autorCor, ini:a.ini, quando:a.quando, texto:a.texto,
+    disc:d.nome, ver:v.v, type:'pdf', anotCor:a.cor, arquivoId:ar.id, arquivoNome:ar.nome, pagina:a.pagina
+  })))));
+  return [...fbs, ...anots];
+}
 function countFeedbacks(p){ return allFeedbacks(p).length; }
 function countChat(p){ return p.disciplinas.reduce((s,d)=>s+(d.chat||[]).length,0); }
 
@@ -754,6 +881,15 @@ function tabVisao(p){
     <div class="cards grid-2">${cards}</div>`;
 }
 
+function attachChip(ar, d, v){
+  const canEdit = canDeleteVersao(v);
+  if(ar.tipo==='pdf'){
+    const cnt = (ar.anotacoes||[]).length;
+    return `<span class="attach-chip" onclick="openPdfViewer('${ar.id}')">📄 ${ar.nome}${cnt?`<span class="anot-count">${cnt}</span>`:''}${canEdit?`<span class="chip-x" onclick="event.stopPropagation();deleteArquivo('${ar.id}','${ar.path}')">✕</span>`:''}</span>`;
+  }
+  return `<a class="attach-chip" href="${ar.url}" target="_blank" rel="noopener">🔗 ${ar.nome}${canEdit?`<span class="chip-x" onclick="event.preventDefault();event.stopPropagation();deleteArquivo('${ar.id}','')">✕</span>`:''}</a>`;
+}
+
 function tabVersoes(p){
   const blocks = p.disciplinas.map(d=>{
     const ic = DISC_ICONS[d.nome]||{i:'📁',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
@@ -766,12 +902,12 @@ function tabVersoes(p){
           <div class="vmeta"><span>👤 ${v.autor}</span><span>📅 ${v.data}</span></div>
         </div>
         ${isControlador()?statusSelect(v):badge(v.status)}
-        <a class="drive-link" href="${v.drive}" onclick="openDrive(event)">
-          <svg class="drive-ico" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path fill="#0066da" d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z"/><path fill="#00ac47" d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z"/><path fill="#ea4335" d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z"/><path fill="#00832d" d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z"/><path fill="#2684fc" d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z"/><path fill="#ffba00" d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z"/></svg>
-          Abrir no Drive
-        </a>
         <button class="drive-link" onclick="modalVersionFb('${d.nome}','${v.v}')">💬 ${(v.fb||[]).length}</button>
         ${canDeleteVersao(v)?`<button class="icon-btn" title="Excluir versão" onclick="deleteVersao('${v.id}')">🗑</button>`:''}
+      </div>
+      <div class="vattach">
+        ${(v.arquivos||[]).map(ar=>attachChip(ar,d,v)).join('')}
+        <span class="attach-chip add" onclick="modalAddArquivo('${v.id}','${d.id}')">+ arquivo</span>
       </div>
       ${(v.fb&&v.fb.length)?`<div class="vfb">${v.fb.map(f=>`<div class="fb-mini"><div class="avatar" style="background:${f.cor}">${f.ini}</div><div><div class="fb-head"><b>${f.autor}</b><small>· ${f.quando}</small></div><p>${f.texto}</p></div></div>`).join('')}</div>`:''}
       </div>`).join('') : `<div class="empty" style="padding:26px"><div class="e-ico">📂</div>Nenhuma versão ainda nesta disciplina.</div>`;
@@ -782,13 +918,14 @@ function tabVersoes(p){
           <b style="font-size:14.5px;color:var(--ink)">${d.nome}</b>
           ${badge(d.status)}
           <span style="margin-left:auto;font-size:12px;color:var(--muted)">Aguardando: <b style="color:var(--ink)">${d.aguardando}</b></span>
+          ${isControlador()?`<button class="icon-btn" title="Excluir disciplina" onclick="deleteDisciplina('${d.id}','${d.nome}')">🗑</button>`:''}
         </div>
         ${rows}
       </div>`;
   }).join('');
   return `
     <div class="page-head" style="margin-bottom:16px">
-      <div><h1 style="font-size:18px">Versões de projeto</h1><p>Cada versão aponta para a pasta/arquivo no Google Drive (IFC, DWG, PDF…).</p></div>
+      <div><h1 style="font-size:18px">Versões de projeto</h1><p>Cada versão pode ter um ou mais PDFs e/ou links externos.</p></div>
       <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalNewVersion()">+ Nova versão</button></div>
     </div>
     ${blocks}`;
@@ -815,9 +952,11 @@ function tabFeedbacks(p){
     <div class="fb">
       <div class="avatar" style="background:${f.cor}">${f.ini}</div>
       <div class="fb-body">
-        <div class="fb-head"><b>${f.autor}</b><small>· ${f.quando}</small></div>
+        <div class="fb-head"><b>${f.autor}</b>${f.type==='pdf'?`<span class="fb-anot-dot" style="background:${f.anotCor}" title="Anotação no PDF"></span>`:''}<small>· ${f.quando}</small></div>
         <p>${f.texto}</p>
-        <div class="fb-on">📎 sobre <a onclick="setTab('versoes')" style="color:var(--blue);cursor:pointer;font-weight:600">${f.disc} · ${f.ver.toUpperCase()}</a></div>
+        <div class="fb-on">📎 sobre ${f.type==='pdf'
+          ? `<a onclick="openPdfViewerFromFeedback('${f.arquivoId}',${f.pagina})" style="color:var(--blue);cursor:pointer;font-weight:600">${f.disc} · ${f.ver.toUpperCase()} · ${f.arquivoNome} (pág. ${f.pagina})</a>`
+          : `<a onclick="setTab('versoes')" style="color:var(--blue);cursor:pointer;font-weight:600">${f.disc} · ${f.ver.toUpperCase()}</a>`}</div>
       </div>
     </div>`).join('');
   return `
@@ -1022,18 +1161,20 @@ function closeModal(){ document.getElementById('modal-mount').innerHTML=''; }
 function modalNewVersion(){
   const p=proj();
   const opts = p.disciplinas.map(d=>`<option>${d.nome}</option>`).join('');
+  pendingFiles=[]; pendingLinks=[];
   openModal(`<div class="modal">
     <div class="modal-head"><h3>Nova versão</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Disciplina</label><select id="m-disc">${opts}</select></div>
       <div class="field"><label>Título da versão</label><input id="m-title" placeholder="Ex.: Executivo — revisão de layout"/></div>
-      <div class="field"><label>Link do Google Drive (pasta ou arquivo)</label><input id="m-drive" placeholder="https://drive.google.com/..."/></div>
+      ${attachFieldsHtml()}
       ${isControlador()?`<div class="field"><label>Status inicial</label><select id="m-status">
         ${Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}
       </select></div>`:''}
     </div>
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveVersion()">Salvar versão</button></div>
   </div>`);
+  renderPendingFiles(); renderPendingLinks();
 }
 async function saveVersion(){
   const p=proj();
@@ -1041,18 +1182,31 @@ async function saveVersion(){
   const title=document.getElementById('m-title').value||'Nova versão';
   const statusEl=document.getElementById('m-status');
   const status=statusEl?statusEl.value:'review';
-  const drive=document.getElementById('m-drive').value||'#';
   const d=p.disciplinas.find(x=>x.nome===discName);
-  const {error}=await sb.from('versoes').insert({
-    disciplina_id:d.id, titulo:title, autor_nome:profile.nome, status,
-    drive_url:drive, created_by:session.user.id
-  });
+  const {data,error}=await sb.from('versoes').insert({
+    disciplina_id:d.id, titulo:title, autor_nome:profile.nome, status, created_by:session.user.id
+  }).select().single();
   if(error){toast('Erro ao salvar versão: '+error.message);return;}
+  await uploadPendingArquivos(data.id, d.id);
   if(isControlador()){
     await sb.from('disciplinas').update({status}).eq('id',d.id);
   }
   closeModal(); state.tab='versoes';
   await loadData(); render(); toast('Versão adicionada ✓');
+}
+async function uploadPendingArquivos(versaoId, discId){
+  let ordem=0;
+  for(const file of pendingFiles){
+    const path = `${discId}/${versaoId}/${Date.now()}_${sanitizeFilename(file.name)}`;
+    const {error:upErr} = await sb.storage.from('versao-arquivos').upload(path, file);
+    if(upErr){ toast('Erro ao enviar '+file.name+': '+upErr.message); continue; }
+    await sb.from('versao_arquivos').insert({versao_id:versaoId, tipo:'pdf', nome:file.name, path, ordem:ordem++});
+  }
+  for(const link of pendingLinks){
+    if(!link.url.trim()) continue;
+    await sb.from('versao_arquivos').insert({versao_id:versaoId, tipo:'link', nome:link.nome.trim()||'Link', url:link.url.trim(), ordem:ordem++});
+  }
+  pendingFiles=[]; pendingLinks=[];
 }
 
 function modalInvite(obraId, personEmail){
@@ -1153,6 +1307,46 @@ async function deleteObra(obraId){
   toast('Obra excluída ✓');
 }
 
+async function deleteDisciplina(discId, discNome){
+  if(!confirm(`Excluir a disciplina "${discNome}"? Todas as versões, arquivos, comentários e o chat dessa pasta também serão excluídos. Essa ação não pode ser desfeita.`)) return;
+  const {data:versFolders} = await sb.storage.from('versao-arquivos').list(discId);
+  for(const folder of versFolders||[]){
+    const {data:files} = await sb.storage.from('versao-arquivos').list(`${discId}/${folder.name}`);
+    if(files&&files.length){
+      await sb.storage.from('versao-arquivos').remove(files.map(f=>`${discId}/${folder.name}/${f.name}`));
+    }
+  }
+  const {error} = await sb.from('disciplinas').delete().eq('id',discId);
+  if(error){ toast('Erro ao excluir disciplina: '+error.message); return; }
+  await loadData(); render();
+  toast('Disciplina excluída ✓');
+}
+
+/* ---------- anexos (PDFs / links) ---------- */
+function modalAddArquivo(versaoId, discId){
+  pendingFiles=[]; pendingLinks=[];
+  openModal(`<div class="modal">
+    <div class="modal-head"><h3>Adicionar arquivo</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">${attachFieldsHtml()}</div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveArquivos('${versaoId}','${discId}')">Adicionar</button></div>
+  </div>`);
+  renderPendingFiles(); renderPendingLinks();
+}
+async function saveArquivos(versaoId, discId){
+  if(!pendingFiles.length && !pendingLinks.some(l=>l.url.trim())){ toast('Adicione um arquivo PDF ou link'); return; }
+  await uploadPendingArquivos(versaoId, discId);
+  closeModal(); await loadData(); render();
+  toast('Arquivo adicionado ✓');
+}
+async function deleteArquivo(arquivoId, path){
+  if(!confirm('Remover este arquivo?')) return;
+  if(path) await sb.storage.from('versao-arquivos').remove([path]);
+  const {error} = await sb.from('versao_arquivos').delete().eq('id',arquivoId);
+  if(error){ toast('Erro ao remover arquivo: '+error.message); return; }
+  await loadData(); render();
+  toast('Arquivo removido ✓');
+}
+
 async function updateVersionStatus(versaoId, newStatus){
   const {error} = await sb.from('versoes').update({status:newStatus}).eq('id',versaoId);
   if(error){ toast('Erro ao atualizar status: '+error.message); return; }
@@ -1250,6 +1444,166 @@ async function updateProject(obraId){
   const {error}=await sb.from('obras').update({nome,local}).eq('id',obraId);
   if(error){toast('Erro ao atualizar obra: '+error.message);return;}
   closeModal(); await loadData(); render(); toast('Obra atualizada ✓');
+}
+
+/* ============================================================
+   VISUALIZADOR DE PDF + ANOTAÇÕES
+   ============================================================ */
+let pdfState = null;
+let pendingAnot = null;
+
+function findArquivo(arquivoId){
+  for(const d of projects.flatMap(p=>p.disciplinas)){
+    for(const v of d.versoes){
+      const ar = (v.arquivos||[]).find(a=>a.id===arquivoId);
+      if(ar) return {ar, v, d};
+    }
+  }
+  return null;
+}
+
+async function openPdfViewer(arquivoId, page){
+  const found = findArquivo(arquivoId);
+  if(!found || found.ar.tipo!=='pdf'){ toast('Arquivo não encontrado'); return; }
+  const {ar} = found;
+
+  const {data:signed, error} = await sb.storage.from('versao-arquivos').createSignedUrl(ar.path, 3600);
+  if(error){ toast('Erro ao abrir PDF: '+error.message); return; }
+
+  openModal(`<div class="modal pdf-modal">
+    <div class="pdf-toolbar">
+      <b>${ar.nome}</b>
+      <div class="pdf-nav">
+        <button class="icon-btn" onclick="pdfPrevPage()">◀</button>
+        <span id="pdf-page-info">— / —</span>
+        <button class="icon-btn" onclick="pdfNextPage()">▶</button>
+      </div>
+      <button class="icon-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="pdf-body" id="pdf-body">
+      <div class="pdf-canvas-wrap" id="pdf-canvas-wrap" onclick="onPdfCanvasClick(event)">
+        <canvas id="pdf-canvas"></canvas>
+        <div id="pdf-pins"></div>
+      </div>
+    </div>
+  </div>`);
+
+  pdfState = {arquivoId, anotacoes:ar.anotacoes||[], doc:null, pageNum:page||1, pageCount:1};
+  const loadingTask = pdfjsLib.getDocument(signed.signedUrl);
+  pdfState.doc = await loadingTask.promise;
+  pdfState.pageCount = pdfState.doc.numPages;
+  if(pdfState.pageNum<1 || pdfState.pageNum>pdfState.pageCount) pdfState.pageNum=1;
+  await renderPdfPage();
+}
+
+function openPdfViewerFromFeedback(arquivoId, pagina){
+  setTab('versoes');
+  openPdfViewer(arquivoId, pagina);
+}
+
+async function renderPdfPage(){
+  const page = await pdfState.doc.getPage(pdfState.pageNum);
+  const viewport = page.getViewport({scale:1.4});
+  const canvas = document.getElementById('pdf-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await page.render({canvasContext:ctx, viewport}).promise;
+  document.getElementById('pdf-page-info').textContent = `${pdfState.pageNum} / ${pdfState.pageCount}`;
+  closePdfPopup();
+  renderPdfPins();
+}
+function pdfPrevPage(){ if(pdfState.pageNum>1){ pdfState.pageNum--; renderPdfPage(); } }
+function pdfNextPage(){ if(pdfState.pageNum<pdfState.pageCount){ pdfState.pageNum++; renderPdfPage(); } }
+
+function renderPdfPins(){
+  const canvas = document.getElementById('pdf-canvas');
+  const pinsEl = document.getElementById('pdf-pins');
+  pinsEl.style.cssText = `position:absolute;left:0;top:0;width:${canvas.width}px;height:${canvas.height}px;pointer-events:none`;
+  const pins = (pdfState.anotacoes||[]).filter(a=>a.pagina===pdfState.pageNum);
+  pinsEl.innerHTML = pins.map(a=>`<div class="pdf-pin" style="left:${a.x*100}%;top:${a.y*100}%;background:${a.cor};pointer-events:auto" onclick="event.stopPropagation();showPdfAnotPopup('${a.id}')"></div>`).join('');
+}
+
+function onPdfCanvasClick(e){
+  if(e.target.closest('.pdf-pin')||e.target.closest('.pdf-popup')) return;
+  const canvas = document.getElementById('pdf-canvas');
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX-rect.left)/rect.width;
+  const y = (e.clientY-rect.top)/rect.height;
+  if(x<0||x>1||y<0||y>1) return;
+  pendingAnot = {x,y,cor:ANOT_COLORS[0]};
+  showNewAnotPopup(e.clientX-rect.left, e.clientY-rect.top);
+}
+function closePdfPopup(){ const el=document.getElementById('pdf-popup'); if(el) el.remove(); pendingAnot=null; }
+
+function showNewAnotPopup(px,py){
+  closePdfPopup();
+  const wrap = document.getElementById('pdf-canvas-wrap');
+  const div = document.createElement('div');
+  div.className='pdf-popup'; div.id='pdf-popup';
+  div.style.left=px+'px'; div.style.top=py+'px';
+  div.innerHTML = `
+    <small>Novo comentário</small>
+    <div class="pdf-colors">${ANOT_COLORS.map(c=>`<div class="pdf-color${c===pendingAnot.cor?' sel':''}" style="background:${c}" onclick="selectAnotColor('${c}',this)"></div>`).join('')}</div>
+    <textarea id="pdf-anot-text" placeholder="Escreva seu comentário..."></textarea>
+    <div class="pdf-popup-foot">
+      <button class="btn btn-ghost btn-sm" onclick="closePdfPopup()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="savePdfAnot()">Comentar</button>
+    </div>`;
+  wrap.appendChild(div);
+}
+function selectAnotColor(c, el){
+  pendingAnot.cor=c;
+  el.parentNode.querySelectorAll('.pdf-color').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel');
+}
+async function savePdfAnot(){
+  const texto = document.getElementById('pdf-anot-text').value.trim();
+  if(!texto){ toast('Escreva um comentário'); return; }
+  const {error} = await sb.from('pdf_anotacoes').insert({
+    arquivo_id:pdfState.arquivoId, pagina:pdfState.pageNum, x:pendingAnot.x, y:pendingAnot.y,
+    cor:pendingAnot.cor, texto, autor_id:session.user.id, autor_nome:profile.nome
+  });
+  if(error){ toast('Erro ao salvar comentário: '+error.message); return; }
+  await refreshPdfAnotacoes();
+  toast('Comentário adicionado ✓');
+}
+async function showPdfAnotPopup(anotId){
+  closePdfPopup();
+  const a = (pdfState.anotacoes||[]).find(x=>x.id===anotId);
+  if(!a) return;
+  const canvas = document.getElementById('pdf-canvas');
+  const wrap = document.getElementById('pdf-canvas-wrap');
+  const canDel = isControlador() || (!!session && a.autor_id===session.user.id);
+  const div = document.createElement('div');
+  div.className='pdf-popup'; div.id='pdf-popup';
+  div.style.left=(a.x*canvas.width)+'px'; div.style.top=(a.y*canvas.height)+'px';
+  div.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="width:14px;height:14px;border-radius:50%;background:${a.cor};display:inline-block;flex:0 0 auto"></span>
+      <b style="font-size:12.5px;color:var(--ink)">${a.autor}</b>
+      <small style="color:var(--muted);margin-left:auto">${a.quando}</small>
+    </div>
+    <p>${a.texto}</p>
+    <div class="pdf-popup-foot">
+      <button class="btn btn-ghost btn-sm" onclick="closePdfPopup()">Fechar</button>
+      ${canDel?`<button class="btn btn-ghost btn-sm" onclick="deletePdfAnot('${a.id}')">🗑 Excluir</button>`:''}
+    </div>`;
+  wrap.appendChild(div);
+}
+async function deletePdfAnot(anotId){
+  if(!confirm('Excluir este comentário?')) return;
+  const {error} = await sb.from('pdf_anotacoes').delete().eq('id',anotId);
+  if(error){ toast('Erro ao excluir: '+error.message); return; }
+  await refreshPdfAnotacoes();
+  toast('Comentário excluído ✓');
+}
+async function refreshPdfAnotacoes(){
+  await loadData();
+  const found = findArquivo(pdfState.arquivoId);
+  pdfState.anotacoes = found ? (found.ar.anotacoes||[]) : [];
+  closePdfPopup();
+  renderPdfPins();
 }
 
 /* ============================================================
