@@ -217,6 +217,9 @@
   .vrow:last-child{border-bottom:none}
   .vrow:hover{background:var(--card-2)}
   .vtag{width:40px;height:40px;border-radius:10px;background:var(--navy);color:var(--gold);display:grid;place-items:center;font-weight:800;font-size:13px;flex:0 0 auto}
+  .vtag.vtag-current{background:var(--green);color:#06281c}
+  .status-select{border:none;outline:none;cursor:pointer;font-family:inherit;-webkit-appearance:none;appearance:none;padding-right:22px}
+  .status-select option{background:var(--card);color:var(--ink)}
   .vbody{flex:1;min-width:0}
   .vbody b{font-size:14px;color:var(--ink)}
   .vmeta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:12px;flex-wrap:wrap}
@@ -617,6 +620,19 @@ function proj(){ return projects.find(p=>p.id===state.projId); }
 
 /* ---------- helpers ---------- */
 function badge(st){ const s=STATUS[st]; return `<span class="badge ${s.cls}"><span class="bdot"></span>${s.label}</span>`; }
+function statusSelect(v){
+  const s=STATUS[v.status];
+  return `<select class="badge status-select ${s.cls}" onclick="event.stopPropagation()" onchange="updateVersionStatus('${v.id}',this.value)">
+    ${Object.entries(STATUS).map(([k,st])=>`<option value="${k}" ${k===v.status?'selected':''}>${st.label}</option>`).join('')}
+  </select>`;
+}
+function versaoVigente(d){
+  if(!d.versoes.length) return null;
+  const latest=d.versoes[0];
+  if(latest.status==='ok') return latest.id;
+  const aprovada=d.versoes.find(v=>v.status==='ok');
+  return aprovada?aprovada.id:null;
+}
 function allVersions(p){ return p.disciplinas.flatMap(d=>d.versoes.map(v=>({...v,disc:d.nome}))); }
 function countVersions(p){ return allVersions(p).length; }
 function allFeedbacks(p){ return p.disciplinas.flatMap(d=>d.versoes.flatMap(v=>(v.fb||[]).map(f=>({...f,disc:d.nome,ver:v.v})))); }
@@ -738,14 +754,15 @@ function tabVisao(p){
 function tabVersoes(p){
   const blocks = p.disciplinas.map(d=>{
     const ic = DISC_ICONS[d.nome]||{i:'📁',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
+    const vigenteId = versaoVigente(d);
     const rows = d.versoes.length? d.versoes.map(v=>`
       <div class="vitem"><div class="vrow">
-        <div class="vtag">${v.v.toUpperCase()}</div>
+        <div class="vtag${v.id===vigenteId?' vtag-current':''}">${v.v.toUpperCase()}</div>
         <div class="vbody">
-          <b>${v.titulo}</b>
+          <b>${v.titulo}</b>${v.id===vigenteId?'<span class="badge b-green" style="margin-left:8px"><span class="bdot"></span>Versão vigente</span>':''}
           <div class="vmeta"><span>👤 ${v.autor}</span><span>📅 ${v.data}</span></div>
         </div>
-        ${badge(v.status)}
+        ${isControlador()?statusSelect(v):badge(v.status)}
         <a class="drive-link" href="${v.drive}" onclick="openDrive(event)">
           <svg class="drive-ico" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path fill="#0066da" d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z"/><path fill="#00ac47" d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z"/><path fill="#ea4335" d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z"/><path fill="#00832d" d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z"/><path fill="#2684fc" d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z"/><path fill="#ffba00" d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z"/></svg>
           Abrir no Drive
@@ -998,9 +1015,9 @@ function modalNewVersion(){
       <div class="field"><label>Disciplina</label><select id="m-disc">${opts}</select></div>
       <div class="field"><label>Título da versão</label><input id="m-title" placeholder="Ex.: Executivo — revisão de layout"/></div>
       <div class="field"><label>Link do Google Drive (pasta ou arquivo)</label><input id="m-drive" placeholder="https://drive.google.com/..."/></div>
-      <div class="field"><label>Status inicial</label><select id="m-status">
+      ${isControlador()?`<div class="field"><label>Status inicial</label><select id="m-status">
         ${Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}
-      </select></div>
+      </select></div>`:''}
     </div>
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveVersion()">Salvar versão</button></div>
   </div>`);
@@ -1009,7 +1026,8 @@ async function saveVersion(){
   const p=proj();
   const discName=document.getElementById('m-disc').value;
   const title=document.getElementById('m-title').value||'Nova versão';
-  const status=document.getElementById('m-status').value;
+  const statusEl=document.getElementById('m-status');
+  const status=statusEl?statusEl.value:'review';
   const drive=document.getElementById('m-drive').value||'#';
   const d=p.disciplinas.find(x=>x.nome===discName);
   const {error}=await sb.from('versoes').insert({
@@ -1120,6 +1138,18 @@ async function deleteObra(obraId){
   if(error){ toast('Erro ao excluir obra: '+error.message); return; }
   await loadData(); render();
   toast('Obra excluída ✓');
+}
+
+async function updateVersionStatus(versaoId, newStatus){
+  const {error} = await sb.from('versoes').update({status:newStatus}).eq('id',versaoId);
+  if(error){ toast('Erro ao atualizar status: '+error.message); return; }
+  const p = proj();
+  const d = p.disciplinas.find(x=>x.versoes.some(v=>v.id===versaoId));
+  if(d && d.versoes[0] && d.versoes[0].id===versaoId){
+    await sb.from('disciplinas').update({status:newStatus}).eq('id',d.id);
+  }
+  await loadData(); render();
+  toast('Status atualizado ✓');
 }
 
 function modalNewAta(){
