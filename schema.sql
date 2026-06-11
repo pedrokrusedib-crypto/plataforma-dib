@@ -33,6 +33,7 @@ create table if not exists public.disciplinas (
   status     text not null default 'pend'
              check (status in ('dev','wait','review','ok','pend','redo')),
   aguardando text,
+  link_drive text,
   ordem      int  not null default 0,
   created_at timestamptz not null default now()
 );
@@ -282,6 +283,12 @@ create table if not exists public.prazo_pessoas (
 );
 
 create index if not exists prazo_pessoas_user_id_idx on public.prazo_pessoas(user_id);
+
+
+-- ============================================================
+-- 9g) MIGRAÇÃO — disciplinas.link_drive (link da pasta no Drive)
+-- ============================================================
+alter table public.disciplinas add column if not exists link_drive text;
 
 
 -- ============================================================
