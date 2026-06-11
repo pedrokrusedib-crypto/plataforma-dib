@@ -452,6 +452,7 @@
     <div class="side-scroll">
       <div class="side-label">Menu</div>
       <div class="nav-item active" data-nav="obras" onclick="go('obras')"><span class="i">▦</span> Minhas obras</div>
+      <div class="nav-item" data-nav="agenda" onclick="go('agenda')"><span class="i">📅</span> Agenda<span class="cnt" id="agenda-cnt" style="display:none"></span></div>
 
       <div class="side-label">Obras / Projetos</div>
       <div id="proj-list"></div>
@@ -618,12 +619,19 @@ function relativeTime(ts){
   const d = Math.floor(h/24);
   return `há ${d} dia${d>1?'s':''}`;
 }
+function todayStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function daysUntil(dateStr){
+  return Math.round((new Date(dateStr+'T00:00:00') - new Date(todayStr()+'T00:00:00'))/86400000);
+}
 
 /* ============================================================
    CARREGAMENTO DE DADOS (Supabase)
    ============================================================ */
 async function loadData(){
-  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes, arquivosRes, anotacoesRes] = await Promise.all([
+  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes, arquivosRes, anotacoesRes, prazosRes, prazoPessoasRes] = await Promise.all([
     sb.from('obras').select('*').order('ordem'),
     sb.from('disciplinas').select('*').order('ordem'),
     sb.from('versoes').select('*'),
@@ -637,9 +645,11 @@ async function loadData(){
     sb.from('notif_dismissals').select('notif_key'),
     sb.from('versao_arquivos').select('*').order('ordem'),
     sb.from('pdf_anotacoes').select('*').order('created_at'),
+    sb.from('prazos').select('*').order('data'),
+    sb.from('prazo_pessoas').select('*'),
   ]);
 
-  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes,notif_dismissals:notifDismissalsRes,versao_arquivos:arquivosRes,pdf_anotacoes:anotacoesRes})){
+  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes,notif_dismissals:notifDismissalsRes,versao_arquivos:arquivosRes,pdf_anotacoes:anotacoesRes,prazos:prazosRes,prazo_pessoas:prazoPessoasRes})){
     if(res.error) console.error(`Erro ao carregar ${nome}:`, res.error);
   }
   dismissedNotifs = new Set((notifDismissalsRes.data||[]).map(r=>r.notif_key));
@@ -656,6 +666,9 @@ async function loadData(){
   const inviteObrasRows = inviteObrasRes.data||[];
   const arquivosRows = arquivosRes.data||[];
   const anotacoesRows = anotacoesRes.data||[];
+  const prazosRows = prazosRes.data||[];
+  const prazoPessoasRows = prazoPessoasRes.data||[];
+  const today = todayStr();
 
   const profileById = Object.fromEntries(profRows.map(p=>[p.id,p]));
   function authorInfo(autorId, autorNome){
@@ -685,10 +698,20 @@ async function loadData(){
         const a = authorInfo(c.autor_id, c.autor_nome);
         return {id:c.id, ini:initials(a.nome), autor:a.nome, cor:a.cor, hora:formatHora(c.created_at), texto:c.texto, me: !!session && c.autor_id===session.user.id};
       });
-      return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', versoes, chat};
+      const atrasado = prazosRows.some(pr=>pr.disciplina_id===d.id && pr.status==='pendente' && pr.data<today);
+      return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', versoes, chat, atrasado};
     });
     const atas = atasRows.filter(a=>a.obra_id===o.id).map(a=>({id:a.id, data:formatDate(a.data), titulo:a.titulo, resumo:a.resumo||'', cls:a.cls||''}));
-    return {id:o.id, nome:o.nome, local:o.local||'', cor:o.cor||DEFAULT_COR, progresso:o.progresso||0, disciplinas, atas};
+    const prazos = prazosRows.filter(pr=>pr.obra_id===o.id).map(pr=>{
+      const disc = discRows.find(d=>d.id===pr.disciplina_id);
+      const mencionados = prazoPessoasRows.filter(pp=>pp.prazo_id===pr.id).map(pp=>{
+        const per = profileById[pp.user_id];
+        const nome = (per&&per.nome)||'—';
+        return {id:pp.user_id, nome, cor:(per&&per.cor)||DEFAULT_COR, ini:initials(nome)};
+      });
+      return {id:pr.id, titulo:pr.titulo, descricao:pr.descricao||'', data:pr.data, status:pr.status, disciplina_id:pr.disciplina_id, disciplinaNome:disc?disc.nome:null, mencionados};
+    });
+    return {id:o.id, nome:o.nome, local:o.local||'', cor:o.cor||DEFAULT_COR, progresso:o.progresso||0, disciplinas, atas, prazos};
   });
 
   const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
@@ -734,10 +757,12 @@ function render(){
   const c = document.getElementById('content');
   const crumb = document.getElementById('crumb');
   if(state.view==='obras'){ crumb.innerHTML='<b>Minhas obras</b>'; c.innerHTML = viewObras(); }
+  else if(state.view==='agenda'){ crumb.innerHTML='<b>Agenda</b>'; c.innerHTML = viewAgenda(); }
   else if(state.view==='pessoas'){ crumb.innerHTML='Administração › <b>Pessoas & acessos</b>'; c.innerHTML = viewPessoas(); }
   else if(state.view==='proj'){ const p=proj(); crumb.innerHTML=`Projetos › <b>${p.nome}</b>`; c.innerHTML = viewProj(); }
   document.querySelector('.main').scrollTop=0;
   updateNotifBadge();
+  updateAgendaBadge();
 }
 function proj(){ return projects.find(p=>p.id===state.projId); }
 
@@ -806,12 +831,81 @@ function projCard(p){
           ${waitList.length? waitList.map(d=>`
             <div style="display:flex;align-items:center;gap:8px;font-size:12.5px">
               ${badge(d.status)}
+              ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
               <span style="color:var(--ink-2)">${d.nome}</span>
               <span style="margin-left:auto;color:var(--muted)">→ <b style="color:var(--ink)">${d.aguardando}</b></span>
             </div>`).join('') : '<div style="font-size:12.5px;color:var(--muted)">Tudo em dia ✓</div>'}
         </div>
       </div>
     </div>`;
+}
+
+/* ============================================================
+   VIEW: AGENDA
+   ============================================================ */
+function allPrazos(){
+  return projects.flatMap(p=>p.prazos.map(pr=>({...pr, obraId:p.id, obraNome:p.nome, obraCor:p.cor})))
+    .filter(pr=> isControlador() || pr.mencionados.some(m=>m.id===session.user.id));
+}
+function prazoInfo(pr){
+  const dias = daysUntil(pr.data);
+  const atrasado = pr.status==='pendente' && dias<0;
+  return {dias, atrasado};
+}
+function updateAgendaBadge(){
+  const b=document.getElementById('agenda-cnt');
+  if(!b) return;
+  const n = allPrazos().filter(pr=>pr.status==='pendente' && prazoInfo(pr).dias<=7).length;
+  if(n>0){ b.textContent=n>9?'9+':n; b.style.display=''; }
+  else { b.style.display='none'; }
+}
+function viewAgenda(){
+  const items = [...allPrazos()].sort((a,b)=> a.data<b.data?-1:a.data>b.data?1:0);
+  const pendentes = items.filter(pr=>pr.status==='pendente');
+  const concluidos = items.filter(pr=>pr.status==='concluido');
+
+  function prazoCard(pr){
+    const {dias} = prazoInfo(pr);
+    let tag;
+    if(pr.status==='concluido') tag = '<span class="badge b-green"><span class="bdot"></span>Concluído</span>';
+    else if(dias<0) tag = '<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>';
+    else if(dias===0) tag = '<span class="badge b-amber"><span class="bdot"></span>Vence hoje</span>';
+    else if(dias<=7) tag = `<span class="badge b-amber"><span class="bdot"></span>Em ${dias} dia${dias>1?'s':''}</span>`;
+    else tag = '<span class="badge b-gray"><span class="bdot"></span>Pendente</span>';
+
+    const mencionados = pr.mencionados.map(m=>`<div class="avatar" title="${m.nome}" style="width:26px;height:26px;font-size:10.5px;background:${m.cor}">${m.ini}</div>`).join('');
+
+    return `
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-pad" style="display:flex;align-items:flex-start;gap:14px">
+        <div style="text-align:center;min-width:52px">
+          <div style="font-size:20px;font-weight:800;color:var(--ink)">${formatDate(pr.data).split(' ')[0]}</div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase">${formatDate(pr.data).split(' ')[1]}</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <b style="font-size:14.5px;color:var(--ink)">${pr.titulo}</b>
+            ${tag}
+          </div>
+          <div style="font-size:12.5px;color:var(--muted);margin-top:4px">${pr.obraNome}${pr.disciplinaNome?' · '+pr.disciplinaNome:''}</div>
+          ${pr.descricao?`<p style="margin-top:8px;font-size:13px;color:var(--ink-2)">${pr.descricao}</p>`:''}
+          ${mencionados?`<div style="display:flex;align-items:center;gap:6px;margin-top:10px">${mencionados}</div>`:''}
+        </div>
+        ${isControlador()?`<div style="display:flex;flex-direction:column;gap:6px">
+          <button class="icon-btn" title="${pr.status==='pendente'?'Marcar como concluído':'Reabrir'}" onclick="togglePrazoStatus('${pr.id}')">${pr.status==='pendente'?'✓':'↺'}</button>
+          <button class="icon-btn" title="Excluir prazo" onclick="deletePrazo('${pr.id}')">🗑</button>
+        </div>`:''}
+      </div>
+    </div>`;
+  }
+
+  return `
+    <div class="page-head">
+      <div><h1>Agenda</h1><p>Prazos de entrega em que você foi mencionado.</p></div>
+      <div class="ph-actions">${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewPrazo()">+ Novo prazo</button>':''}</div>
+    </div>
+    ${pendentes.length?pendentes.map(prazoCard).join(''):'<div class="empty"><div class="e-ico">📅</div>Nenhum prazo pendente.</div>'}
+    ${concluidos.length?`<div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:22px 0 10px">Concluídos</div>${concluidos.map(prazoCard).join('')}`:''}`;
 }
 
 /* ============================================================
@@ -864,6 +958,7 @@ function tabVisao(p){
         <b>${d.nome}</b>
         <div class="d-meta">
           ${badge(d.status)}
+          ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
           <span class="d-wait">Aguardando: <b>${d.aguardando}</b></span>
         </div>
       </div>
@@ -917,6 +1012,7 @@ function tabVersoes(p){
           <div class="d-ico" style="width:34px;height:34px;border-radius:9px;font-size:15px;background:${ic.bg};color:${ic.c}">${ic.i}</div>
           <b style="font-size:14.5px;color:var(--ink)">${d.nome}</b>
           ${badge(d.status)}
+          ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
           <span style="margin-left:auto;font-size:12px;color:var(--muted)">Aguardando: <b style="color:var(--ink)">${d.aguardando}</b></span>
           ${isControlador()?`<button class="icon-btn" title="Excluir disciplina" onclick="deleteDisciplina('${d.id}','${d.nome}')">🗑</button>`:''}
         </div>
@@ -1062,6 +1158,18 @@ function getNotifications(){
       items.push({key:`fb:${f.id}`,icon:'💬',title:`Feedback de ${f.autor}`,sub:`${p.nome} · ${f.disc} ${f.ver.toUpperCase()}`,pid:p.id,tab:'feedbacks'});
     });
   });
+  allPrazos().forEach(pr=>{
+    if(pr.status!=='pendente') return;
+    const {dias} = prazoInfo(pr);
+    const sub = `${pr.obraNome}${pr.disciplinaNome?' · '+pr.disciplinaNome:''}`;
+    if(dias<0){
+      items.push({key:`prazo:${pr.id}:atrasado`,icon:'⚠️',title:`Prazo atrasado: ${pr.titulo}`,sub,view:'agenda'});
+    } else if(dias<=1){
+      items.push({key:`prazo:${pr.id}:1d`,icon:'⏰',title:`Prazo vence ${dias===0?'hoje':'amanhã'}: ${pr.titulo}`,sub,view:'agenda'});
+    } else if(dias<=7){
+      items.push({key:`prazo:${pr.id}:7d`,icon:'📅',title:`Prazo em ${dias} dias: ${pr.titulo}`,sub,view:'agenda'});
+    }
+  });
   return items.filter(n=>!dismissedNotifs.has(n.key));
 }
 function updateNotifBadge(){
@@ -1097,7 +1205,8 @@ async function dismissNotif(i){
 function goNotif(i){
   const n=window._notifItems[i];
   closeModal();
-  if(n.pid){ openProj(n.pid); state.tab=n.tab||'visao'; render(); }
+  if(n.view==='agenda'){ go('agenda'); }
+  else if(n.pid){ openProj(n.pid); state.tab=n.tab||'visao'; render(); }
 }
 function tabAcessos(p){
   const rows = peopleOf(p).map(per=>{
@@ -1357,6 +1466,75 @@ async function updateVersionStatus(versaoId, newStatus){
   }
   await loadData(); render();
   toast('Status atualizado ✓');
+}
+
+/* ============================================================
+   AGENDA / PRAZOS
+   ============================================================ */
+function modalNewPrazo(){
+  const obraOpts = projects.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  openModal(`<div class="modal">
+    <div class="modal-head"><h3>Novo prazo</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Obra</label><select id="pz-obra" onchange="onPrazoObraChange()">${obraOpts}</select></div>
+      <div class="field"><label>Disciplina</label><select id="pz-disc"></select></div>
+      <div class="field"><label>Título</label><input id="pz-titulo" placeholder="Ex.: Entrega do projeto executivo"/></div>
+      <div class="field"><label>Descrição (opcional)</label><textarea id="pz-desc" placeholder="Detalhes do prazo..."></textarea></div>
+      <div class="field"><label>Data de entrega</label><input id="pz-data" type="date"/></div>
+      <div class="field"><label>Mencionar pessoas</label><div class="checks" id="pz-pessoas"></div></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="savePrazo()">Salvar prazo</button></div>
+  </div>`);
+  onPrazoObraChange();
+}
+function onPrazoObraChange(){
+  renderPrazoDiscOptions();
+  renderPrazoPessoas();
+}
+function renderPrazoDiscOptions(){
+  const p = projects.find(x=>x.id===document.getElementById('pz-obra').value);
+  const opts = ['<option value="">— Obra inteira —</option>', ...(p?p.disciplinas:[]).map(d=>`<option value="${d.id}">${d.nome}</option>`)];
+  document.getElementById('pz-disc').innerHTML = opts.join('');
+}
+function renderPrazoPessoas(){
+  const p = projects.find(x=>x.id===document.getElementById('pz-obra').value);
+  const pessoas = p ? peopleOf(p).filter(per=>!per.pending) : [];
+  document.getElementById('pz-pessoas').innerHTML = pessoas.length
+    ? pessoas.map(per=>`<label class="check" onclick="this.classList.toggle('on')"><input type="checkbox" value="${per.id}"> ${per.nome}</label>`).join('')
+    : '<div style="font-size:12.5px;color:var(--muted)">Nenhuma pessoa com acesso a esta obra.</div>';
+}
+async function savePrazo(){
+  const obraId = document.getElementById('pz-obra').value;
+  const discId = document.getElementById('pz-disc').value || null;
+  const titulo = document.getElementById('pz-titulo').value.trim();
+  const descricao = document.getElementById('pz-desc').value.trim();
+  const data = document.getElementById('pz-data').value;
+  if(!titulo || !data){ toast('Preencha o título e a data'); return; }
+  const pessoaIds = [...document.querySelectorAll('#pz-pessoas input:checked')].map(i=>i.value);
+  const {data:row, error} = await sb.from('prazos').insert({
+    obra_id:obraId, disciplina_id:discId, titulo, descricao:descricao||null, data, created_by:session.user.id
+  }).select().single();
+  if(error){ toast('Erro ao salvar prazo: '+error.message); return; }
+  if(pessoaIds.length){
+    const {error:ppErr} = await sb.from('prazo_pessoas').insert(pessoaIds.map(uid=>({prazo_id:row.id, user_id:uid})));
+    if(ppErr){ toast('Erro ao vincular pessoas: '+ppErr.message); }
+  }
+  closeModal();
+  await loadData(); render(); toast('Prazo adicionado ✓');
+}
+async function togglePrazoStatus(prazoId){
+  const pr = allPrazos().find(x=>x.id===prazoId);
+  if(!pr) return;
+  const novo = pr.status==='pendente' ? 'concluido' : 'pendente';
+  const {error} = await sb.from('prazos').update({status:novo}).eq('id',prazoId);
+  if(error){ toast('Erro ao atualizar prazo: '+error.message); return; }
+  await loadData(); render();
+}
+async function deletePrazo(prazoId){
+  if(!confirm('Excluir este prazo?')) return;
+  const {error} = await sb.from('prazos').delete().eq('id',prazoId);
+  if(error){ toast('Erro ao excluir prazo: '+error.message); return; }
+  await loadData(); render(); toast('Prazo excluído');
 }
 
 function modalNewAta(){

@@ -254,6 +254,37 @@ end $$;
 
 
 -- ============================================================
+-- 9f) PRAZOS (agenda) — prazos de entrega vinculados a uma obra
+--     e, opcionalmente, a uma disciplina
+-- ============================================================
+create table if not exists public.prazos (
+  id            uuid primary key default gen_random_uuid(),
+  obra_id       uuid not null references public.obras(id) on delete cascade,
+  disciplina_id uuid references public.disciplinas(id) on delete cascade,
+  titulo        text not null,
+  descricao     text,
+  data          date not null,
+  status        text not null default 'pendente'
+                check (status in ('pendente','concluido')),
+  created_by    uuid references public.profiles(id) on delete set null,
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists prazos_obra_id_idx on public.prazos(obra_id);
+create index if not exists prazos_disciplina_id_idx on public.prazos(disciplina_id);
+
+-- pessoas mencionadas em cada prazo: só elas (e o controlador)
+-- enxergam o prazo na agenda
+create table if not exists public.prazo_pessoas (
+  prazo_id uuid not null references public.prazos(id) on delete cascade,
+  user_id  uuid not null references public.profiles(id) on delete cascade,
+  primary key (prazo_id, user_id)
+);
+
+create index if not exists prazo_pessoas_user_id_idx on public.prazo_pessoas(user_id);
+
+
+-- ============================================================
 -- 10) FUNÇÕES DE APOIO PARA RLS
 --     security definer + search_path fixo: rodam com privilégio
 --     do dono (postgres), que tem BYPASSRLS, evitando recursão.
@@ -300,6 +331,21 @@ as $$
       from public.obra_access oa
       join public.disciplinas d on d.obra_id = oa.obra_id
       where oa.user_id = auth.uid() and d.id = p_disciplina_id
+    );
+$$;
+
+create or replace function public.is_mentioned_in_prazo(p_prazo_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select
+    public.is_controlador()
+    or exists(
+      select 1 from public.prazo_pessoas
+      where prazo_id = p_prazo_id and user_id = auth.uid()
     );
 $$;
 
@@ -399,6 +445,8 @@ alter table public.atas            enable row level security;
 alter table public.notif_dismissals enable row level security;
 alter table public.versao_arquivos enable row level security;
 alter table public.pdf_anotacoes   enable row level security;
+alter table public.prazos          enable row level security;
+alter table public.prazo_pessoas   enable row level security;
 
 -- ---- profiles ----
 drop policy if exists profiles_select on public.profiles;
@@ -639,6 +687,37 @@ drop policy if exists pdf_anotacoes_delete on public.pdf_anotacoes;
 create policy pdf_anotacoes_delete on public.pdf_anotacoes
   for delete using (autor_id = auth.uid() or public.is_controlador());
 
+-- ---- prazos ----
+drop policy if exists prazos_select on public.prazos;
+create policy prazos_select on public.prazos
+  for select using (public.is_mentioned_in_prazo(id));
+
+drop policy if exists prazos_insert on public.prazos;
+create policy prazos_insert on public.prazos
+  for insert with check (public.is_controlador());
+
+drop policy if exists prazos_update on public.prazos;
+create policy prazos_update on public.prazos
+  for update using (public.is_controlador())
+  with check (public.is_controlador());
+
+drop policy if exists prazos_delete on public.prazos;
+create policy prazos_delete on public.prazos
+  for delete using (public.is_controlador());
+
+-- ---- prazo_pessoas ----
+drop policy if exists prazo_pessoas_select on public.prazo_pessoas;
+create policy prazo_pessoas_select on public.prazo_pessoas
+  for select using (user_id = auth.uid() or public.is_controlador());
+
+drop policy if exists prazo_pessoas_insert on public.prazo_pessoas;
+create policy prazo_pessoas_insert on public.prazo_pessoas
+  for insert with check (public.is_controlador());
+
+drop policy if exists prazo_pessoas_delete on public.prazo_pessoas;
+create policy prazo_pessoas_delete on public.prazo_pessoas
+  for delete using (public.is_controlador());
+
 
 -- ============================================================
 -- 12b) GRANTS — privilégios de tabela para o role authenticated
@@ -660,6 +739,8 @@ grant select, insert, update, delete on public.atas to authenticated;
 grant select, insert, delete on public.notif_dismissals to authenticated;
 grant select, insert, delete on public.versao_arquivos to authenticated;
 grant select, insert, update, delete on public.pdf_anotacoes to authenticated;
+grant select, insert, update, delete on public.prazos to authenticated;
+grant select, insert, delete on public.prazo_pessoas to authenticated;
 
 
 -- ============================================================
