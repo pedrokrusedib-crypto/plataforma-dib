@@ -351,7 +351,7 @@
   /* ---------- PDF viewer ---------- */
   .pdf-modal{background:var(--card);border-radius:16px;width:100%;max-width:960px;height:90vh;box-shadow:var(--shadow-lg);overflow:hidden;display:flex;flex-direction:column;animation:pop .18s ease}
   .pdf-modal:fullscreen,.pdf-modal:-webkit-full-screen{max-width:none;width:100vw;height:100vh;border-radius:0}
-  .pdf-toolbar{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+  .pdf-toolbar{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap;row-gap:8px}
   .pdf-toolbar b{flex:1;font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pdf-nav{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2)}
   .pdf-zoom{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);border-left:1px solid var(--line);padding-left:12px}
@@ -360,6 +360,9 @@
   .pdf-canvas-wrap{position:relative;display:inline-block;cursor:crosshair;height:fit-content}
   .pdf-canvas-wrap canvas{display:block;box-shadow:var(--shadow-lg)}
   .pdf-pin{position:absolute;width:20px;height:20px;border-radius:50% 50% 50% 0;transform:translate(-50%,-100%) rotate(45deg);border:2px solid rgba(0,0,0,.3);cursor:pointer}
+  .pdf-pin-drag{cursor:grab;z-index:9;box-shadow:0 0 0 4px rgba(91,140,255,.35);touch-action:none}
+  .pdf-pin-drag:active{cursor:grabbing}
+  .pdf-place-bar{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:max-content;max-width:90vw;z-index:8;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--blue);border-radius:10px;padding:8px 12px;box-shadow:var(--shadow-lg);font-size:12.5px;color:var(--ink-2)}
   .pdf-popup{position:absolute;z-index:10;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);padding:12px;width:240px}
   .pdf-popup textarea{width:100%;min-height:60px;padding:8px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);resize:vertical;font-size:12.5px;color:var(--ink)}
   .pdf-colors{display:flex;gap:6px;margin:8px 0}
@@ -426,6 +429,8 @@
     .vrow>.icon-btn{margin-left:auto}
 
     .vattach,.vfb{padding-left:16px}
+
+    .pdf-toolbar b{flex:1 1 100%;white-space:normal}
   }
 </style>
 </head>
@@ -1803,6 +1808,7 @@ async function updateProject(obraId){
    ============================================================ */
 let pdfState = null;
 let pendingAnot = null;
+let pdfPlacementMode = false;
 const PDF_BASE_SCALE = 1.4;
 
 function findArquivo(arquivoId){
@@ -1826,6 +1832,7 @@ async function openPdfViewer(arquivoId, page){
   openModal(`<div class="modal pdf-modal">
     <div class="pdf-toolbar">
       <b>${ar.nome}</b>
+      <button class="btn btn-primary btn-sm" id="pdf-comment-btn" onclick="startPdfAnotPlacement()">💬 Comentar</button>
       <div class="pdf-nav">
         <button class="icon-btn" onclick="pdfPrevPage()">◀</button>
         <span id="pdf-page-info">— / —</span>
@@ -1839,7 +1846,7 @@ async function openPdfViewer(arquivoId, page){
       <button class="icon-btn" onclick="pdfToggleFullscreen()" title="Tela cheia">⛶</button>
       <button class="icon-btn" onclick="closeModal()">✕</button>
     </div>
-    <div class="pdf-hint">💬 Clique em qualquer ponto da página para deixar um comentário/anotação ali. Os comentários aparecem como marcadores coloridos e também na aba Feedbacks.</div>
+    <div class="pdf-hint" id="pdf-hint">💬 Toque em "Comentar", arraste o marcador até o local desejado e confirme para escrever a anotação. Ela aparece como um marcador colorido e também na aba Feedbacks.</div>
     <div class="pdf-body" id="pdf-body">
       <div class="pdf-canvas-wrap" id="pdf-canvas-wrap" onclick="onPdfCanvasClick(event)">
         <canvas id="pdf-canvas"></canvas>
@@ -1872,7 +1879,7 @@ async function renderPdfPage(){
   document.getElementById('pdf-page-info').textContent = `${pdfState.pageNum} / ${pdfState.pageCount}`;
   const zoomInfo = document.getElementById('pdf-zoom-info');
   if(zoomInfo) zoomInfo.textContent = Math.round(pdfState.scale/PDF_BASE_SCALE*100)+'%';
-  closePdfPopup();
+  removePdfPopupEl();
   renderPdfPins();
 }
 function pdfZoomIn(){ pdfState.scale = Math.min(3.4, +(pdfState.scale+0.2).toFixed(2)); renderPdfPage(); }
@@ -1895,10 +1902,77 @@ function renderPdfPins(){
   const pinsEl = document.getElementById('pdf-pins');
   pinsEl.style.cssText = `position:absolute;left:0;top:0;width:${canvas.width}px;height:${canvas.height}px;pointer-events:none`;
   const pins = (pdfState.anotacoes||[]).filter(a=>a.pagina===pdfState.pageNum);
-  pinsEl.innerHTML = pins.map(a=>`<div class="pdf-pin" style="left:${a.x*100}%;top:${a.y*100}%;background:${a.cor};pointer-events:auto" onclick="event.stopPropagation();showPdfAnotPopup('${a.id}')"></div>`).join('');
+  let html = pins.map(a=>`<div class="pdf-pin" style="left:${a.x*100}%;top:${a.y*100}%;background:${a.cor};pointer-events:auto" onclick="event.stopPropagation();showPdfAnotPopup('${a.id}')"></div>`).join('');
+  if(pdfPlacementMode && pendingAnot){
+    html += `<div class="pdf-pin pdf-pin-drag" id="pdf-drag-pin" style="left:${pendingAnot.x*100}%;top:${pendingAnot.y*100}%;background:${pendingAnot.cor}"></div>`;
+  }
+  pinsEl.innerHTML = html;
+  if(pdfPlacementMode){
+    const dragPin = document.getElementById('pdf-drag-pin');
+    if(dragPin){ dragPin.style.pointerEvents='auto'; dragPin.addEventListener('pointerdown', onDragPinPointerDown); }
+  }
+}
+
+function startPdfAnotPlacement(){
+  closePdfPopup();
+  pdfPlacementMode = true;
+  const canvas = document.getElementById('pdf-canvas');
+  const body = document.getElementById('pdf-body');
+  const bodyRect = body.getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+  let cx = bodyRect.left + bodyRect.width/2 - canvasRect.left;
+  let cy = bodyRect.top + bodyRect.height/2 - canvasRect.top;
+  cx = Math.min(Math.max(cx,10), canvas.width-10);
+  cy = Math.min(Math.max(cy,10), canvas.height-10);
+  pendingAnot = {x:cx/canvas.width, y:cy/canvas.height, cor:ANOT_COLORS[0]};
+  renderPdfPins();
+  const wrap = document.getElementById('pdf-canvas-wrap');
+  let bar = document.getElementById('pdf-place-bar');
+  if(!bar){ bar = document.createElement('div'); bar.id='pdf-place-bar'; bar.className='pdf-place-bar'; wrap.appendChild(bar); }
+  bar.innerHTML = `📍 Arraste o marcador até o local desejado
+    <button class="btn btn-ghost btn-sm" onclick="cancelPdfAnotPlacement()">Cancelar</button>
+    <button class="btn btn-primary btn-sm" onclick="confirmPdfAnotPlacement()">Confirmar local</button>`;
+}
+function cancelPdfAnotPlacement(){
+  pdfPlacementMode = false;
+  pendingAnot = null;
+  const bar = document.getElementById('pdf-place-bar');
+  if(bar) bar.remove();
+  renderPdfPins();
+}
+function confirmPdfAnotPlacement(){
+  pdfPlacementMode = false;
+  const bar = document.getElementById('pdf-place-bar');
+  if(bar) bar.remove();
+  const canvas = document.getElementById('pdf-canvas');
+  showNewAnotPopup(pendingAnot.x*canvas.width, pendingAnot.y*canvas.height);
+  renderPdfPins();
+}
+function onDragPinPointerDown(e){
+  e.preventDefault(); e.stopPropagation();
+  const pin = e.currentTarget;
+  pin.setPointerCapture(e.pointerId);
+  const canvas = document.getElementById('pdf-canvas');
+  const move = (ev)=>{
+    const rect = canvas.getBoundingClientRect();
+    let x = (ev.clientX-rect.left)/rect.width;
+    let y = (ev.clientY-rect.top)/rect.height;
+    x = Math.min(Math.max(x,0),1); y = Math.min(Math.max(y,0),1);
+    pendingAnot.x=x; pendingAnot.y=y;
+    pin.style.left=(x*100)+'%'; pin.style.top=(y*100)+'%';
+  };
+  const up = ()=>{
+    pin.removeEventListener('pointermove', move);
+    pin.removeEventListener('pointerup', up);
+    pin.removeEventListener('pointercancel', up);
+  };
+  pin.addEventListener('pointermove', move);
+  pin.addEventListener('pointerup', up);
+  pin.addEventListener('pointercancel', up);
 }
 
 function onPdfCanvasClick(e){
+  if(pdfPlacementMode) return;
   if(e.target.closest('.pdf-pin')||e.target.closest('.pdf-popup')) return;
   const canvas = document.getElementById('pdf-canvas');
   const rect = canvas.getBoundingClientRect();
@@ -1908,14 +1982,17 @@ function onPdfCanvasClick(e){
   pendingAnot = {x,y,cor:ANOT_COLORS[0]};
   showNewAnotPopup(e.clientX-rect.left, e.clientY-rect.top);
 }
-function closePdfPopup(){ const el=document.getElementById('pdf-popup'); if(el) el.remove(); pendingAnot=null; }
+function removePdfPopupEl(){ const el=document.getElementById('pdf-popup'); if(el) el.remove(); }
+function closePdfPopup(){ removePdfPopupEl(); pendingAnot=null; }
 
 function showNewAnotPopup(px,py){
-  closePdfPopup();
+  removePdfPopupEl();
   const wrap = document.getElementById('pdf-canvas-wrap');
   const div = document.createElement('div');
   div.className='pdf-popup'; div.id='pdf-popup';
-  div.style.left=px+'px'; div.style.top=py+'px';
+  const maxX = Math.max(4, wrap.offsetWidth-244);
+  const maxY = Math.max(4, wrap.offsetHeight-200);
+  div.style.left=Math.min(Math.max(px,4),maxX)+'px'; div.style.top=Math.min(Math.max(py,4),maxY)+'px';
   div.innerHTML = `
     <small>Novo comentário</small>
     <div class="pdf-colors">${ANOT_COLORS.map(c=>`<div class="pdf-color${c===pendingAnot.cor?' sel':''}" style="background:${c}" onclick="selectAnotColor('${c}',this)"></div>`).join('')}</div>
@@ -1943,7 +2020,7 @@ async function savePdfAnot(){
   toast('Comentário adicionado ✓');
 }
 async function showPdfAnotPopup(anotId){
-  closePdfPopup();
+  removePdfPopupEl();
   const a = (pdfState.anotacoes||[]).find(x=>x.id===anotId);
   if(!a) return;
   const canvas = document.getElementById('pdf-canvas');
@@ -1951,7 +2028,9 @@ async function showPdfAnotPopup(anotId){
   const canDel = isControlador() || (!!session && a.autor_id===session.user.id);
   const div = document.createElement('div');
   div.className='pdf-popup'; div.id='pdf-popup';
-  div.style.left=(a.x*canvas.width)+'px'; div.style.top=(a.y*canvas.height)+'px';
+  const maxX = Math.max(4, wrap.offsetWidth-244);
+  const maxY = Math.max(4, wrap.offsetHeight-200);
+  div.style.left=Math.min(Math.max(a.x*canvas.width,4),maxX)+'px'; div.style.top=Math.min(Math.max(a.y*canvas.height,4),maxY)+'px';
   div.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
       <span style="width:14px;height:14px;border-radius:50%;background:${a.cor};display:inline-block;flex:0 0 auto"></span>
