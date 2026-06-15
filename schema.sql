@@ -102,6 +102,7 @@ create table if not exists public.versoes (
   disciplina_id uuid not null references public.disciplinas(id) on delete cascade,
   numero        int  not null,
   titulo        text not null,
+  descricao     text,
   data          date not null default current_date,
   autor_nome    text,
   status        text not null
@@ -292,6 +293,74 @@ alter table public.disciplinas add column if not exists link_drive text;
 
 
 -- ============================================================
+-- 9h) MIGRAÇÃO — versoes.descricao (descrição da versão postada)
+-- ============================================================
+alter table public.versoes add column if not exists descricao text;
+
+
+-- ============================================================
+-- 9i) MIGRAÇÃO — permissão por disciplina dentro da obra
+--      Sem registros = acesso a todas as disciplinas da obra
+--      (comportamento padrão/atual). Com 1+ registros para o
+--      usuário em disciplinas de uma obra, o acesso fica
+--      restrito a essas disciplinas.
+--      A função has_disciplina_access (seção 10) já considera
+--      esta tabela.
+-- ============================================================
+create table if not exists public.disciplina_access (
+  user_id       uuid not null references public.profiles(id) on delete cascade,
+  disciplina_id uuid not null references public.disciplinas(id) on delete cascade,
+  created_at    timestamptz not null default now(),
+  primary key (user_id, disciplina_id)
+);
+
+create index if not exists disciplina_access_user_id_idx on public.disciplina_access(user_id);
+create index if not exists disciplina_access_disciplina_id_idx on public.disciplina_access(disciplina_id);
+
+alter table public.disciplina_access enable row level security;
+
+drop policy if exists disciplina_access_select on public.disciplina_access;
+create policy disciplina_access_select on public.disciplina_access
+  for select using (user_id = auth.uid() or public.is_controlador());
+
+drop policy if exists disciplina_access_insert on public.disciplina_access;
+create policy disciplina_access_insert on public.disciplina_access
+  for insert with check (public.is_controlador());
+
+drop policy if exists disciplina_access_delete on public.disciplina_access;
+create policy disciplina_access_delete on public.disciplina_access
+  for delete using (public.is_controlador());
+
+grant select, insert, delete on public.disciplina_access to authenticated;
+
+
+-- ============================================================
+-- 9j) MIGRAÇÃO — membro pode editar o próprio perfil (nome/cor)
+--      A policy profiles_update (seção 12) já libera o update
+--      para id = auth.uid(); este trigger garante que papel,
+--      role e email só mudam pela mão do controlador.
+-- ============================================================
+create or replace function public.profiles_protect_admin_fields()
+returns trigger
+language plpgsql
+as $$
+begin
+  if not public.is_controlador() then
+    new.role  := old.role;
+    new.papel := old.papel;
+    new.email := old.email;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_profiles_protect_admin_fields on public.profiles;
+create trigger trg_profiles_protect_admin_fields
+  before update on public.profiles
+  for each row execute function public.profiles_protect_admin_fields();
+
+
+-- ============================================================
 -- 10) FUNÇÕES DE APOIO PARA RLS
 --     security definer + search_path fixo: rodam com privilégio
 --     do dono (postgres), que tem BYPASSRLS, evitando recursão.
@@ -324,6 +393,13 @@ as $$
     );
 $$;
 
+-- Acesso a uma disciplina:
+--  - controlador: sempre
+--  - membro: precisa ter acesso à obra E
+--      (não ter nenhuma restrição de disciplina dentro dessa obra
+--       OU ter sido liberado explicitamente para esta disciplina)
+--    Sem registros em disciplina_access para a obra = acesso a todas
+--    as disciplinas da obra (comportamento padrão/atual).
 create or replace function public.has_disciplina_access(p_disciplina_id uuid)
 returns boolean
 language sql
@@ -333,11 +409,26 @@ set search_path = public
 as $$
   select
     public.is_controlador()
-    or exists(
-      select 1
-      from public.obra_access oa
-      join public.disciplinas d on d.obra_id = oa.obra_id
-      where oa.user_id = auth.uid() and d.id = p_disciplina_id
+    or (
+      exists(
+        select 1
+        from public.obra_access oa
+        join public.disciplinas d on d.obra_id = oa.obra_id
+        where oa.user_id = auth.uid() and d.id = p_disciplina_id
+      )
+      and (
+        not exists(
+          select 1
+          from public.disciplina_access da
+          join public.disciplinas d2 on d2.id = da.disciplina_id
+          where da.user_id = auth.uid()
+            and d2.obra_id = (select d3.obra_id from public.disciplinas d3 where d3.id = p_disciplina_id)
+        )
+        or exists(
+          select 1 from public.disciplina_access da
+          where da.user_id = auth.uid() and da.disciplina_id = p_disciplina_id
+        )
+      )
     );
 $$;
 
@@ -460,10 +551,12 @@ drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles
   for select using (id = auth.uid() or public.is_controlador());
 
+-- membro pode editar o próprio perfil (nome/cor); papel/role/email
+-- ficam protegidos por trigger (profiles_protect_admin_fields)
 drop policy if exists profiles_update on public.profiles;
 create policy profiles_update on public.profiles
-  for update using (public.is_controlador())
-  with check (public.is_controlador());
+  for update using (id = auth.uid() or public.is_controlador())
+  with check (id = auth.uid() or public.is_controlador());
 
 -- ---- invites ----
 drop policy if exists invites_select on public.invites;

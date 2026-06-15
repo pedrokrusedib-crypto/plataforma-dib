@@ -239,6 +239,7 @@
   .vhead-wait{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
   .vhead-actions{display:flex;align-items:center;gap:4px;flex:0 0 auto}
   .vmeta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:12px;flex-wrap:wrap}
+  .vdesc{font-size:12.5px;color:var(--ink-2);margin-top:6px;line-height:1.5;overflow-wrap:break-word}
   .drive-link{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;font-weight:600;color:var(--ink);background:var(--card);transition:.15s ease}
   .drive-link:hover{border-color:var(--blue);color:#8fb4ff;background:rgba(91,140,255,.12);transform:translateY(-1px)}
   .drive-ico{width:18px;height:18px}
@@ -296,6 +297,9 @@
   .check:hover{border-color:var(--blue)}
   .check input{accent-color:var(--blue);width:16px;height:16px}
   .check.on{border-color:var(--blue);background:rgba(91,140,255,.14)}
+  .cor-swatch{width:34px;height:34px;border-radius:9px;cursor:pointer;border:2px solid transparent;transition:.15s ease}
+  .cor-swatch:hover{transform:translateY(-2px)}
+  .cor-swatch.on{border-color:var(--ink);box-shadow:0 0 0 3px rgba(91,140,255,.25)}
 
   /* toast */
   #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(40px);background:var(--navy);color:#fff;padding:13px 20px;border-radius:12px;font-size:13.5px;font-weight:500;box-shadow:var(--shadow-lg);z-index:80;opacity:0;transition:.25s;display:flex;align-items:center;gap:10px}
@@ -519,6 +523,7 @@
       <div class="user-chip">
         <div class="avatar" id="user-avatar">PD</div>
         <div style="flex:1"><b id="user-nome">Pedro Dib</b><small id="user-papel">Administrador</small></div>
+        <span style="color:#8493b0;cursor:pointer" onclick="modalEditProfile()" title="Editar perfil">✏️</span>
         <span style="color:#8493b0;cursor:pointer" onclick="logout()" title="Sair">⎋</span>
       </div>
     </div>
@@ -686,7 +691,7 @@ function daysUntil(dateStr){
    CARREGAMENTO DE DADOS (Supabase)
    ============================================================ */
 async function loadData(){
-  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes, arquivosRes, anotacoesRes, prazosRes, prazoPessoasRes] = await Promise.all([
+  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes, arquivosRes, anotacoesRes, prazosRes, prazoPessoasRes, discAccessRes] = await Promise.all([
     sb.from('obras').select('*').order('ordem'),
     sb.from('disciplinas').select('*').order('ordem'),
     sb.from('versoes').select('*'),
@@ -702,9 +707,10 @@ async function loadData(){
     sb.from('pdf_anotacoes').select('*').order('created_at'),
     sb.from('prazos').select('*').order('data'),
     sb.from('prazo_pessoas').select('*'),
+    sb.from('disciplina_access').select('*'),
   ]);
 
-  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes,notif_dismissals:notifDismissalsRes,versao_arquivos:arquivosRes,pdf_anotacoes:anotacoesRes,prazos:prazosRes,prazo_pessoas:prazoPessoasRes})){
+  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes,notif_dismissals:notifDismissalsRes,versao_arquivos:arquivosRes,pdf_anotacoes:anotacoesRes,prazos:prazosRes,prazo_pessoas:prazoPessoasRes,disciplina_access:discAccessRes})){
     if(res.error) console.error(`Erro ao carregar ${nome}:`, res.error);
   }
   dismissedNotifs = new Set((notifDismissalsRes.data||[]).map(r=>r.notif_key));
@@ -723,6 +729,7 @@ async function loadData(){
   const anotacoesRows = anotacoesRes.data||[];
   const prazosRows = prazosRes.data||[];
   const prazoPessoasRows = prazoPessoasRes.data||[];
+  const discAccessRows = discAccessRes.data||[];
   const today = todayStr();
 
   const profileById = Object.fromEntries(profRows.map(p=>[p.id,p]));
@@ -747,7 +754,7 @@ async function loadData(){
             });
             return {id:ar.id, tipo:ar.tipo, nome:ar.nome, path:ar.path, url:ar.url, ordem:ar.ordem, anotacoes};
           });
-          return {id:v.id, v:'v'+v.numero, titulo:v.titulo, data:formatDate(v.data), autor:v.autor_nome||'—', status:v.status, arquivos, fb, created_by:v.created_by};
+          return {id:v.id, v:'v'+v.numero, titulo:v.titulo, descricao:v.descricao||'', data:formatDate(v.data), autor:v.autor_nome||'—', status:v.status, arquivos, fb, created_by:v.created_by};
         });
       const chat = chatRows.filter(c=>c.disciplina_id===d.id).map(c=>{
         const a = authorInfo(c.autor_id, c.autor_nome);
@@ -773,14 +780,15 @@ async function loadData(){
   const activePeople = profRows.map(pr=>{
     const obraIds = accessRows.filter(a=>a.user_id===pr.id).map(a=>a.obra_id);
     const folders = pr.role==='controlador' ? 'ALL' : obraIds.map(id=>obraNomeById[id]).filter(Boolean);
-    return {id:pr.id, nome:pr.nome, email:pr.email, papel:pr.papel, role:pr.role, folders, obraIds, cor:pr.cor||DEFAULT_COR, pending:false};
+    const discAccessIds = discAccessRows.filter(da=>da.user_id===pr.id).map(da=>da.disciplina_id);
+    return {id:pr.id, nome:pr.nome, email:pr.email, papel:pr.papel, role:pr.role, folders, obraIds, discAccessIds, cor:pr.cor||DEFAULT_COR, pending:false};
   });
 
   const profileEmails = new Set(profRows.map(p=>p.email));
   const pendingInvites = invitesRows.filter(inv=>inv.status==='active' && !profileEmails.has(inv.email)).map(inv=>{
     const obraIds = inviteObrasRows.filter(io=>io.email===inv.email).map(io=>io.obra_id);
     const folders = inv.role==='controlador' ? 'ALL' : obraIds.map(id=>obraNomeById[id]).filter(Boolean);
-    return {id:'invite:'+inv.email, nome:inv.nome||inv.email, email:inv.email, papel:inv.papel||'', role:inv.role, folders, obraIds, cor:inv.cor||DEFAULT_COR, pending:true};
+    return {id:'invite:'+inv.email, nome:inv.nome||inv.email, email:inv.email, papel:inv.papel||'', role:inv.role, folders, obraIds, discAccessIds:[], cor:inv.cor||DEFAULT_COR, pending:true};
   });
 
   people = [...activePeople, ...pendingInvites];
@@ -789,7 +797,7 @@ async function loadData(){
 /* ============================================================
    ESTADO + NAVEGAÇÃO
    ============================================================ */
-let state = {view:'obras', projId:null, tab:'visao', chatDisc:null, search:''};
+let state = {view:'obras', projId:null, tab:'visao', chatDisc:null, versDisc:'all', search:''};
 
 function renderProjList(){
   const el = document.getElementById('proj-list');
@@ -1174,7 +1182,13 @@ function attachChip(ar, d, v){
 }
 
 function tabVersoes(p){
-  const blocks = p.disciplinas.map(d=>{
+  const discs = p.disciplinas;
+  if(!state.versDisc || (state.versDisc!=='all' && !discs.find(x=>x.nome===state.versDisc))) state.versDisc = 'all';
+  const visibleDiscs = state.versDisc==='all' ? discs : discs.filter(x=>x.nome===state.versDisc);
+  const tabsHtml = [`<div class="chat-tab ${state.versDisc==='all'?'active':''}" onclick="setVersDisc('all')">Todas</div>`]
+    .concat(discs.map(x=>`<div class="chat-tab ${x.nome===state.versDisc?'active':''}" onclick="setVersDisc('${x.nome.replace(/'/g,"\\'")}')">${x.nome}${x.versoes.length?`<span class="cnt">${x.versoes.length}</span>`:''}</div>`))
+    .join('');
+  const blocks = visibleDiscs.map(d=>{
     const ic = DISC_ICONS[d.nome]||{i:'📁',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
     const vigenteId = versaoVigente(d);
     const rows = d.versoes.length? d.versoes.map(v=>`
@@ -1183,6 +1197,7 @@ function tabVersoes(p){
         <div class="vbody">
           <b>${v.titulo}</b>${v.id===vigenteId?'<span class="badge b-green" style="margin-left:8px"><span class="bdot"></span>Versão vigente</span>':''}
           <div class="vmeta"><span>👤 ${v.autor}</span><span>📅 ${v.data}</span></div>
+          ${v.descricao?`<p class="vdesc">${v.descricao}</p>`:''}
         </div>
         ${isControlador()?statusSelect(v):badge(v.status)}
         <button class="drive-link" onclick="modalVersionFb('${d.nome}','${v.v}')">💬 ${(v.fb||[]).length}</button>
@@ -1203,11 +1218,11 @@ function tabVersoes(p){
           ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
           <span class="vhead-wait">Aguardando: <b style="color:var(--ink)">${d.aguardando}</b></span>
           <div class="vhead-actions">
-            ${d.link_drive?`<a class="icon-btn" href="${d.link_drive}" target="_blank" rel="noopener" title="Abrir pasta no Drive">📁</a>`:''}
             ${isControlador()?`<button class="icon-btn" title="Editar disciplina" onclick="modalEditDisciplina('${d.id}')">✏️</button>`:''}
             ${isControlador()?`<button class="icon-btn" title="Excluir disciplina" onclick="deleteDisciplina('${d.id}','${d.nome}')">🗑</button>`:''}
           </div>
         </div>
+        ${d.link_drive?`<div style="padding:12px 16px;border-bottom:1px solid var(--line-2)"><a class="drive-link" href="${d.link_drive}" target="_blank" rel="noopener">📁 Abrir pasta no Drive</a></div>`:''}
         ${rows}
       </div>`;
   }).join('');
@@ -1216,8 +1231,10 @@ function tabVersoes(p){
       <div><h1 style="font-size:18px">Versões de projeto</h1><p>Cada versão pode ter um ou mais PDFs e/ou links externos.</p></div>
       <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalNewVersion()">+ Nova versão</button></div>
     </div>
-    ${blocks}`;
+    <div class="chat-tabs">${tabsHtml}</div>
+    ${blocks || '<div class="empty" style="padding:26px"><div class="e-ico">📂</div>Nenhuma disciplina encontrada.</div>'}`;
 }
+function setVersDisc(discName){ state.versDisc=discName; render(); }
 
 function tabAtas(p){
   const nodes = p.atas.map(a=>`
@@ -1407,11 +1424,22 @@ function tabAcessos(p){
     const folders = per.folders==='ALL'
       ? '<span class="ftag all">Todas as obras</span>'
       : '<span class="ftag">Acesso à obra</span>';
+    const discIdsOfObra = p.disciplinas.map(d=>d.id);
+    const restrictedIds = (per.discAccessIds||[]).filter(id=>discIdsOfObra.includes(id));
+    const discTags = per.role==='controlador'
+      ? '<span class="ftag all">Todas</span>'
+      : (restrictedIds.length
+          ? restrictedIds.map(id=>{const d=p.disciplinas.find(x=>x.id===id); return d?`<span class="ftag">${d.nome}</span>`:'';}).join('')
+          : '<span class="ftag all">Todas</span>');
     return `<tr>
       <td><div class="pperson"><div class="avatar" style="background:${per.cor}">${initials(per.nome)}</div><div><b>${per.nome}</b><small>${per.email}</small></div></div></td>
       <td>${per.papel}</td>
       <td><div class="folder-tags">${folders}</div></td>
-      <td style="text-align:right"><button class="icon-btn" onclick="modalInvite('${p.id}','${per.email}')">✎</button></td>
+      <td><div class="folder-tags">${discTags}</div></td>
+      <td style="text-align:right">
+        ${(per.role!=='controlador' && !per.pending)?`<button class="icon-btn" title="Disciplinas liberadas" onclick="modalDiscAccess('${p.id}','${per.id}')">📂</button>`:''}
+        <button class="icon-btn" onclick="modalInvite('${p.id}','${per.email}')">✎</button>
+      </td>
     </tr>`;
   }).join('');
   return `
@@ -1420,7 +1448,7 @@ function tabAcessos(p){
       <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalInvite('${p.id}', null)">+ Convidar pessoa</button></div>
     </div>
     <div class="card" style="overflow:hidden"><table class="ptable">
-      <thead><tr><th>Pessoa</th><th>Papel</th><th>Pastas liberadas</th><th></th></tr></thead>
+      <thead><tr><th>Pessoa</th><th>Papel</th><th>Pastas liberadas</th><th>Disciplinas</th><th></th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
 }
 
@@ -1473,6 +1501,7 @@ function modalNewVersion(){
     <div class="modal-body">
       <div class="field"><label>Disciplina</label><select id="m-disc">${opts}</select></div>
       <div class="field"><label>Título da versão</label><input id="m-title" placeholder="Ex.: Executivo — revisão de layout"/></div>
+      <div class="field"><label>Descrição (opcional)</label><textarea id="m-desc" placeholder="Descreva o que mudou nesta versão..."></textarea></div>
       ${attachFieldsHtml()}
       ${isControlador()?`<div class="field"><label>Status inicial</label><select id="m-status">
         ${Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}
@@ -1486,11 +1515,12 @@ async function saveVersion(){
   const p=proj();
   const discName=document.getElementById('m-disc').value;
   const title=document.getElementById('m-title').value||'Nova versão';
+  const descricao=document.getElementById('m-desc').value.trim();
   const statusEl=document.getElementById('m-status');
   const status=statusEl?statusEl.value:'review';
   const d=p.disciplinas.find(x=>x.nome===discName);
   const {data,error}=await sb.from('versoes').insert({
-    disciplina_id:d.id, titulo:title, autor_nome:profile.nome, status, created_by:session.user.id
+    disciplina_id:d.id, titulo:title, descricao, autor_nome:profile.nome, status, created_by:session.user.id
   }).select().single();
   if(error){toast('Erro ao salvar versão: '+error.message);return;}
   await uploadPendingArquivos(data.id, d.id);
@@ -1515,6 +1545,31 @@ async function uploadPendingArquivos(versaoId, discId){
   pendingFiles=[]; pendingLinks=[];
 }
 
+function modalEditProfile(){
+  if(!profile) return;
+  const cores=['linear-gradient(135deg,#2f6bff,#1f50cc)','linear-gradient(135deg,#1f9d62,#0f6b41)','linear-gradient(135deg,#b9711a,#8a510f)','linear-gradient(135deg,#7a52cc,#523587)','linear-gradient(135deg,#3b6fe0,#1f4bb8)','linear-gradient(135deg,#5b6b85,#34404f)'];
+  const corAtual = profile.cor||DEFAULT_COR;
+  const swatches = cores.map(c=>`<div class="cor-swatch ${c===corAtual?'on':''}" data-cor="${c}" style="background:${c}" onclick="document.querySelectorAll('.cor-swatch').forEach(s=>s.classList.remove('on'));this.classList.add('on')"></div>`).join('');
+  openModal(`<div class="modal">
+    <div class="modal-head"><h3>Editar perfil</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Nome</label><input id="ep-nome" value="${profile.nome||''}" placeholder="Seu nome"/></div>
+      <div class="field"><label>E-mail</label><input value="${profile.email||''}" disabled/></div>
+      <div class="field"><label>Cor do avatar</label><div style="display:flex;gap:10px;flex-wrap:wrap">${swatches}</div></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveOwnProfile()">Salvar</button></div>
+  </div>`);
+}
+async function saveOwnProfile(){
+  const nome=document.getElementById('ep-nome').value.trim()||profile.nome;
+  const corEl=document.querySelector('.cor-swatch.on');
+  const cor=corEl?corEl.dataset.cor:(profile.cor||DEFAULT_COR);
+  const {error}=await sb.from('profiles').update({nome,cor}).eq('id',session.user.id);
+  if(error){toast('Erro ao salvar perfil: '+error.message);return;}
+  profile.nome=nome; profile.cor=cor;
+  closeModal(); renderUserChip(); await loadData(); render();
+  toast('Perfil atualizado ✓');
+}
 function modalInvite(obraId, personEmail){
   const per = personEmail ? people.find(x=>x.email===personEmail) : null;
   const role = per ? per.role : 'membro';
@@ -1580,6 +1635,40 @@ async function saveInvite(existingEmail){
 
   closeModal(); await loadData(); render();
   toast(per?'Acesso atualizado ✓':'Convite enviado para '+email+' ✓');
+}
+function modalDiscAccess(obraId, personId){
+  const p = projects.find(x=>x.id===obraId);
+  const per = people.find(x=>x.id===personId);
+  if(!p || !per) return;
+  const selectedIds = per.discAccessIds||[];
+  const discsChecks = p.disciplinas.map(d=>{
+    const on = selectedIds.includes(d.id);
+    return `<label class="check ${on?'on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${d.id}" ${on?'checked':''}> ${d.nome}</label>`;
+  }).join('');
+  openModal(`<div class="modal">
+    <div class="modal-head"><h3>Disciplinas liberadas</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <p style="color:var(--muted);font-size:13px;margin-bottom:10px">Em <b style="color:var(--ink)">${p.nome}</b>, para <b style="color:var(--ink)">${per.nome}</b>. Se nenhuma disciplina for marcada, a pessoa enxerga todas as disciplinas desta obra. Marque apenas as disciplinas que deseja liberar para restringir o acesso.</p>
+      <div class="checks" id="da-checks" style="grid-template-columns:1fr">${discsChecks}</div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveDiscAccess('${obraId}','${personId}')">Salvar</button></div>
+  </div>`);
+}
+async function saveDiscAccess(obraId, personId){
+  const p = projects.find(x=>x.id===obraId);
+  const per = people.find(x=>x.id===personId);
+  if(!p || !per) return;
+  const checkedIds = [...document.querySelectorAll('#da-checks input:checked')].map(i=>i.value);
+  const discIdsOfObra = p.disciplinas.map(d=>d.id);
+  const current = (per.discAccessIds||[]).filter(id=>discIdsOfObra.includes(id));
+  const toAdd = checkedIds.filter(id=>!current.includes(id));
+  const toRemove = current.filter(id=>!checkedIds.includes(id));
+  if(toAdd.length) await sb.from('disciplina_access').insert(toAdd.map(disciplina_id=>({user_id:personId, disciplina_id})));
+  for(const disciplina_id of toRemove){
+    await sb.from('disciplina_access').delete().eq('user_id',personId).eq('disciplina_id',disciplina_id);
+  }
+  closeModal(); await loadData(); render();
+  toast('Disciplinas atualizadas ✓');
 }
 async function revokeAccess(email){
   if(profile && email===profile.email){toast('Você não pode revogar seu próprio acesso');return;}
