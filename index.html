@@ -512,6 +512,7 @@
       <div class="side-label">Menu</div>
       <div class="nav-item active" data-nav="obras" onclick="go('obras')"><span class="i">▦</span> Minhas obras</div>
       <div class="nav-item" data-nav="agenda" onclick="go('agenda')"><span class="i">📅</span> Agenda</div>
+      <div class="nav-item" data-nav="atas" onclick="go('atas')"><span class="i">📋</span> Atas de reunião</div>
 
       <div class="side-label">Obras / Projetos</div>
       <div id="proj-list"></div>
@@ -680,12 +681,16 @@ async function loadData(){
     if(res.error) console.error(`Erro ao carregar ${nome}:`, res.error);
   }
 
-  // Nova tabela ata_obras — isolada em allSettled: falha silenciosa até o SQL rodar
-  const [ataObrasSettled] = await Promise.allSettled([
+  // Tabelas opcionais — allSettled: falha silenciosa se coluna/tabela não existir
+  const [ataObrasSettled, prazosSettled] = await Promise.allSettled([
     sb.from('ata_obras').select('*'),
+    sb.from('prazos').select('*').not('ata_id','is',null).order('data'),
   ]);
   const ataObrasRows = (ataObrasSettled.status==='fulfilled' && !ataObrasSettled.value?.error)
     ? (ataObrasSettled.value?.data||[]) : [];
+  const prazosRows = (prazosSettled.status==='fulfilled' && !prazosSettled.value?.error)
+    ? (prazosSettled.value?.data||[]) : [];
+
 
   dismissedNotifs = new Set((notifDismissalsRes.data||[]).map(r=>r.notif_key));
 
@@ -754,7 +759,11 @@ async function loadData(){
       return {id:ap.user_id, nome:(pr&&pr.nome)||'—', cor:(pr&&pr.cor)||DEFAULT_COR, ini:initials((pr&&pr.nome)||'?')};
     });
 
-    return {id:a.id, titulo:a.titulo, resumo:a.resumo||'', data:formatDate(a.data), rawData:a.data, drive_url:a.drive_url||'', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, obras, pessoas};
+    const entregas = prazosRows.filter(pr=>pr.ata_id===a.id).map(pr=>({
+      id:pr.id, titulo:pr.titulo, data:pr.data, status:pr.status||'pendente', obraId:pr.obra_id
+    })).sort((x,y)=>x.data<y.data?-1:x.data>y.data?1:0);
+
+    return {id:a.id, titulo:a.titulo, resumo:a.resumo||'', data:formatDate(a.data), rawData:a.data, drive_url:a.drive_url||'', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, obras, pessoas, entregas};
   });
 
   const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
@@ -813,6 +822,7 @@ function render(){
   const crumb = document.getElementById('crumb');
   if(state.view==='obras'){ crumb.innerHTML='<b>Minhas obras</b>'; c.innerHTML = viewObras(); }
   else if(state.view==='agenda'){ crumb.innerHTML='<b>Agenda</b>'; c.innerHTML = viewAgenda(); }
+  else if(state.view==='atas'){ crumb.innerHTML='<b>Atas de reunião</b>'; c.innerHTML = viewAtas(); }
   else if(state.view==='pessoas'){ crumb.innerHTML='Administração › <b>Pessoas & acessos</b>'; c.innerHTML = viewPessoas(); }
   else if(state.view==='proj'){ const p=proj(); crumb.innerHTML=`Projetos › <b>${p.nome}</b>`; c.innerHTML = viewProj(); }
   document.querySelector('.main').scrollTop=0;
@@ -890,8 +900,57 @@ function projCard(p){
 
 
 function viewAgenda(){
+  const obraFilter = state.agendaObraFilter||'';
+  const allEntregas = atasData.flatMap(a=>{
+    const obraNome = a.obras.length ? a.obras.map(o=>o.nome).join(', ') : '—';
+    return (a.entregas||[]).map(e=>({...e, ataId:a.id, ataTitulo:a.titulo, obras:a.obras, obraNome}));
+  }).sort((x,y)=>x.data<y.data?-1:x.data>y.data?1:0);
+  const items = obraFilter ? allEntregas.filter(e=>e.obras.some(o=>o.id===obraFilter)) : allEntregas;
+  const pendentes = items.filter(e=>e.status==='pendente');
+  const concluidas = items.filter(e=>e.status==='concluido');
+  const hoje = todayStr();
+  function entregaCard(e){
+    let tag;
+    if(e.status==='concluido') tag='<span class="badge b-green"><span class="bdot"></span>Concluída</span>';
+    else if(e.data<hoje) tag='<span class="badge b-red"><span class="bdot"></span>⚠ Atrasada</span>';
+    else if(e.data===hoje) tag='<span class="badge b-amber"><span class="bdot"></span>Vence hoje</span>';
+    else tag='<span class="badge b-gray"><span class="bdot"></span>Pendente</span>';
+    return `
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-pad" style="display:flex;align-items:flex-start;gap:14px">
+        <div style="text-align:center;min-width:52px">
+          <div style="font-size:20px;font-weight:800;color:var(--ink)">${formatDate(e.data).split(' ')[0]}</div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase">${formatDate(e.data).split(' ')[1]||''}</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <b style="font-size:14.5px;color:var(--ink)">${e.titulo}</b>${tag}
+          </div>
+          <div style="font-size:12.5px;color:var(--muted);margin-top:4px">📋 ${e.ataTitulo} · ${e.obraNome}</div>
+        </div>
+        ${isControlador()?`<div style="display:flex;flex-direction:column;gap:6px">
+          <button class="icon-btn" title="${e.status==='pendente'?'Marcar como concluída':'Reabrir'}" onclick="toggleEntregaStatus('${e.id}')">${e.status==='pendente'?'✓':'↺'}</button>
+          <button class="icon-btn" title="Excluir entrega" onclick="deleteEntrega('${e.id}')">🗑</button>
+        </div>`:''}
+      </div>
+    </div>`;
+  }
+  const tabsHtml = [`<div class="chat-tab ${!obraFilter?'active':''}" onclick="state.agendaObraFilter='';render()">Todas</div>`]
+    .concat(projects.map(p=>`<div class="chat-tab ${p.id===obraFilter?'active':''}" onclick="state.agendaObraFilter='${p.id}';render()">${p.nome}</div>`))
+    .join('');
+  return `
+    <div class="page-head">
+      <div><h1>Agenda</h1><p>Entregas definidas nas atas de reunião.</p></div>
+    </div>
+    <div class="chat-tabs">${tabsHtml}</div>
+    ${pendentes.length ? pendentes.map(entregaCard).join('') : '<div class="empty"><div class="e-ico">📅</div>Nenhuma entrega pendente.</div>'}
+    ${concluidas.length ? `<div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:22px 0 10px">Concluídas</div>${concluidas.map(entregaCard).join('')}` : ''}`;
+}
+
+function viewAtas(){
   const obraFilter = state.ataObraFilter||'';
   const filtered = obraFilter ? atasData.filter(a=>a.obras.some(o=>o.id===obraFilter)) : atasData;
+  const hoje = todayStr();
   const nodes = filtered.map(a=>{
     const visTag = a.pessoas.length
       ? `<span style="font-size:11.5px;color:var(--muted)">👁 ${a.pessoas.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`
@@ -902,6 +961,21 @@ function viewAgenda(){
     const adminBtns = isControlador() ? `
       <button class="icon-btn" title="Editar ata" onclick="modalEditAta('${a.id}')">✏️</button>
       <button class="icon-btn" title="Excluir ata" style="color:#c0392b;opacity:.7" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.7'" onclick="deleteAta('${a.id}','${a.titulo.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">🗑</button>` : '';
+    const entregasHtml = (a.entregas||[]).length ? `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
+        <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px">Entregas</div>
+        ${a.entregas.map(e=>{
+          let tag;
+          if(e.status==='concluido') tag='<span class="badge b-green" style="font-size:11px"><span class="bdot"></span>Concluída</span>';
+          else if(e.data<hoje) tag='<span class="badge b-red" style="font-size:11px"><span class="bdot"></span>Atrasada</span>';
+          else tag='<span class="badge b-gray" style="font-size:11px"><span class="bdot"></span>Pendente</span>';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;flex-wrap:wrap">
+            <span style="font-size:12.5px;flex:1;min-width:0">${e.titulo}</span>
+            <span style="font-size:11.5px;color:var(--muted);white-space:nowrap">${formatDate(e.data)}</span>
+            ${tag}
+          </div>`;
+        }).join('')}
+      </div>` : '';
     return `
     <div class="tnode ${a.cls}">
       <div class="tdate">📅 ${a.data}</div>
@@ -916,6 +990,7 @@ function viewAgenda(){
           ${a.drive_url?`<a class="drive-link" href="${a.drive_url}" target="_blank" rel="noopener">📄 Ata completa no Drive</a>`:''}
           ${visTag}
         </div>
+        ${entregasHtml}
       </div>
     </div>`;
   }).join('');
@@ -924,11 +999,26 @@ function viewAgenda(){
     .join('');
   return `
     <div class="page-head" style="margin-bottom:18px">
-      <div><h1>Agenda</h1><p>Registros de reuniões de todas as obras.</p></div>
+      <div><h1>Atas de reunião</h1><p>Registros de reuniões de todas as obras.</p></div>
       <div class="ph-actions">${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewAta()">+ Nova ata</button>':''}</div>
     </div>
     <div class="chat-tabs">${tabsHtml}</div>
     <div class="tline">${nodes||'<div class="empty"><div class="e-ico">📋</div>Sem atas registradas.</div>'}</div>`;
+}
+
+async function toggleEntregaStatus(prazoId){
+  const allE = atasData.flatMap(a=>a.entregas||[]);
+  const e = allE.find(x=>x.id===prazoId); if(!e) return;
+  const novo = e.status==='pendente' ? 'concluido' : 'pendente';
+  const {error} = await sb.from('prazos').update({status:novo}).eq('id',prazoId);
+  if(error){ toast('Erro ao atualizar entrega: '+error.message); return; }
+  await loadData(); render();
+}
+async function deleteEntrega(prazoId){
+  if(!confirm('Excluir esta entrega?')) return;
+  const {error} = await sb.from('prazos').delete().eq('id',prazoId);
+  if(error){ toast('Erro ao excluir entrega: '+error.message); return; }
+  await loadData(); render(); toast('Entrega excluída');
 }
 
 /* ============================================================
@@ -1569,6 +1659,30 @@ async function updateVersionStatus(versaoId, newStatus){
   toast('Status atualizado ✓');
 }
 
+let _modalEntregas = [];
+let _entregaCount = 0;
+function renderModalEntregas(){
+  const el = document.getElementById('a-entregas'); if(!el) return;
+  el.innerHTML = _modalEntregas.length
+    ? _modalEntregas.map(e=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <input style="flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--input);color:var(--ink);font-size:13px" placeholder="Título da entrega" value="${e.titulo.replace(/"/g,'&quot;')}" oninput="setEntregaTitulo(${e._uid},this.value)"/>
+      <input type="date" style="width:140px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--input);color:var(--ink);font-size:13px" value="${e.data}" oninput="setEntregaData(${e._uid},this.value)"/>
+      <button class="icon-btn" onclick="removeModalEntrega(${e._uid})">✕</button>
+    </div>`).join('')
+    : '<div style="font-size:12.5px;color:var(--muted);padding:4px 0">Nenhuma entrega. Use o botão abaixo para adicionar.</div>';
+}
+function addModalEntrega(){
+  _modalEntregas.push({_uid:++_entregaCount, titulo:'', data:new Date().toISOString().slice(0,10), status:'pendente'});
+  renderModalEntregas();
+}
+function removeModalEntrega(uid){
+  _modalEntregas = _modalEntregas.filter(e=>e._uid!==uid);
+  renderModalEntregas();
+}
+function setEntregaTitulo(uid, v){ const e=_modalEntregas.find(x=>x._uid===uid); if(e) e.titulo=v; }
+function setEntregaData(uid, v){ const e=_modalEntregas.find(x=>x._uid===uid); if(e) e.data=v; }
+
 function _ataModalHTML(titulo, a){
   const isEdit=!!a;
   const today=new Date().toISOString().slice(0,10);
@@ -1595,6 +1709,11 @@ function _ataModalHTML(titulo, a){
         <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Deixe todos desmarcados para ser visível a todos.</p>
         <div class="checks" id="a-pessoas" style="grid-template-columns:1fr">${pessoasChecks||'<span style="color:var(--muted);font-size:13px">Nenhum outro usuário.</span>'}</div>
       </div>
+      <div class="field">
+        <label>Entregas previstas</label>
+        <div id="a-entregas"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addModalEntrega()">+ Entrega</button>
+      </div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="${saveFn}">${isEdit?'Salvar alterações':'Salvar ata'}</button></div>
   </div>`;
@@ -1602,15 +1721,18 @@ function _ataModalHTML(titulo, a){
 
 function modalNewAta(){
   if(!isControlador()) return;
-  _editingAtaId=null;
+  _editingAtaId=null; _modalEntregas=[]; _entregaCount=0;
   openModal(_ataModalHTML('Nova ata de reunião', null));
+  renderModalEntregas();
 }
 
 function modalEditAta(ataId){
   if(!isControlador()) return;
   const a=atasData.find(x=>x.id===ataId); if(!a) return;
   _editingAtaId=ataId;
+  _modalEntregas=(a.entregas||[]).map(e=>({_uid:++_entregaCount, id:e.id, titulo:e.titulo, data:e.data, status:e.status}));
   openModal(_ataModalHTML('Editar ata de reunião', a));
+  renderModalEntregas();
 }
 
 function _ataFields(){
@@ -1635,6 +1757,10 @@ async function saveAta(){
   if(error){toast('Erro ao registrar ata: '+error.message);return;}
   if(obraIds.length) await sb.from('ata_obras').insert(obraIds.map(oid=>({ata_id:ataRow.id,obra_id:oid})));
   if(pessoaIds.length) await sb.from('ata_pessoas').insert(pessoaIds.map(uid=>({ata_id:ataRow.id,user_id:uid})));
+  const validEntregas=_modalEntregas.filter(e=>e.titulo.trim()&&e.data);
+  if(validEntregas.length) await sb.from('prazos').insert(validEntregas.map(e=>({
+    ata_id:ataRow.id, obra_id:firstObraId, titulo:e.titulo.trim(), data:e.data, status:'pendente', created_by:session.user.id
+  })));
   closeModal(); state.view='atas'; state.projId=null;
   await loadData(); render();
   toast('Ata registrada ✓');
@@ -1651,6 +1777,11 @@ async function _doUpdateAta(){
   if(obraIds.length) await sb.from('ata_obras').insert(obraIds.map(oid=>({ata_id:ataId,obra_id:oid})));
   await sb.from('ata_pessoas').delete().eq('ata_id',ataId);
   if(pessoaIds.length) await sb.from('ata_pessoas').insert(pessoaIds.map(uid=>({ata_id:ataId,user_id:uid})));
+  await sb.from('prazos').delete().eq('ata_id',ataId);
+  const validEntregas=_modalEntregas.filter(e=>e.titulo.trim()&&e.data);
+  if(validEntregas.length) await sb.from('prazos').insert(validEntregas.map(e=>({
+    ata_id:ataId, obra_id:firstObraId, titulo:e.titulo.trim(), data:e.data, status:e.status||'pendente', created_by:session.user.id
+  })));
   closeModal(); await loadData(); render();
   toast('Ata atualizada ✓');
 }
