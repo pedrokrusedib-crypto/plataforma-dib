@@ -489,7 +489,7 @@
           <div class="ico">⚠️</div>
           <b>Acesso não autorizado</b>
           <small>O e-mail <span id="email-unauth"></span> ainda não tem acesso liberado a esta plataforma. Fale com o administrador para ser convidado.</small>
-          <button class="btn btn-ghost" style="width:100%" onclick="logout()">Sair</button>
+          <button class="btn btn-ghost" style="width:100%" onclick="confirmLogout()">⏻ Sair</button>
         </div>
       </div>
     </div>
@@ -524,7 +524,7 @@
         <div class="avatar" id="user-avatar">PD</div>
         <div style="flex:1"><b id="user-nome">Pedro Dib</b><small id="user-papel">Administrador</small></div>
         <span style="color:#8493b0;cursor:pointer" onclick="modalEditProfile()" title="Editar perfil">✏️</span>
-        <span style="color:#8493b0;cursor:pointer" onclick="logout()" title="Sair">⎋</span>
+        <span style="color:#c0392b;cursor:pointer;font-size:16px;opacity:.8" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.8'" onclick="confirmLogout()" title="Sair da plataforma">⏻</span>
       </div>
     </div>
   </aside>
@@ -536,7 +536,7 @@
       <div class="crumb" id="crumb">Minhas obras</div>
       <div class="search">🔎 <input id="search-input" placeholder="Buscar projeto, disciplina..." autocomplete="off" oninput="onSearchInput(this.value)" /></div>
       <button class="top-btn" onclick="openNotifs()">🔔<span class="badge" id="notif-badge"></span></button>
-      <button class="top-btn" onclick="logout()" title="Sair">⎋</button>
+      <button class="top-btn" onclick="confirmLogout()" title="Sair da plataforma" style="color:#c0392b">⏻</button>
     </div>
     <div class="content" id="content"></div>
   </main>
@@ -1830,6 +1830,11 @@ function modalNewAta(){
       <div class="field"><label>Título</label><input id="a-title" placeholder="Ex.: Reunião de compatibilização"/></div>
       <div class="field"><label>Resumo / decisões</label><textarea id="a-res" placeholder="Principais pontos e próximos passos..."></textarea></div>
       <div class="field"><label>Link da ata completa (Drive)</label><input id="a-drive" placeholder="https://drive.google.com/..."/></div>
+      <div style="border-top:1px solid var(--line);margin-top:4px;padding-top:14px">
+        <div style="font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:10px">Prazo (opcional)</div>
+        <div class="field"><label>Data de entrega</label><input id="a-prazo-data" type="date"/></div>
+        <div class="field"><label>Título do prazo</label><input id="a-prazo-titulo" placeholder="Deixe vazio para usar o título da ata"/></div>
+      </div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveAta()">Salvar ata</button></div>
   </div>`);
@@ -1839,12 +1844,23 @@ async function saveAta(){
   const titulo=document.getElementById('a-title').value||'Nova reunião';
   const resumo=document.getElementById('a-res').value||'—';
   const drive=document.getElementById('a-drive').value||null;
+  const prazoDt=document.getElementById('a-prazo-data').value;
+  const prazoTit=(document.getElementById('a-prazo-titulo').value.trim())||titulo;
   const {error}=await sb.from('atas').insert({
     obra_id:p.id, titulo, resumo, drive_url:drive, cls:'gold', created_by:session.user.id
   });
   if(error){toast('Erro ao registrar ata: '+error.message);return;}
+  if(prazoDt){
+    const {error:pErr}=await sb.from('prazos').insert({
+      obra_id:p.id, titulo:prazoTit, data:prazoDt, created_by:session.user.id
+    });
+    if(pErr) toast('Ata salva, mas erro no prazo: '+pErr.message);
+    else toast('Ata e prazo registrados ✓');
+  } else {
+    toast('Ata registrada ✓');
+  }
   closeModal(); state.tab='atas';
-  await loadData(); render(); toast('Ata registrada ✓');
+  await loadData(); render();
 }
 
 function modalNewDisc(){
@@ -2266,7 +2282,21 @@ async function enterApp(){
   render();
 }
 
+function confirmLogout(){
+  openModal(`<div class="modal" style="max-width:360px">
+    <div class="modal-head"><h3>Sair da plataforma</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body" style="text-align:center;padding:28px 20px 16px">
+      <div style="font-size:36px;margin-bottom:12px">⏻</div>
+      <p style="color:var(--muted);font-size:14px;line-height:1.5">Deseja mesmo sair? Você precisará usar o <b>magic link</b> para entrar novamente.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-sm" style="background:#c0392b;color:#fff" onclick="logout()">⏻ Sair</button>
+    </div>
+  </div>`);
+}
 async function logout(){
+  closeModal();
   await sb.auth.signOut();
 }
 
