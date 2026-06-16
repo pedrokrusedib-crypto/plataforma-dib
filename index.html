@@ -775,7 +775,7 @@ async function loadData(){
         });
       const chat = chatRows.filter(c=>c.disciplina_id===d.id).map(c=>{
         const a = authorInfo(c.autor_id, c.autor_nome);
-        return {id:c.id, ini:initials(a.nome), autor:a.nome, cor:a.cor, hora:formatHora(c.created_at), texto:c.texto, me: !!session && c.autor_id===session.user.id};
+        return {id:c.id, ini:initials(a.nome), autor:a.nome, cor:a.cor, hora:formatHora(c.created_at), texto:c.texto, me: !!session && c.autor_id===session.user.id, autorId:c.autor_id};
       });
       const atrasado = prazosRows.some(pr=>pr.disciplina_id===d.id && pr.status==='pendente' && pr.data<today);
       return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', link_drive:d.link_drive||'', cor:d.cor||null, versoes, chat, atrasado};
@@ -1172,6 +1172,7 @@ function viewProj(){
   const tabs = [
     {id:'visao', label:'Visão geral'},
     {id:'versoes', label:'Versões', cnt:countVersions(p)},
+    {id:'vigente', label:'Versão vigente'},
     {id:'chat', label:'Chat', cnt:countChat(p)},
   ];
   if(isControlador()) tabs.push({id:'acessos', label:'Acessos', cnt:peopleOf(p).length});
@@ -1192,6 +1193,7 @@ function viewProj(){
   let body='';
   if(state.tab==='visao') body=tabVisao(p);
   else if(state.tab==='versoes') body=tabVersoes(p);
+  else if(state.tab==='vigente') body=tabVigente(p);
   else if(state.tab==='chat') body=tabChat(p);
   else if(state.tab==='acessos') body=tabAcessos(p);
 
@@ -1295,6 +1297,36 @@ function tabVersoes(p){
 }
 function setVersDisc(discName){ state.versDisc=discName; render(); }
 
+function tabVigente(p){
+  const cards=p.disciplinas.map(d=>{
+    const ic=DISC_ICONS[d.nome]||{i:'📁',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
+    const icoBg=d.cor||ic.bg; const icoC=d.cor?'#fff':ic.c;
+    const vigenteId=versaoVigente(d);
+    const v=vigenteId&&d.versoes.find(x=>x.id===vigenteId);
+    if(!v) return `<div class="card" style="padding:16px;opacity:.55">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="d-ico" style="background:${icoBg};color:${icoC}">${d.nome[0].toUpperCase()}</div>
+        <div><b>${d.nome}</b><div style="font-size:13px;color:var(--muted);margin-top:2px">Sem versão aprovada</div></div>
+      </div></div>`;
+    return `<div class="card" style="overflow:hidden;padding:0">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px 10px">
+        <div class="d-ico" style="background:${icoBg};color:${icoC}">${d.nome[0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0">
+          <b>${d.nome}</b>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${v.v.toUpperCase()} · ${v.titulo} · ${v.data}</div>
+        </div>
+        <span class="badge b-green"><span class="bdot"></span>Vigente</span>
+      </div>
+      <div style="padding:4px 14px 14px;display:flex;flex-wrap:wrap;gap:6px">
+        ${v.arquivos.map(ar=>attachChip(ar,d,v)).join('')||`<span style="font-size:13px;color:var(--muted)">Sem arquivos anexados</span>`}
+      </div></div>`;
+  }).join('');
+  return `
+    <div class="page-head" style="margin-bottom:14px">
+      <div><h1 style="font-size:18px">Versão vigente</h1><p>Versão aprovada atual de cada disciplina da obra.</p></div>
+    </div>
+    <div class="cards grid-2">${cards||'<div class="empty"><div class="e-ico">📂</div>Nenhuma disciplina.</div>'}</div>`;
+}
 
 function viewAtas(){
   const nodes = atasData.map(a=>{
@@ -1360,15 +1392,19 @@ function tabChat(p){
   if(!state.chatDisc || !discs.find(x=>x.nome===state.chatDisc)) state.chatDisc = discs[0].nome;
   const d = discs.find(x=>x.nome===state.chatDisc);
   const members = peopleOfDisc(p, d.nome);
-  const msgs = (d.chat||[]).map(m=>`
-    <div class="msg ${m.me?'me':''}">
+  const msgs = (d.chat||[]).map(m=>{
+    const canDel=m.me||isControlador();
+    const delBtn=canDel?`<button class="icon-btn" style="opacity:.35;font-size:11px;align-self:flex-start;flex-shrink:0;margin-top:2px" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.35'" onclick="deleteChatMsg('${m.id}')" title="Excluir mensagem">✕</button>`:'';
+    return `<div class="msg ${m.me?'me':''}" style="align-items:flex-start">
       ${m.me?'':`<div class="avatar" style="background:${m.cor}">${m.ini}</div>`}
       <div class="bubble">
         ${m.me?'':`<b>${m.autor}</b>`}
         <p>${m.texto}</p>
         <span class="time">${m.hora}</span>
       </div>
-    </div>`).join('');
+      ${delBtn}
+    </div>`;
+  }).join('');
   const tabsHtml = discs.map(x=>{
     return `<div class="chat-tab ${x.nome===d.nome?'active':''}" onclick="setChatDisc('${x.nome.replace(/'/g,"\\'")}')">${x.nome}${(x.chat||[]).length?`<span class="cnt">${x.chat.length}</span>`:''}</div>`;
   }).join('');
@@ -1396,6 +1432,11 @@ async function sendChat(){
   if(error){toast('Erro ao enviar mensagem: '+error.message);return;}
   await loadData(); render();
   const b=document.getElementById('chat-body'); if(b)b.scrollTop=b.scrollHeight;
+}
+async function deleteChatMsg(id){
+  const {error}=await sb.from('disciplina_chat').delete().eq('id',id);
+  if(error){toast('Erro ao excluir mensagem');return;}
+  await loadData(); render();
 }
 
 /* ----- Feedback dentro de uma versão ----- */
@@ -1635,23 +1676,27 @@ async function uploadPendingArquivos(versaoId, discId){
 
 function modalEditProfile(){
   if(!profile) return;
-  const cores=['linear-gradient(135deg,#2f6bff,#1f50cc)','linear-gradient(135deg,#1f9d62,#0f6b41)','linear-gradient(135deg,#b9711a,#8a510f)','linear-gradient(135deg,#7a52cc,#523587)','linear-gradient(135deg,#3b6fe0,#1f4bb8)','linear-gradient(135deg,#5b6b85,#34404f)'];
-  const corAtual = profile.cor||DEFAULT_COR;
-  const swatches = cores.map(c=>`<div class="cor-swatch ${c===corAtual?'on':''}" data-cor="${c}" style="background:${c}" onclick="document.querySelectorAll('.cor-swatch').forEach(s=>s.classList.remove('on'));this.classList.add('on')"></div>`).join('');
+  const corAtual = (profile.cor&&profile.cor.startsWith('#'))?profile.cor:'#2f6bff';
+  const swatchColors=['#2f6bff','#1f9d62','#b9711a','#7a52cc','#e05252','#0ea5e9','#f97316','#ec4899','#14b8a6','#64748b'];
+  const swatches=swatchColors.map(c=>`<div onclick="document.getElementById('ep-cor').value='${c}'" style="width:26px;height:26px;border-radius:6px;background:${c};cursor:pointer;flex-shrink:0;border:2px solid transparent" onmouseenter="this.style.borderColor='var(--ink)'" onmouseleave="this.style.borderColor='transparent'"></div>`).join('');
   openModal(`<div class="modal">
     <div class="modal-head"><h3>Editar perfil</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Nome</label><input id="ep-nome" value="${profile.nome||''}" placeholder="Seu nome"/></div>
       <div class="field"><label>E-mail</label><input value="${profile.email||''}" disabled/></div>
-      <div class="field"><label>Cor do avatar</label><div style="display:flex;gap:10px;flex-wrap:wrap">${swatches}</div></div>
+      <div class="field"><label>Cor do avatar</label>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px">
+          ${swatches}
+          <input id="ep-cor" type="color" value="${corAtual}" style="width:44px;height:36px;padding:2px;border:1.5px solid var(--line);border-radius:8px;cursor:pointer" title="Cor personalizada"/>
+        </div>
+      </div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveOwnProfile()">Salvar</button></div>
   </div>`);
 }
 async function saveOwnProfile(){
   const nome=document.getElementById('ep-nome').value.trim()||profile.nome;
-  const corEl=document.querySelector('.cor-swatch.on');
-  const cor=corEl?corEl.dataset.cor:(profile.cor||DEFAULT_COR);
+  const cor=document.getElementById('ep-cor').value||DEFAULT_COR;
   const {error}=await sb.from('profiles').update({nome,cor}).eq('id',session.user.id);
   if(error){toast('Erro ao salvar perfil: '+error.message);return;}
   profile.nome=nome; profile.cor=cor;
@@ -2155,11 +2200,20 @@ async function saveProject(){
 
 function modalEditProject(obraId){
   const p=projects.find(x=>x.id===obraId);
+  const corAtual=p.cor&&p.cor.startsWith('#')?p.cor:'#2f6bff';
+  const swatchColors=['#2f6bff','#c9a24b','#1f9d62','#7a52cc','#e05252','#0ea5e9','#f97316','#ec4899','#14b8a6','#64748b'];
+  const swatches=swatchColors.map(c=>`<div onclick="document.getElementById('p-cor').value='${c}'" style="width:26px;height:26px;border-radius:6px;background:${c};cursor:pointer;flex-shrink:0;border:2px solid transparent" onmouseenter="this.style.borderColor='var(--ink)'" onmouseleave="this.style.borderColor='transparent'"></div>`).join('');
   openModal(`<div class="modal">
     <div class="modal-head"><h3>Editar obra</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Nome da obra</label><input id="p-name" value="${p.nome}" placeholder="Ex.: Perimetral"/></div>
       <div class="field"><label>Local</label><input id="p-local" value="${p.local}" placeholder="Ex.: Rio de Janeiro · RJ"/></div>
+      <div class="field"><label>Cor da obra</label>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px">
+          ${swatches}
+          <input id="p-cor" type="color" value="${corAtual}" style="width:44px;height:36px;padding:2px;border:1.5px solid var(--line);border-radius:8px;cursor:pointer" title="Cor personalizada"/>
+        </div>
+      </div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="updateProject('${obraId}')">Salvar alterações</button></div>
   </div>`);
@@ -2167,8 +2221,9 @@ function modalEditProject(obraId){
 async function updateProject(obraId){
   const nome=document.getElementById('p-name').value.trim();
   const local=document.getElementById('p-local').value.trim();
+  const cor=document.getElementById('p-cor').value||'#2f6bff';
   if(!nome){toast('Informe o nome da obra');return;}
-  const {error}=await sb.from('obras').update({nome,local}).eq('id',obraId);
+  const {error}=await sb.from('obras').update({nome,local,cor}).eq('id',obraId);
   if(error){toast('Erro ao atualizar obra: '+error.message);return;}
   closeModal(); await loadData(); render(); toast('Obra atualizada ✓');
 }
