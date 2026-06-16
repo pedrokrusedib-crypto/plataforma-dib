@@ -833,9 +833,11 @@ function proj(){ return projects.find(p=>p.id===state.projId); }
 /* ---------- helpers ---------- */
 function badge(st){ const s=STATUS[st]||{cls:'b-gray',label:st||'—'}; return `<span class="badge ${s.cls}"><span class="bdot"></span>${s.label}</span>`; }
 function statusSelect(v){
-  const s=STATUS[v.status]||{cls:'b-gray',label:v.status||'—'};
+  if(v.status==='obsoleto') return badge(v.status);
+  const s=STATUS[v.status]||{cls:'b-amber',label:'Aguardando'};
+  const opts=['aguardando','analise','revisar','aprovada'];
   return `<select class="badge status-select ${s.cls}" onclick="event.stopPropagation()" onchange="updateVersionStatus('${v.id}',this.value)">
-    ${Object.entries(STATUS).map(([k,st])=>`<option value="${k}" ${k===v.status?'selected':''}>${st.label}</option>`).join('')}
+    ${opts.map(k=>`<option value="${k}" ${k===v.status?'selected':''}>${STATUS[k].label}</option>`).join('')}
   </select>`;
 }
 function versaoVigente(d){
