@@ -410,6 +410,112 @@ create trigger trg_profiles_protect_admin_fields
 
 
 -- ============================================================
+-- 9k) MIGRAÇÃO — ata_obras: muitos-para-muitos atas ↔ obras
+--      atas.obra_id é mantido para compatibilidade; ata_obras
+--      adiciona suporte a múltiplas obras por ata.
+-- ============================================================
+create table if not exists public.ata_obras (
+  ata_id  uuid not null references public.atas(id) on delete cascade,
+  obra_id uuid not null references public.obras(id) on delete cascade,
+  primary key (ata_id, obra_id)
+);
+create index if not exists ata_obras_ata_id_idx  on public.ata_obras(ata_id);
+create index if not exists ata_obras_obra_id_idx on public.ata_obras(obra_id);
+
+insert into public.ata_obras (ata_id, obra_id)
+select id, obra_id from public.atas where obra_id is not null
+on conflict do nothing;
+
+alter table public.ata_obras enable row level security;
+
+drop policy if exists ata_obras_select on public.ata_obras;
+create policy ata_obras_select on public.ata_obras
+  for select using (
+    public.is_controlador()
+    or exists (
+      select 1 from public.obra_access oa
+      where oa.user_id = auth.uid() and oa.obra_id = ata_obras.obra_id
+    )
+  );
+drop policy if exists ata_obras_insert on public.ata_obras;
+create policy ata_obras_insert on public.ata_obras
+  for insert with check (public.is_controlador());
+drop policy if exists ata_obras_delete on public.ata_obras;
+create policy ata_obras_delete on public.ata_obras
+  for delete using (public.is_controlador());
+
+grant select, insert, delete on public.ata_obras to authenticated;
+
+
+-- ============================================================
+-- 9l) MIGRAÇÃO — ata_pessoas: visibilidade por pessoa
+--      Vazio = visível a todos com acesso à obra (padrão atual).
+--      Com linhas = restrito às pessoas listadas + controlador + autor.
+-- ============================================================
+create table if not exists public.ata_pessoas (
+  ata_id  uuid not null references public.atas(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  primary key (ata_id, user_id)
+);
+create index if not exists ata_pessoas_ata_id_idx  on public.ata_pessoas(ata_id);
+create index if not exists ata_pessoas_user_id_idx on public.ata_pessoas(user_id);
+
+alter table public.ata_pessoas enable row level security;
+
+drop policy if exists ata_pessoas_select on public.ata_pessoas;
+create policy ata_pessoas_select on public.ata_pessoas
+  for select using (public.is_controlador() or user_id = auth.uid());
+drop policy if exists ata_pessoas_insert on public.ata_pessoas;
+create policy ata_pessoas_insert on public.ata_pessoas
+  for insert with check (public.is_controlador());
+drop policy if exists ata_pessoas_delete on public.ata_pessoas;
+create policy ata_pessoas_delete on public.ata_pessoas
+  for delete using (public.is_controlador());
+
+grant select, insert, delete on public.ata_pessoas to authenticated;
+
+
+-- ============================================================
+-- 9m) MIGRAÇÃO — entregas de ata reutilizam a tabela prazos
+--      prazos.ata_id (nullable): quando preenchido, o prazo é
+--      uma entrega de ata (não aparece na agenda como prazo comum).
+--      obra_id vira nullable para entregas sem obra específica.
+-- ============================================================
+alter table public.prazos
+  add column if not exists ata_id uuid references public.atas(id) on delete cascade;
+
+alter table public.prazos alter column obra_id drop not null;
+
+create index if not exists prazos_ata_id_idx on public.prazos(ata_id);
+
+-- Atualiza RLS de atas: acesso por obra (direta ou via ata_obras)
+-- e passa o filtro de visibilidade por pessoa (ata_pessoas)
+drop policy if exists atas_select on public.atas;
+create policy atas_select on public.atas
+  for select using (
+    public.is_controlador()
+    or created_by = auth.uid()
+    or (
+      (
+        (obra_id is not null and exists (
+          select 1 from public.obra_access oa
+          where oa.user_id = auth.uid() and oa.obra_id = atas.obra_id
+        ))
+        or exists (
+          select 1 from public.ata_obras ao
+          join public.obra_access oa on oa.obra_id = ao.obra_id
+          where ao.ata_id = atas.id and oa.user_id = auth.uid()
+        )
+      )
+      and (
+        not exists (select 1 from public.ata_pessoas ap where ap.ata_id = atas.id)
+        or exists (select 1 from public.ata_pessoas ap where ap.ata_id = atas.id and ap.user_id = auth.uid())
+      )
+    )
+  );
+
+
+-- ============================================================
 -- 10) FUNÇÕES DE APOIO PARA RLS
 --     security definer + search_path fixo: rodam com privilégio
 --     do dono (postgres), que tem BYPASSRLS, evitando recursão.
@@ -755,9 +861,30 @@ create policy disciplina_chat_delete on public.disciplina_chat
   for delete using (autor_id = auth.uid() or public.is_controlador());
 
 -- ---- atas ----
+-- (policy final definida na seção 9m com suporte a ata_obras + ata_pessoas)
 drop policy if exists atas_select on public.atas;
 create policy atas_select on public.atas
-  for select using (public.has_obra_access(obra_id));
+  for select using (
+    public.is_controlador()
+    or created_by = auth.uid()
+    or (
+      (
+        (obra_id is not null and exists (
+          select 1 from public.obra_access oa
+          where oa.user_id = auth.uid() and oa.obra_id = atas.obra_id
+        ))
+        or exists (
+          select 1 from public.ata_obras ao
+          join public.obra_access oa on oa.obra_id = ao.obra_id
+          where ao.ata_id = atas.id and oa.user_id = auth.uid()
+        )
+      )
+      and (
+        not exists (select 1 from public.ata_pessoas ap where ap.ata_id = atas.id)
+        or exists (select 1 from public.ata_pessoas ap where ap.ata_id = atas.id and ap.user_id = auth.uid())
+      )
+    )
+  );
 
 drop policy if exists atas_insert on public.atas;
 create policy atas_insert on public.atas
