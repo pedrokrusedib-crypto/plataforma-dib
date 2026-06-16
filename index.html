@@ -701,6 +701,7 @@ function daysUntil(dateStr){
    CARREGAMENTO DE DADOS (Supabase)
    ============================================================ */
 async function loadData(){
+  // Tabelas estáveis — Promise.all: qualquer erro aqui indica problema real
   const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes, arquivosRes, anotacoesRes, prazosRes, prazoPessoasRes, discAccessRes, ataPessoasRes] = await Promise.all([
     sb.from('obras').select('*').order('ordem'),
     sb.from('disciplinas').select('*').order('ordem'),
@@ -724,6 +725,14 @@ async function loadData(){
   for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes,notif_dismissals:notifDismissalsRes,versao_arquivos:arquivosRes,pdf_anotacoes:anotacoesRes,prazos:prazosRes,prazo_pessoas:prazoPessoasRes,disciplina_access:discAccessRes,ata_pessoas:ataPessoasRes})){
     if(res.error) console.error(`Erro ao carregar ${nome}:`, res.error);
   }
+
+  // Nova tabela ata_obras — isolada em allSettled: falha silenciosa até o SQL rodar
+  const [ataObrasSettled] = await Promise.allSettled([
+    sb.from('ata_obras').select('*'),
+  ]);
+  const ataObrasRows = (ataObrasSettled.status==='fulfilled' && !ataObrasSettled.value?.error)
+    ? (ataObrasSettled.value?.data||[]) : [];
+
   dismissedNotifs = new Set((notifDismissalsRes.data||[]).map(r=>r.notif_key));
 
   const obrasRows = obrasRes.data||[];
@@ -776,7 +785,8 @@ async function loadData(){
       const atrasado = prazosRows.some(pr=>pr.disciplina_id===d.id && pr.status==='pendente' && pr.data<today);
       return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', link_drive:d.link_drive||'', progresso:d.progresso||0, versoes, chat, atrasado};
     });
-    const prazos = prazosRows.filter(pr=>pr.obra_id===o.id).map(pr=>{
+    // Exclui prazos ligados a atas (ata_id preenchido) — aparecem como "Entregas" na ata
+    const prazos = prazosRows.filter(pr=>pr.obra_id===o.id && !pr.ata_id).map(pr=>{
       const disc = discRows.find(d=>d.id===pr.disciplina_id);
       const mencionados = prazoPessoasRows.filter(pp=>pp.prazo_id===pr.id).map(pp=>{
         const per = profileById[pp.user_id];
@@ -789,12 +799,31 @@ async function loadData(){
   });
 
   atasData = atasRows.map(a=>{
-    const obra = obrasRows.find(o=>o.id===a.obra_id);
+    // obras: via ata_obras (novo); fallback para obra_id enquanto SQL não rodou
+    const obrasFromJoin = ataObrasRows.filter(ao=>ao.ata_id===a.id).map(ao=>{
+      const o = obrasRows.find(ob=>ob.id===ao.obra_id);
+      return o ? {id:o.id, nome:o.nome} : null;
+    }).filter(Boolean);
+    const obraFallback = (!obrasFromJoin.length && a.obra_id)
+      ? obrasRows.filter(o=>o.id===a.obra_id).map(o=>({id:o.id, nome:o.nome}))
+      : [];
+    const obras = obrasFromJoin.length ? obrasFromJoin : obraFallback;
+
     const pessoas = ataPessoasRows.filter(ap=>ap.ata_id===a.id).map(ap=>{
       const pr = profileById[ap.user_id];
       return {id:ap.user_id, nome:(pr&&pr.nome)||'—', cor:(pr&&pr.cor)||DEFAULT_COR, ini:initials((pr&&pr.nome)||'?')};
     });
-    return {id:a.id, titulo:a.titulo, resumo:a.resumo||'', data:formatDate(a.data), rawData:a.data, drive_url:a.drive_url||'', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, obraNome:obra?obra.nome:null, pessoas};
+
+    // entregas: prazos com ata_id === a.id (coluna existe após SQL rodar)
+    const entregas = prazosRows.filter(pr=>pr.ata_id===a.id).map(pr=>{
+      const responsaveis = prazoPessoasRows.filter(pp=>pp.prazo_id===pr.id).map(pp=>{
+        const per = profileById[pp.user_id];
+        return {id:pp.user_id, nome:(per&&per.nome)||'—', cor:(per&&per.cor)||DEFAULT_COR, ini:initials((per&&per.nome)||'?')};
+      });
+      return {id:pr.id, prazoId:pr.id, titulo:pr.titulo, data:pr.data, responsaveis};
+    }).sort((x,y)=>x.data<y.data?-1:x.data>y.data?1:0);
+
+    return {id:a.id, titulo:a.titulo, resumo:a.resumo||'', data:formatDate(a.data), rawData:a.data, drive_url:a.drive_url||'', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, obras, pessoas, entregas};
   });
 
   const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
