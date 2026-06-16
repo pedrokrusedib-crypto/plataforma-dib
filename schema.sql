@@ -447,32 +447,8 @@ create policy ata_obras_delete on public.ata_obras
 grant select, insert, delete on public.ata_obras to authenticated;
 
 
--- ============================================================
--- 9l) MIGRAÇÃO — ata_pessoas: visibilidade por pessoa
---      Vazio = visível a todos com acesso à obra (padrão atual).
---      Com linhas = restrito às pessoas listadas + controlador + autor.
--- ============================================================
-create table if not exists public.ata_pessoas (
-  ata_id  uuid not null references public.atas(id) on delete cascade,
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  primary key (ata_id, user_id)
-);
-create index if not exists ata_pessoas_ata_id_idx  on public.ata_pessoas(ata_id);
-create index if not exists ata_pessoas_user_id_idx on public.ata_pessoas(user_id);
-
-alter table public.ata_pessoas enable row level security;
-
-drop policy if exists ata_pessoas_select on public.ata_pessoas;
-create policy ata_pessoas_select on public.ata_pessoas
-  for select using (public.is_controlador() or user_id = auth.uid());
-drop policy if exists ata_pessoas_insert on public.ata_pessoas;
-create policy ata_pessoas_insert on public.ata_pessoas
-  for insert with check (public.is_controlador());
-drop policy if exists ata_pessoas_delete on public.ata_pessoas;
-create policy ata_pessoas_delete on public.ata_pessoas
-  for delete using (public.is_controlador());
-
-grant select, insert, delete on public.ata_pessoas to authenticated;
+-- 9l) ata_pessoas — tabela criada e configurada na seção 9h3 acima.
+--     (seção removida para evitar definição duplicada)
 
 
 -- ============================================================
