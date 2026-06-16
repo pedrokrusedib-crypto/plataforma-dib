@@ -519,6 +519,7 @@
       <div class="side-label">Menu</div>
       <div class="nav-item active" data-nav="obras" onclick="go('obras')"><span class="i">▦</span> Minhas obras</div>
       <div class="nav-item" data-nav="agenda" onclick="go('agenda')"><span class="i">📅</span> Agenda<span class="cnt" id="agenda-cnt" style="display:none"></span></div>
+      <div class="nav-item" data-nav="atas" onclick="go('atas')"><span class="i">📋</span> Atas de reunião</div>
 
       <div class="side-label">Obras / Projetos</div>
       <div id="proj-list"></div>
@@ -599,6 +600,8 @@ const DISC_ICONS = {
 
 let people = [];
 let projects = [];
+let atasData = [];
+let allProfiles = [];
 let dismissedNotifs = new Set();
 
 const ANOT_COLORS = ['#f5b942','#ff6b6b','#3ddc97','#5b8cff','#a78bfa'];
@@ -698,7 +701,7 @@ function daysUntil(dateStr){
    CARREGAMENTO DE DADOS (Supabase)
    ============================================================ */
 async function loadData(){
-  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes, arquivosRes, anotacoesRes, prazosRes, prazoPessoasRes, discAccessRes] = await Promise.all([
+  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes, arquivosRes, anotacoesRes, prazosRes, prazoPessoasRes, discAccessRes, ataPessoasRes] = await Promise.all([
     sb.from('obras').select('*').order('ordem'),
     sb.from('disciplinas').select('*').order('ordem'),
     sb.from('versoes').select('*'),
@@ -715,9 +718,10 @@ async function loadData(){
     sb.from('prazos').select('*').order('data'),
     sb.from('prazo_pessoas').select('*'),
     sb.from('disciplina_access').select('*'),
+    sb.from('ata_pessoas').select('*'),
   ]);
 
-  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes,notif_dismissals:notifDismissalsRes,versao_arquivos:arquivosRes,pdf_anotacoes:anotacoesRes,prazos:prazosRes,prazo_pessoas:prazoPessoasRes,disciplina_access:discAccessRes})){
+  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes,notif_dismissals:notifDismissalsRes,versao_arquivos:arquivosRes,pdf_anotacoes:anotacoesRes,prazos:prazosRes,prazo_pessoas:prazoPessoasRes,disciplina_access:discAccessRes,ata_pessoas:ataPessoasRes})){
     if(res.error) console.error(`Erro ao carregar ${nome}:`, res.error);
   }
   dismissedNotifs = new Set((notifDismissalsRes.data||[]).map(r=>r.notif_key));
@@ -737,9 +741,11 @@ async function loadData(){
   const prazosRows = prazosRes.data||[];
   const prazoPessoasRows = prazoPessoasRes.data||[];
   const discAccessRows = discAccessRes.data||[];
+  const ataPessoasRows = ataPessoasRes.data||[];
   const today = todayStr();
 
-  const profileById = Object.fromEntries(profRows.map(p=>[p.id,p]));
+  allProfiles = profRes.data||[];
+  const profileById = Object.fromEntries(allProfiles.map(p=>[p.id,p]));
   function authorInfo(autorId, autorNome){
     const pr = autorId && profileById[autorId];
     return {nome:(pr&&pr.nome)||autorNome||'—', cor:(pr&&pr.cor)||DEFAULT_COR};
@@ -770,7 +776,6 @@ async function loadData(){
       const atrasado = prazosRows.some(pr=>pr.disciplina_id===d.id && pr.status==='pendente' && pr.data<today);
       return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', link_drive:d.link_drive||'', progresso:d.progresso||0, versoes, chat, atrasado};
     });
-    const atas = atasRows.filter(a=>a.obra_id===o.id).map(a=>({id:a.id, data:formatDate(a.data), titulo:a.titulo, resumo:a.resumo||'', cls:a.cls||''}));
     const prazos = prazosRows.filter(pr=>pr.obra_id===o.id).map(pr=>{
       const disc = discRows.find(d=>d.id===pr.disciplina_id);
       const mencionados = prazoPessoasRows.filter(pp=>pp.prazo_id===pr.id).map(pp=>{
@@ -780,7 +785,16 @@ async function loadData(){
       });
       return {id:pr.id, titulo:pr.titulo, descricao:pr.descricao||'', data:pr.data, status:pr.status, disciplina_id:pr.disciplina_id, disciplinaNome:disc?disc.nome:null, mencionados};
     });
-    return {id:o.id, nome:o.nome, local:o.local||'', cor:o.cor||DEFAULT_COR, progresso:o.progresso||0, disciplinas, atas, prazos};
+    return {id:o.id, nome:o.nome, local:o.local||'', cor:o.cor||DEFAULT_COR, progresso:o.progresso||0, disciplinas, prazos};
+  });
+
+  atasData = atasRows.map(a=>{
+    const obra = obrasRows.find(o=>o.id===a.obra_id);
+    const pessoas = ataPessoasRows.filter(ap=>ap.ata_id===a.id).map(ap=>{
+      const pr = profileById[ap.user_id];
+      return {id:ap.user_id, nome:(pr&&pr.nome)||'—', cor:(pr&&pr.cor)||DEFAULT_COR, ini:initials((pr&&pr.nome)||'?')};
+    });
+    return {id:a.id, titulo:a.titulo, resumo:a.resumo||'', data:formatDate(a.data), rawData:a.data, drive_url:a.drive_url||'', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, obraNome:obra?obra.nome:null, pessoas};
   });
 
   const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
@@ -839,6 +853,7 @@ function render(){
   const crumb = document.getElementById('crumb');
   if(state.view==='obras'){ crumb.innerHTML='<b>Minhas obras</b>'; c.innerHTML = viewObras(); }
   else if(state.view==='agenda'){ crumb.innerHTML='<b>Agenda</b>'; c.innerHTML = viewAgenda(); }
+  else if(state.view==='atas'){ crumb.innerHTML='<b>Atas de reunião</b>'; c.innerHTML = viewAtas(); }
   else if(state.view==='pessoas'){ crumb.innerHTML='Administração › <b>Pessoas & acessos</b>'; c.innerHTML = viewPessoas(); }
   else if(state.view==='proj'){ const p=proj(); crumb.innerHTML=`Projetos › <b>${p.nome}</b>`; c.innerHTML = viewProj(); }
   document.querySelector('.main').scrollTop=0;
@@ -1120,7 +1135,6 @@ function viewProj(){
   const tabs = [
     {id:'visao', label:'Visão geral'},
     {id:'versoes', label:'Versões', cnt:countVersions(p)},
-    {id:'atas', label:'Atas de reunião', cnt:p.atas.length},
     {id:'feedbacks', label:'Feedbacks', cnt:countFeedbacks(p)},
     {id:'chat', label:'Chat', cnt:countChat(p)},
   ];
@@ -1142,7 +1156,6 @@ function viewProj(){
   let body='';
   if(state.tab==='visao') body=tabVisao(p);
   else if(state.tab==='versoes') body=tabVersoes(p);
-  else if(state.tab==='atas') body=tabAtas(p);
   else if(state.tab==='feedbacks') body=tabFeedbacks(p);
   else if(state.tab==='chat') body=tabChat(p);
   else if(state.tab==='acessos') body=tabAcessos(p);
@@ -1262,23 +1275,38 @@ function discProgBar(d){
   </div>`;
 }
 
-function tabAtas(p){
-  const nodes = p.atas.map(a=>`
+function viewAtas(){
+  const nodes = atasData.map(a=>{
+    const visTag = a.pessoas.length
+      ? `<span style="font-size:11.5px;color:var(--muted)">👁 ${a.pessoas.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`
+      : `<span style="font-size:11.5px;color:var(--muted)">👁 Todos</span>`;
+    const obraTag = a.obraNome
+      ? `<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${a.obraNome}</span>`
+      : '';
+    return `
     <div class="tnode ${a.cls}">
       <div class="tdate">📅 ${a.data}</div>
-      <div class="tcard"><b>${a.titulo}</b><p>${a.resumo}</p>
-        <div style="margin-top:10px"><a class="drive-link" href="#" onclick="openDrive(event)">📄 Ata completa no Drive</a></div>
+      <div class="tcard">
+        <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+          <b style="flex:1">${a.titulo}</b>
+          ${obraTag}
+        </div>
+        <p>${a.resumo}</p>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
+          ${a.drive_url?`<a class="drive-link" href="${a.drive_url}" target="_blank" rel="noopener">📄 Ata completa no Drive</a>`:''}
+          ${visTag}
+        </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   return `
     <div class="page-head" style="margin-bottom:18px">
-      <div><h1 style="font-size:18px">Atas de reunião</h1></div>
+      <div><h1>Atas de reunião</h1><p>Registros de reuniões de todas as obras.</p></div>
       <div class="ph-actions">
-        <button class="btn btn-ghost btn-sm" onclick="openObraCalendar('${p.id}')">📅 Ver calendário</button>
         ${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewAta()">+ Nova ata</button>':''}
       </div>
     </div>
-    <div class="tline">${nodes||'<div class="empty">Sem atas registradas.</div>'}</div>`;
+    <div class="tline">${nodes||'<div class="empty"><div class="e-ico">📋</div>Sem atas registradas.</div>'}</div>`;
 }
 
 function tabFeedbacks(p){
@@ -1850,12 +1878,22 @@ async function deletePrazo(prazoId){
 }
 
 function modalNewAta(){
+  const obraOpts = ['<option value="">— Nenhuma obra específica —</option>',
+    ...projects.map(p=>`<option value="${p.id}">${p.nome}</option>`)].join('');
+  const pessoasChecks = allProfiles
+    .filter(p=>p.id!==session?.user?.id)
+    .map(p=>`<label class="check" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}"> ${p.nome}</label>`).join('');
   openModal(`<div class="modal">
     <div class="modal-head"><h3>Nova ata de reunião</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Título</label><input id="a-title" placeholder="Ex.: Reunião de compatibilização"/></div>
       <div class="field"><label>Resumo / decisões</label><textarea id="a-res" placeholder="Principais pontos e próximos passos..."></textarea></div>
       <div class="field"><label>Link da ata completa (Drive)</label><input id="a-drive" placeholder="https://drive.google.com/..."/></div>
+      <div class="field"><label>Obra de referência (opcional)</label><select id="a-obra">${obraOpts}</select></div>
+      <div class="field"><label>Quem pode ver esta ata</label>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Deixe todos desmarcados para que seja visível a todos.</p>
+        <div class="checks" id="a-pessoas" style="grid-template-columns:1fr 1fr">${pessoasChecks||'<span style="color:var(--muted);font-size:13px">Nenhum outro usuário cadastrado.</span>'}</div>
+      </div>
       <div style="border-top:1px solid var(--line);margin-top:4px;padding-top:14px">
         <div style="font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:10px">Prazo (opcional)</div>
         <div class="field"><label>Data de entrega</label><input id="a-prazo-data" type="date"/></div>
@@ -1866,27 +1904,28 @@ function modalNewAta(){
   </div>`);
 }
 async function saveAta(){
-  const p=proj();
-  const titulo=document.getElementById('a-title').value||'Nova reunião';
-  const resumo=document.getElementById('a-res').value||'—';
-  const drive=document.getElementById('a-drive').value||null;
+  const titulo=document.getElementById('a-title').value.trim()||'Nova reunião';
+  const resumo=document.getElementById('a-res').value.trim()||'—';
+  const drive=document.getElementById('a-drive').value.trim()||null;
+  const obraId=document.getElementById('a-obra').value||null;
   const prazoDt=document.getElementById('a-prazo-data').value;
-  const prazoTit=(document.getElementById('a-prazo-titulo').value.trim())||titulo;
-  const {error}=await sb.from('atas').insert({
-    obra_id:p.id, titulo, resumo, drive_url:drive, cls:'gold', created_by:session.user.id
-  });
+  const prazoTit=document.getElementById('a-prazo-titulo').value.trim()||titulo;
+  const pessoaIds=[...document.querySelectorAll('#a-pessoas input:checked')].map(i=>i.value);
+  const {data:ataRow,error}=await sb.from('atas').insert({
+    obra_id:obraId, titulo, resumo, drive_url:drive, cls:'gold', created_by:session.user.id
+  }).select().single();
   if(error){toast('Erro ao registrar ata: '+error.message);return;}
-  if(prazoDt){
-    const {error:pErr}=await sb.from('prazos').insert({
-      obra_id:p.id, titulo:prazoTit, data:prazoDt, created_by:session.user.id
-    });
-    if(pErr) toast('Ata salva, mas erro no prazo: '+pErr.message);
-    else toast('Ata e prazo registrados ✓');
-  } else {
-    toast('Ata registrada ✓');
+  if(pessoaIds.length){
+    const {error:apErr}=await sb.from('ata_pessoas').insert(pessoaIds.map(uid=>({ata_id:ataRow.id,user_id:uid})));
+    if(apErr) toast('Ata salva, mas erro ao restringir acesso: '+apErr.message);
   }
-  closeModal(); state.tab='atas';
+  if(prazoDt && obraId){
+    const {error:pErr}=await sb.from('prazos').insert({obra_id:obraId,titulo:prazoTit,data:prazoDt,created_by:session.user.id});
+    if(pErr) toast('Ata salva, mas erro no prazo: '+pErr.message);
+  }
+  closeModal(); state.view='atas'; state.projId=null;
   await loadData(); render();
+  toast(prazoDt&&obraId?'Ata e prazo registrados ✓':'Ata registrada ✓');
 }
 
 function modalNewDisc(){

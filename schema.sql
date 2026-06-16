@@ -305,6 +305,49 @@ alter table public.disciplinas add column if not exists progresso integer not nu
 
 
 -- ============================================================
+-- 9h3) MIGRAÇÃO — atas globais (obra_id vira opcional) +
+--      ata_pessoas (controle de visibilidade por pessoa)
+-- ============================================================
+alter table public.atas alter column obra_id drop not null;
+
+create table if not exists public.ata_pessoas (
+  id       uuid primary key default gen_random_uuid(),
+  ata_id   uuid not null references public.atas(id) on delete cascade,
+  user_id  uuid not null references public.profiles(id) on delete cascade,
+  unique(ata_id, user_id)
+);
+create index if not exists ata_pessoas_ata_id_idx  on public.ata_pessoas(ata_id);
+create index if not exists ata_pessoas_user_id_idx on public.ata_pessoas(user_id);
+
+alter table public.ata_pessoas enable row level security;
+
+drop policy if exists ata_pessoas_select on public.ata_pessoas;
+create policy ata_pessoas_select on public.ata_pessoas
+  for select using (public.is_controlador() or user_id = auth.uid());
+
+drop policy if exists ata_pessoas_insert on public.ata_pessoas;
+create policy ata_pessoas_insert on public.ata_pessoas
+  for insert with check (public.is_controlador());
+
+drop policy if exists ata_pessoas_delete on public.ata_pessoas;
+create policy ata_pessoas_delete on public.ata_pessoas
+  for delete using (public.is_controlador());
+
+grant select, insert, delete on public.ata_pessoas to authenticated;
+
+-- Atualiza policy de select das atas:
+-- sem restrição de obra; visibilidade por ata_pessoas ou pública (sem registros)
+drop policy if exists atas_select on public.atas;
+create policy atas_select on public.atas
+  for select using (
+    public.is_controlador()
+    or created_by = auth.uid()
+    or not exists (select 1 from public.ata_pessoas ap where ap.ata_id = id)
+    or exists     (select 1 from public.ata_pessoas ap where ap.ata_id = id and ap.user_id = auth.uid())
+  );
+
+
+-- ============================================================
 -- 9i) MIGRAÇÃO — permissão por disciplina dentro da obra
 --      Sem registros = acesso a todas as disciplinas da obra
 --      (comportamento padrão/atual). Com 1+ registros para o
