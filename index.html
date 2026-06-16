@@ -1251,36 +1251,15 @@ function progColor(pct){ return `hsl(${Math.round(pct*1.2)},72%,46%)`; }
 function discProgBar(d){
   const pct = d.progresso||0;
   const col = progColor(pct);
-  const slider = isControlador()
-    ? `<input type="range" class="dprog-range" min="0" max="100" value="${pct}"
-         oninput="liveProgresso('${d.id}',+this.value)"
-         onchange="updateProgresso('${d.id}',+this.value)"
-         onclick="event.stopPropagation()">`
-    : '';
   return `<div class="dprog-wrap">
     <div class="dprog-header">
       <span>Progresso</span>
-      <span class="dprog-pct" id="dprog-pct-${d.id}" style="color:${col}">${pct}%</span>
+      <span class="dprog-pct" style="color:${col}">${pct}%</span>
     </div>
-    <div class="dprog-bar" id="dprog-bar-${d.id}">
+    <div class="dprog-bar">
       <div class="dprog-fill" style="width:${pct}%;background:${col}"></div>
     </div>
-    ${slider}
   </div>`;
-}
-function liveProgresso(discId, val){
-  const fill = document.querySelector(`#dprog-bar-${discId} .dprog-fill`);
-  const lbl  = document.getElementById(`dprog-pct-${discId}`);
-  const col  = progColor(val);
-  if(fill){ fill.style.width=val+'%'; fill.style.background=col; }
-  if(lbl){ lbl.textContent=val+'%'; lbl.style.color=col; }
-  document.querySelectorAll(`[id^="dprog-bar-${discId}"] ~ .dprog-range`).forEach(()=>{});
-}
-async function updateProgresso(discId, val){
-  const {error} = await sb.from('disciplinas').update({progresso:val}).eq('id',discId);
-  if(error){ toast('Erro ao salvar progresso: '+error.message); return; }
-  const p = proj();
-  if(p){ const d=p.disciplinas.find(x=>x.id===discId); if(d) d.progresso=val; }
 }
 
 function tabAtas(p){
@@ -1942,6 +1921,7 @@ function modalEditDisciplina(discId){
       <div class="field"><label>Nome</label><input id="ed-disc-nome" value="${d.nome}"/></div>
       <div class="field"><label>Aguardando quem?</label><input id="ed-disc-wait" value="${d.aguardando||''}" placeholder="Ex.: Meta Arquitetura"/></div>
       <div class="field"><label>Link da pasta no Drive</label><input id="ed-disc-drive" value="${d.link_drive||''}" placeholder="https://drive.google.com/..."/></div>
+      <div class="field"><label>Progresso — <span id="ed-disc-prog-lbl">${d.progresso||0}%</span></label><input id="ed-disc-prog" type="range" min="0" max="100" value="${d.progresso||0}" class="dprog-range" oninput="document.getElementById('ed-disc-prog-lbl').textContent=this.value+'%'"/></div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveEditDisciplina('${discId}')">Salvar</button></div>
   </div>`);
@@ -1950,8 +1930,9 @@ async function saveEditDisciplina(discId){
   const nome=document.getElementById('ed-disc-nome').value.trim();
   const aguardando=document.getElementById('ed-disc-wait').value.trim();
   const link_drive=document.getElementById('ed-disc-drive').value.trim();
+  const progresso=+(document.getElementById('ed-disc-prog').value);
   if(!nome){ toast('Informe o nome da disciplina'); return; }
-  const {error}=await sb.from('disciplinas').update({nome, aguardando, link_drive}).eq('id',discId);
+  const {error}=await sb.from('disciplinas').update({nome, aguardando, link_drive, progresso}).eq('id',discId);
   if(error){toast('Erro ao salvar disciplina: '+error.message);return;}
   closeModal(); await loadData(); render(); toast('Disciplina atualizada ✓');
 }
