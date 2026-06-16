@@ -299,6 +299,12 @@ alter table public.versoes add column if not exists descricao text;
 
 
 -- ============================================================
+-- 9h2) MIGRAÇÃO — disciplinas.progresso (0–100, barra de avanço)
+-- ============================================================
+alter table public.disciplinas add column if not exists progresso integer not null default 0;
+
+
+-- ============================================================
 -- 9i) MIGRAÇÃO — permissão por disciplina dentro da obra
 --      Sem registros = acesso a todas as disciplinas da obra
 --      (comportamento padrão/atual). Com 1+ registros para o

@@ -223,6 +223,13 @@
   .disc .d-meta{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
   .disc .d-wait{font-size:12px;color:var(--muted)}
   .disc .d-wait b{display:inline;font-weight:700;color:var(--ink)}
+  .dprog-wrap{margin:10px 0 2px}
+  .dprog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+  .dprog-header span:first-child{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .dprog-pct{font-size:12px;font-weight:800}
+  .dprog-bar{height:7px;background:var(--line);border-radius:4px;overflow:hidden}
+  .dprog-fill{height:100%;border-radius:4px;transition:width .25s,background .25s}
+  .dprog-range{width:100%;margin-top:6px;cursor:pointer;accent-color:var(--blue)}
 
   /* version row */
   .vrow{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--line-2)}
@@ -761,7 +768,7 @@ async function loadData(){
         return {id:c.id, ini:initials(a.nome), autor:a.nome, cor:a.cor, hora:formatHora(c.created_at), texto:c.texto, me: !!session && c.autor_id===session.user.id};
       });
       const atrasado = prazosRows.some(pr=>pr.disciplina_id===d.id && pr.status==='pendente' && pr.data<today);
-      return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', link_drive:d.link_drive||'', versoes, chat, atrasado};
+      return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', link_drive:d.link_drive||'', progresso:d.progresso||0, versoes, chat, atrasado};
     });
     const atas = atasRows.filter(a=>a.obra_id===o.id).map(a=>({id:a.id, data:formatDate(a.data), titulo:a.titulo, resumo:a.resumo||'', cls:a.cls||''}));
     const prazos = prazosRows.filter(pr=>pr.obra_id===o.id).map(pr=>{
@@ -1148,20 +1155,23 @@ function tabVisao(p){
   const cards = p.disciplinas.map((d,i)=>{
     const ic = DISC_ICONS[d.nome]||{i:'📁',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
     return `
-    <div class="card disc" onclick="setTab('versoes')">
-      <div class="d-ico" style="background:${ic.bg};color:${ic.c}">${d.nome[0].toUpperCase()}</div>
-      <div class="d-body">
-        <b>${d.nome}</b>
-        <div class="d-meta">
-          ${badge(d.status)}
-          ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
-          <span class="d-wait">Aguardando: <b>${d.aguardando}</b></span>
+    <div class="card disc" style="flex-direction:column;align-items:stretch;gap:0;padding:0;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:14px;padding:16px;cursor:pointer" onclick="setTab('versoes')">
+        <div class="d-ico" style="background:${ic.bg};color:${ic.c}">${d.nome[0].toUpperCase()}</div>
+        <div class="d-body">
+          <b>${d.nome}</b>
+          <div class="d-meta">
+            ${badge(d.status)}
+            ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
+            <span class="d-wait">Aguardando: <b>${d.aguardando}</b></span>
+          </div>
+        </div>
+        <div style="text-align:right;flex:0 0 auto">
+          <div style="font-size:18px;font-weight:800;color:var(--ink)">${d.versoes.length}</div>
+          <div style="font-size:11px;color:var(--muted)">versões</div>
         </div>
       </div>
-      <div style="text-align:right">
-        <div style="font-size:18px;font-weight:800;color:var(--ink)">${d.versoes.length}</div>
-        <div style="font-size:11px;color:var(--muted)">versões</div>
-      </div>
+      <div style="padding:0 16px 14px">${discProgBar(d)}</div>
     </div>`;
   }).join('');
   return `
@@ -1222,7 +1232,8 @@ function tabVersoes(p){
             ${isControlador()?`<button class="icon-btn" title="Excluir disciplina" onclick="deleteDisciplina('${d.id}','${d.nome}')">🗑</button>`:''}
           </div>
         </div>
-        ${d.link_drive?`<div style="padding:12px 16px;border-bottom:1px solid var(--line-2)"><a class="drive-link" href="${d.link_drive}" target="_blank" rel="noopener">📁 Abrir pasta no Drive</a></div>`:''}
+        <div style="padding:2px 16px 14px">${discProgBar(d)}</div>
+        ${d.link_drive?`<div style="padding:0 16px 12px;border-bottom:1px solid var(--line-2)"><a class="drive-link" href="${d.link_drive}" target="_blank" rel="noopener">📁 Abrir pasta no Drive</a></div>`:''}
         ${rows}
       </div>`;
   }).join('');
@@ -1235,6 +1246,42 @@ function tabVersoes(p){
     ${blocks || '<div class="empty" style="padding:26px"><div class="e-ico">📂</div>Nenhuma disciplina encontrada.</div>'}`;
 }
 function setVersDisc(discName){ state.versDisc=discName; render(); }
+
+function progColor(pct){ return `hsl(${Math.round(pct*1.2)},72%,46%)`; }
+function discProgBar(d){
+  const pct = d.progresso||0;
+  const col = progColor(pct);
+  const slider = isControlador()
+    ? `<input type="range" class="dprog-range" min="0" max="100" value="${pct}"
+         oninput="liveProgresso('${d.id}',+this.value)"
+         onchange="updateProgresso('${d.id}',+this.value)"
+         onclick="event.stopPropagation()">`
+    : '';
+  return `<div class="dprog-wrap">
+    <div class="dprog-header">
+      <span>Progresso</span>
+      <span class="dprog-pct" id="dprog-pct-${d.id}" style="color:${col}">${pct}%</span>
+    </div>
+    <div class="dprog-bar" id="dprog-bar-${d.id}">
+      <div class="dprog-fill" style="width:${pct}%;background:${col}"></div>
+    </div>
+    ${slider}
+  </div>`;
+}
+function liveProgresso(discId, val){
+  const fill = document.querySelector(`#dprog-bar-${discId} .dprog-fill`);
+  const lbl  = document.getElementById(`dprog-pct-${discId}`);
+  const col  = progColor(val);
+  if(fill){ fill.style.width=val+'%'; fill.style.background=col; }
+  if(lbl){ lbl.textContent=val+'%'; lbl.style.color=col; }
+  document.querySelectorAll(`[id^="dprog-bar-${discId}"] ~ .dprog-range`).forEach(()=>{});
+}
+async function updateProgresso(discId, val){
+  const {error} = await sb.from('disciplinas').update({progresso:val}).eq('id',discId);
+  if(error){ toast('Erro ao salvar progresso: '+error.message); return; }
+  const p = proj();
+  if(p){ const d=p.disciplinas.find(x=>x.id===discId); if(d) d.progresso=val; }
+}
 
 function tabAtas(p){
   const nodes = p.atas.map(a=>`
@@ -1879,7 +1926,7 @@ async function saveDisc(){
   const nome=document.getElementById('d-name').value;
   const aguardando=document.getElementById('d-wait').value||'A iniciar';
   const {error}=await sb.from('disciplinas').insert({
-    obra_id:p.id, nome, status:'pend', aguardando, ordem:p.disciplinas.length+1
+    obra_id:p.id, nome, status:'pend', aguardando, progresso:0, ordem:p.disciplinas.length+1
   });
   if(error){toast('Erro ao adicionar disciplina: '+error.message);return;}
   closeModal(); await loadData(); render(); toast('Disciplina adicionada ✓');
@@ -1926,7 +1973,7 @@ async function saveProject(){
   const cor=cores[projects.length%cores.length];
   const {data,error}=await sb.from('obras').insert({nome:name, local, cor, progresso:0, ordem:projects.length+1}).select().single();
   if(error){toast('Erro ao criar projeto: '+error.message);return;}
-  await sb.from('disciplinas').insert({obra_id:data.id, nome:'Arquitetura', status:'pend', aguardando:'A iniciar', ordem:1});
+  await sb.from('disciplinas').insert({obra_id:data.id, nome:'Arquitetura', status:'pend', aguardando:'A iniciar', progresso:0, ordem:1});
   closeModal(); await loadData(); openProj(data.id); toast('Projeto criado ✓');
 }
 
