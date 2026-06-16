@@ -1283,6 +1283,9 @@ function viewAtas(){
     const obraTag = a.obraNome
       ? `<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${a.obraNome}</span>`
       : '';
+    const deleteBtn = isControlador()
+      ? `<button class="icon-btn" title="Excluir ata" style="color:#c0392b;opacity:.7" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.7'" onclick="deleteAta('${a.id}','${a.titulo.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">🗑</button>`
+      : '';
     return `
     <div class="tnode ${a.cls}">
       <div class="tdate">📅 ${a.data}</div>
@@ -1290,6 +1293,7 @@ function viewAtas(){
         <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px">
           <b style="flex:1">${a.titulo}</b>
           ${obraTag}
+          ${deleteBtn}
         </div>
         <p>${a.resumo}</p>
         <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
@@ -1926,6 +1930,15 @@ async function saveAta(){
   closeModal(); state.view='atas'; state.projId=null;
   await loadData(); render();
   toast(prazoDt&&obraId?'Ata e prazo registrados ✓':'Ata registrada ✓');
+}
+
+async function deleteAta(ataId, titulo){
+  if(!isControlador()) return;
+  if(!confirm(`Excluir a ata "${titulo}"?\n\nEsta ação não pode ser desfeita.`)) return;
+  const {error} = await sb.from('atas').delete().eq('id', ataId);
+  if(error){ toast('Erro ao excluir ata: '+error.message); return; }
+  await loadData(); render();
+  toast('Ata excluída ✓');
 }
 
 function modalNewDisc(){
