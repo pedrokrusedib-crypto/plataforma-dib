@@ -511,8 +511,7 @@
     <div class="side-scroll">
       <div class="side-label">Menu</div>
       <div class="nav-item active" data-nav="obras" onclick="go('obras')"><span class="i">▦</span> Minhas obras</div>
-      <div class="nav-item" data-nav="agenda" onclick="go('agenda')"><span class="i">📅</span> Agenda<span class="cnt" id="agenda-cnt" style="display:none"></span></div>
-      <div class="nav-item" data-nav="atas" onclick="go('atas')"><span class="i">📋</span> Atas de reunião</div>
+      <div class="nav-item" data-nav="agenda" onclick="go('agenda')"><span class="i">📅</span> Agenda</div>
 
       <div class="side-label">Obras / Projetos</div>
       <div id="proj-list"></div>
@@ -659,7 +658,7 @@ function daysUntil(dateStr){
    ============================================================ */
 async function loadData(){
   // Tabelas estáveis — Promise.all: qualquer erro aqui indica problema real
-  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes, arquivosRes, anotacoesRes, prazosRes, prazoPessoasRes, discAccessRes, ataPessoasRes] = await Promise.all([
+  const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes, arquivosRes, anotacoesRes, discAccessRes, ataPessoasRes] = await Promise.all([
     sb.from('obras').select('*').order('ordem'),
     sb.from('disciplinas').select('*').order('ordem'),
     sb.from('versoes').select('*'),
@@ -673,13 +672,11 @@ async function loadData(){
     sb.from('notif_dismissals').select('notif_key'),
     sb.from('versao_arquivos').select('*').order('ordem'),
     sb.from('pdf_anotacoes').select('*').order('created_at'),
-    sb.from('prazos').select('*').order('data'),
-    sb.from('prazo_pessoas').select('*'),
     sb.from('disciplina_access').select('*'),
     sb.from('ata_pessoas').select('*'),
   ]);
 
-  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes,notif_dismissals:notifDismissalsRes,versao_arquivos:arquivosRes,pdf_anotacoes:anotacoesRes,prazos:prazosRes,prazo_pessoas:prazoPessoasRes,disciplina_access:discAccessRes,ata_pessoas:ataPessoasRes})){
+  for(const [nome,res] of Object.entries({obras:obrasRes,disciplinas:discRes,versoes:versRes,feedback:fbRes,chat:chatRes,atas:atasRes,profiles:profRes,obra_access:accessRes,invites:invitesRes,invite_obras:inviteObrasRes,notif_dismissals:notifDismissalsRes,versao_arquivos:arquivosRes,pdf_anotacoes:anotacoesRes,disciplina_access:discAccessRes,ata_pessoas:ataPessoasRes})){
     if(res.error) console.error(`Erro ao carregar ${nome}:`, res.error);
   }
 
@@ -704,11 +701,8 @@ async function loadData(){
   const inviteObrasRows = inviteObrasRes.data||[];
   const arquivosRows = arquivosRes.data||[];
   const anotacoesRows = anotacoesRes.data||[];
-  const prazosRows = prazosRes.data||[];
-  const prazoPessoasRows = prazoPessoasRes.data||[];
   const discAccessRows = discAccessRes.data||[];
   const ataPessoasRows = ataPessoasRes.data||[];
-  const today = todayStr();
 
   allProfiles = profRes.data||[];
   const profileById = Object.fromEntries(allProfiles.map(p=>[p.id,p]));
@@ -739,20 +733,9 @@ async function loadData(){
         const a = authorInfo(c.autor_id, c.autor_nome);
         return {id:c.id, ini:initials(a.nome), autor:a.nome, cor:a.cor, hora:formatHora(c.created_at), texto:c.texto, me: !!session && c.autor_id===session.user.id, autorId:c.autor_id};
       });
-      const atrasado = prazosRows.some(pr=>pr.disciplina_id===d.id && pr.status==='pendente' && pr.data<today);
-      return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', link_drive:d.link_drive||'', cor:d.cor||null, versoes, chat, atrasado};
+      return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', link_drive:d.link_drive||'', cor:d.cor||null, versoes, chat};
     });
-    // Exclui prazos ligados a atas (ata_id preenchido) — aparecem como "Entregas" na ata
-    const prazos = prazosRows.filter(pr=>pr.obra_id===o.id && !pr.ata_id).map(pr=>{
-      const disc = discRows.find(d=>d.id===pr.disciplina_id);
-      const mencionados = prazoPessoasRows.filter(pp=>pp.prazo_id===pr.id).map(pp=>{
-        const per = profileById[pp.user_id];
-        const nome = (per&&per.nome)||'—';
-        return {id:pp.user_id, nome, cor:(per&&per.cor)||DEFAULT_COR, ini:initials(nome)};
-      });
-      return {id:pr.id, titulo:pr.titulo, descricao:pr.descricao||'', data:pr.data, status:pr.status, disciplina_id:pr.disciplina_id, disciplinaNome:disc?disc.nome:null, mencionados};
-    });
-    return {id:o.id, nome:o.nome, local:o.local||'', cor:o.cor||DEFAULT_COR, progresso:o.progresso||0, disciplinas, prazos};
+    return {id:o.id, nome:o.nome, local:o.local||'', cor:o.cor||DEFAULT_COR, progresso:o.progresso||0, disciplinas};
   });
 
   atasData = atasRows.map(a=>{
@@ -771,16 +754,7 @@ async function loadData(){
       return {id:ap.user_id, nome:(pr&&pr.nome)||'—', cor:(pr&&pr.cor)||DEFAULT_COR, ini:initials((pr&&pr.nome)||'?')};
     });
 
-    // entregas: prazos com ata_id === a.id (coluna existe após SQL rodar)
-    const entregas = prazosRows.filter(pr=>pr.ata_id===a.id).map(pr=>{
-      const responsaveis = prazoPessoasRows.filter(pp=>pp.prazo_id===pr.id).map(pp=>{
-        const per = profileById[pp.user_id];
-        return {id:pp.user_id, nome:(per&&per.nome)||'—', cor:(per&&per.cor)||DEFAULT_COR, ini:initials((per&&per.nome)||'?')};
-      });
-      return {id:pr.id, prazoId:pr.id, titulo:pr.titulo, data:pr.data, status:pr.status||'pendente', responsaveis};
-    }).sort((x,y)=>x.data<y.data?-1:x.data>y.data?1:0);
-
-    return {id:a.id, titulo:a.titulo, resumo:a.resumo||'', data:formatDate(a.data), rawData:a.data, drive_url:a.drive_url||'', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, obras, pessoas, entregas};
+    return {id:a.id, titulo:a.titulo, resumo:a.resumo||'', data:formatDate(a.data), rawData:a.data, drive_url:a.drive_url||'', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, obras, pessoas};
   });
 
   const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
@@ -839,12 +813,10 @@ function render(){
   const crumb = document.getElementById('crumb');
   if(state.view==='obras'){ crumb.innerHTML='<b>Minhas obras</b>'; c.innerHTML = viewObras(); }
   else if(state.view==='agenda'){ crumb.innerHTML='<b>Agenda</b>'; c.innerHTML = viewAgenda(); }
-  else if(state.view==='atas'){ crumb.innerHTML='<b>Atas de reunião</b>'; c.innerHTML = viewAtas(); }
   else if(state.view==='pessoas'){ crumb.innerHTML='Administração › <b>Pessoas & acessos</b>'; c.innerHTML = viewPessoas(); }
   else if(state.view==='proj'){ const p=proj(); crumb.innerHTML=`Projetos › <b>${p.nome}</b>`; c.innerHTML = viewProj(); }
   document.querySelector('.main').scrollTop=0;
   updateNotifBadge();
-  updateAgendaBadge();
 }
 function proj(){ return projects.find(p=>p.id===state.projId); }
 
@@ -853,7 +825,7 @@ function badge(st){ const s=STATUS[st]||{cls:'b-gray',label:st||'—'}; return `
 function statusSelect(v){
   const s=STATUS[v.status]||{cls:'b-gray',label:v.status||'—'};
   return `<select class="badge status-select ${s.cls}" onclick="event.stopPropagation()" onchange="updateVersionStatus('${v.id}',this.value)">
-    ${Object.entries(STATUS).filter(([k])=>k!=='obsoleto').map(([k,st])=>`<option value="${k}" ${k===v.status?'selected':''}>${st.label}</option>`).join('')}
+    ${Object.entries(STATUS).map(([k,st])=>`<option value="${k}" ${k===v.status?'selected':''}>${st.label}</option>`).join('')}
   </select>`;
 }
 function versaoVigente(d){
@@ -908,8 +880,7 @@ function projCard(p){
           ${waitList.length? waitList.map(d=>`
             <div style="display:flex;align-items:center;gap:8px;font-size:12.5px">
               ${badge(d.status)}
-              ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
-              <span style="color:var(--ink-2)">${d.nome}</span>
+                <span style="color:var(--ink-2)">${d.nome}</span>
               <span style="margin-left:auto;color:var(--muted)">→ <b style="color:var(--ink)">${d.aguardando}</b></span>
             </div>`).join('') : '<div style="font-size:12.5px;color:var(--muted)">Tudo em dia ✓</div>'}
         </div>
@@ -917,206 +888,47 @@ function projCard(p){
     </div>`;
 }
 
-/* ============================================================
-   VIEW: AGENDA
-   ============================================================ */
-function allPrazos(){
-  return projects.flatMap(p=>p.prazos.map(pr=>({...pr, obraId:p.id, obraNome:p.nome, obraCor:p.cor})))
-    .filter(pr=> isControlador() || pr.mencionados.some(m=>m.id===session.user.id));
-}
-function allEntregas(){
-  return atasData.flatMap(a=>
-    a.entregas.map(e=>{
-      const obraNome = a.obras.length ? a.obras.map(o=>o.nome).join(', ') : (a.obraNome||'—');
-      return {...e, ataId:a.id, ataTitulo:a.titulo, obraNome, status:e.status||'pendente', mencionados:e.responsaveis};
-    })
-  ).filter(e=> isControlador() || e.responsaveis.some(r=>r.id===session.user.id));
-}
-function obraPrazos(p){
-  return p.prazos.filter(pr=> isControlador() || pr.mencionados.some(m=>m.id===session.user.id));
-}
-function prazoInfo(pr){
-  const dias = daysUntil(pr.data);
-  const atrasado = pr.status==='pendente' && dias<0;
-  return {dias, atrasado};
-}
-function updateAgendaBadge(){
-  const b=document.getElementById('agenda-cnt');
-  if(!b) return;
-  const n = allPrazos().filter(pr=>pr.status==='pendente' && prazoInfo(pr).dias<=7).length;
-  if(n>0){ b.textContent=n>9?'9+':n; b.style.display=''; }
-  else { b.style.display='none'; }
-}
-
-/* ============================================================
-   CALENDÁRIO DE PRAZOS (compartilhado: Agenda + Atas)
-   ============================================================ */
-const WEEKDAYS = ['D','S','T','Q','Q','S','S'];
-
-function prazoDotColor(pr){
-  if(pr.status==='concluido') return 'var(--green)';
-  const dias = daysUntil(pr.data);
-  if(dias<0) return 'var(--red)';
-  if(dias<=7) return 'var(--amber)';
-  return 'var(--blue)';
-}
-function calPreviewItem(pr){
-  let tag;
-  if(pr.status==='concluido') tag='<span class="badge b-green"><span class="bdot"></span>Concluído</span>';
-  else if(daysUntil(pr.data)<0) tag='<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>';
-  else tag='<span class="badge b-gray"><span class="bdot"></span>Pendente</span>';
-  return `
-    <div class="cal-preview-item">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <b style="font-size:12.5px;color:var(--ink)">${pr.titulo}</b>${tag}
-      </div>
-      <div style="font-size:11.5px;color:var(--muted);margin-top:2px">${pr.obraNome?pr.obraNome+' · ':''}${pr.disciplinaNome||''}</div>
-      ${pr.descricao?`<p style="font-size:12px;color:var(--ink-2);margin-top:4px">${pr.descricao}</p>`:''}
-    </div>`;
-}
-function calendarHTML(prazosList, calState, navFn, selectFn){
-  const map = {};
-  prazosList.forEach(pr=>{ (map[pr.data]=map[pr.data]||[]).push(pr); });
-  const y=calState.y, m=calState.m;
-  const startDow = new Date(y,m,1).getDay();
-  const daysInMonth = new Date(y,m+1,0).getDate();
-  const today = todayStr();
-  let cells='';
-  for(let i=0;i<startDow;i++) cells += `<div class="cal-cell"></div>`;
-  for(let d=1; d<=daysInMonth; d++){
-    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const dayItems = map[dateStr]||[];
-    const cls = ['cal-cell'];
-    if(dayItems.length) cls.push('has');
-    if(dateStr===today) cls.push('today');
-    if(dateStr===calState.sel) cls.push('sel');
-    const dots = dayItems.slice(0,4).map(pr=>`<span class="cal-dot" style="background:${prazoDotColor(pr)}"></span>`).join('');
-    cells += `<div class="${cls.join(' ')}" ${dayItems.length?`onclick="${selectFn}('${dateStr}')"`:''}>
-      <span>${d}</span>${dayItems.length?`<div class="cal-dots">${dots}</div>`:''}
-    </div>`;
-  }
-  const sel = calState.sel;
-  const selItems = sel ? (map[sel]||[]).sort((a,b)=>a.titulo<b.titulo?-1:1) : [];
-  const previewHtml = sel ? `
-    <div class="cal-preview">
-      <div style="font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:8px">${formatDate(sel)}</div>
-      ${selItems.length? selItems.map(calPreviewItem).join('') : '<div style="font-size:12.5px;color:var(--muted)">Nenhum prazo neste dia.</div>'}
-    </div>` : '';
-  return `
-    <div class="card cal-card">
-      <div class="cal-head">
-        <button class="icon-btn" onclick="${navFn}(-1)">‹</button>
-        <b>${MESES[m]} ${y}</b>
-        <button class="icon-btn" onclick="${navFn}(1)">›</button>
-      </div>
-      <div class="cal-grid">${WEEKDAYS.map(w=>`<div class="cal-dow">${w}</div>`).join('')}${cells}</div>
-      ${previewHtml}
-    </div>`;
-}
-function calNav(dir){
-  state.cal.m += dir;
-  if(state.cal.m<0){ state.cal.m=11; state.cal.y--; }
-  else if(state.cal.m>11){ state.cal.m=0; state.cal.y++; }
-  state.cal.sel=null;
-  render();
-}
-function calSelectDay(dateStr){
-  state.cal.sel = (state.cal.sel===dateStr) ? null : dateStr;
-  render();
-}
-
-let modalCal = null;
-function openCalendarModal(prazosList, title){
-  const now = new Date();
-  modalCal = {y:now.getFullYear(), m:now.getMonth(), sel:null, prazos:prazosList};
-  openModal(`<div class="modal" style="max-width:420px">
-    <div class="modal-head"><h3>📅 ${title}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
-    <div class="modal-body" id="modal-cal-body">${calendarHTML(modalCal.prazos, modalCal, 'calNavModal', 'calSelectDayModal')}</div>
-  </div>`);
-}
-function refreshModalCal(){
-  document.getElementById('modal-cal-body').innerHTML = calendarHTML(modalCal.prazos, modalCal, 'calNavModal', 'calSelectDayModal');
-}
-function calNavModal(dir){
-  modalCal.m += dir;
-  if(modalCal.m<0){ modalCal.m=11; modalCal.y--; }
-  else if(modalCal.m>11){ modalCal.m=0; modalCal.y++; }
-  modalCal.sel=null;
-  refreshModalCal();
-}
-function calSelectDayModal(dateStr){
-  modalCal.sel = (modalCal.sel===dateStr) ? null : dateStr;
-  refreshModalCal();
-}
-function openObraCalendar(pid){
-  const p = projects.find(x=>x.id===pid);
-  if(!p) return;
-  openCalendarModal(obraPrazos(p), `Calendário · ${p.nome}`);
-}
 
 function viewAgenda(){
-  if(!state.cal){ const now=new Date(); state.cal={y:now.getFullYear(), m:now.getMonth(), sel:null}; }
-  const obraFilter = state.agendaObraFilter||'';
-  const allItems = [...allPrazos()].sort((a,b)=> a.data<b.data?-1:a.data>b.data?1:0);
-  const items = obraFilter ? allItems.filter(pr=>pr.obraId===obraFilter) : allItems;
-  const pendentes = items.filter(pr=>pr.status==='pendente');
-  const concluidos = items.filter(pr=>pr.status==='concluido');
-
-  function prazoCard(pr){
-    const {dias} = prazoInfo(pr);
-    let tag;
-    if(pr.status==='concluido') tag = '<span class="badge b-green"><span class="bdot"></span>Concluído</span>';
-    else if(dias<0) tag = '<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>';
-    else if(dias===0) tag = '<span class="badge b-amber"><span class="bdot"></span>Vence hoje</span>';
-    else if(dias<=7) tag = `<span class="badge b-amber"><span class="bdot"></span>Em ${dias} dia${dias>1?'s':''}</span>`;
-    else tag = '<span class="badge b-gray"><span class="bdot"></span>Pendente</span>';
-
-    const pessoas = (pr.mencionados||[]).map(m=>`<div class="avatar" title="${m.nome}" style="width:26px;height:26px;font-size:10.5px;background:${m.cor}">${m.ini}</div>`).join('');
-    const sub = `${pr.obraNome}${pr.disciplinaNome?' · '+pr.disciplinaNome:''}`;
-
+  const obraFilter = state.ataObraFilter||'';
+  const filtered = obraFilter ? atasData.filter(a=>a.obras.some(o=>o.id===obraFilter)) : atasData;
+  const nodes = filtered.map(a=>{
+    const visTag = a.pessoas.length
+      ? `<span style="font-size:11.5px;color:var(--muted)">👁 ${a.pessoas.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`
+      : `<span style="font-size:11.5px;color:var(--muted)">👁 Todos</span>`;
+    const obraBadges = a.obras.length
+      ? a.obras.map(o=>`<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${o.nome}</span>`).join(' ')
+      : '';
+    const adminBtns = isControlador() ? `
+      <button class="icon-btn" title="Editar ata" onclick="modalEditAta('${a.id}')">✏️</button>
+      <button class="icon-btn" title="Excluir ata" style="color:#c0392b;opacity:.7" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.7'" onclick="deleteAta('${a.id}','${a.titulo.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">🗑</button>` : '';
     return `
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-pad" style="display:flex;align-items:flex-start;gap:14px">
-        <div style="text-align:center;min-width:52px">
-          <div style="font-size:20px;font-weight:800;color:var(--ink)">${formatDate(pr.data).split(' ')[0]}</div>
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase">${formatDate(pr.data).split(' ')[1]}</div>
+    <div class="tnode ${a.cls}">
+      <div class="tdate">📅 ${a.data}</div>
+      <div class="tcard">
+        <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+          <b style="flex:1">${a.titulo}</b>
+          ${obraBadges}
+          ${adminBtns}
         </div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <b style="font-size:14.5px;color:var(--ink)">${pr.titulo}</b>
-            ${tag}
-          </div>
-          <div style="font-size:12.5px;color:var(--muted);margin-top:4px">${sub}</div>
-          ${pr.descricao?`<p style="margin-top:8px;font-size:13px;color:var(--ink-2)">${pr.descricao}</p>`:''}
-          ${pessoas?`<div style="display:flex;align-items:center;gap:6px;margin-top:10px">${pessoas}</div>`:''}
+        <p>${a.resumo}</p>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
+          ${a.drive_url?`<a class="drive-link" href="${a.drive_url}" target="_blank" rel="noopener">📄 Ata completa no Drive</a>`:''}
+          ${visTag}
         </div>
-        ${isControlador()?`<div style="display:flex;flex-direction:column;gap:6px">
-          <button class="icon-btn" title="${pr.status==='pendente'?'Marcar como concluído':'Reabrir'}" onclick="togglePrazoStatus('${pr.id}')">${pr.status==='pendente'?'✓':'↺'}</button>
-          <button class="icon-btn" title="Excluir prazo" onclick="deletePrazo('${pr.id}')">🗑</button>
-        </div>`:''}
       </div>
     </div>`;
-  }
-
-  const obraOptions = projects.map(p=>`<option value="${p.id}" ${p.id===obraFilter?'selected':''}>${p.nome}</option>`).join('');
+  }).join('');
+  const tabsHtml = [`<div class="chat-tab ${!obraFilter?'active':''}" onclick="state.ataObraFilter='';render()">Todas</div>`]
+    .concat(projects.map(p=>`<div class="chat-tab ${p.id===obraFilter?'active':''}" onclick="state.ataObraFilter='${p.id}';render()">${p.nome}</div>`))
+    .join('');
   return `
-    <div class="page-head">
-      <div><h1>Agenda</h1><p>Prazos de entrega em que você foi mencionado.</p></div>
-      <div class="ph-actions" style="gap:8px">
-        <select style="padding:6px 10px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);font-size:13px" onchange="state.agendaObraFilter=this.value;render()">
-          <option value="">Todas as obras</option>
-          ${obraOptions}
-        </select>
-        ${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewPrazo()">+ Novo prazo</button>':''}
-      </div>
+    <div class="page-head" style="margin-bottom:18px">
+      <div><h1>Agenda</h1><p>Registros de reuniões de todas as obras.</p></div>
+      <div class="ph-actions">${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewAta()">+ Nova ata</button>':''}</div>
     </div>
-    <div class="agenda-layout">
-      <div class="agenda-list">
-        ${pendentes.length?pendentes.map(pr=>prazoCard(pr)).join(''):'<div class="empty"><div class="e-ico">📅</div>Nenhum prazo pendente.</div>'}
-        ${concluidos.length?`<div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:22px 0 10px">Concluídos</div>${concluidos.map(pr=>prazoCard(pr)).join('')}`:''}
-      </div>
-      ${calendarHTML(items, state.cal, 'calNav', 'calSelectDay')}
-    </div>`;
+    <div class="chat-tabs">${tabsHtml}</div>
+    <div class="tline">${nodes||'<div class="empty"><div class="e-ico">📋</div>Sem atas registradas.</div>'}</div>`;
 }
 
 /* ============================================================
@@ -1172,7 +984,6 @@ function tabVisao(p){
           ${revisar?'<span style="font-size:12px;color:#e03535;font-weight:600">aguardando nova versão</span>':''}
           <div class="d-meta">
             ${badge(d.status)}
-            ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
             <span class="d-wait">Responsável: <b>${d.aguardando}</b></span>
           </div>
         </div>
@@ -1231,7 +1042,6 @@ function tabVersoes(p){
           <div class="d-ico" style="width:34px;height:34px;border-radius:9px;font-size:15px;font-weight:800;background:${icoBg2};color:${icoC2}">${d.nome[0].toUpperCase()}</div>
           <b class="vhead-name">${d.nome}</b>
           ${badge(d.status)}
-          ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
           <span class="vhead-wait">Responsável: <b style="color:var(--ink)">${d.aguardando}</b></span>
           <div class="vhead-actions">
             ${isControlador()?`<button class="icon-btn" title="Editar disciplina" onclick="modalEditDisciplina('${d.id}')">✏️</button>`:''}
@@ -1281,51 +1091,6 @@ function tabVigente(p){
       <div><h1 style="font-size:18px">Versão vigente</h1><p>Versão aprovada atual de cada disciplina da obra.</p></div>
     </div>
     <div class="cards grid-2">${cards||'<div class="empty"><div class="e-ico">📂</div>Nenhuma disciplina.</div>'}</div>`;
-}
-
-function viewAtas(){
-  const obraFilter = state.ataObraFilter||'';
-  const filtered = obraFilter ? atasData.filter(a=>a.obras.some(o=>o.id===obraFilter)) : atasData;
-  const nodes = filtered.map(a=>{
-    const visTag = a.pessoas.length
-      ? `<span style="font-size:11.5px;color:var(--muted)">👁 ${a.pessoas.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`
-      : `<span style="font-size:11.5px;color:var(--muted)">👁 Todos</span>`;
-    const obraBadges = a.obras.length
-      ? a.obras.map(o=>`<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${o.nome}</span>`).join(' ')
-      : '';
-    const adminBtns = isControlador() ? `
-      <button class="icon-btn" title="Editar ata" onclick="modalEditAta('${a.id}')">✏️</button>
-      <button class="icon-btn" title="Excluir ata" style="color:#c0392b;opacity:.7" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.7'" onclick="deleteAta('${a.id}','${a.titulo.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">🗑</button>` : '';
-    return `
-    <div class="tnode ${a.cls}">
-      <div class="tdate">📅 ${a.data}</div>
-      <div class="tcard">
-        <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-          <b style="flex:1">${a.titulo}</b>
-          ${obraBadges}
-          ${adminBtns}
-        </div>
-        <p>${a.resumo}</p>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
-          ${a.drive_url?`<a class="drive-link" href="${a.drive_url}" target="_blank" rel="noopener">📄 Ata completa no Drive</a>`:''}
-          ${visTag}
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-  const obraOptions = projects.map(p=>`<option value="${p.id}" ${p.id===obraFilter?'selected':''}>${p.nome}</option>`).join('');
-  return `
-    <div class="page-head" style="margin-bottom:18px">
-      <div><h1>Atas de reunião</h1><p>Registros de reuniões de todas as obras.</p></div>
-      <div class="ph-actions" style="gap:8px">
-        <select style="padding:6px 10px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);font-size:13px" onchange="state.ataObraFilter=this.value;render()">
-          <option value="">Todas as obras</option>
-          ${obraOptions}
-        </select>
-        ${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewAta()">+ Nova ata</button>':''}
-      </div>
-    </div>
-    <div class="tline">${nodes||'<div class="empty"><div class="e-ico">📋</div>Sem atas registradas.</div>'}</div>`;
 }
 
 
@@ -1428,18 +1193,6 @@ function getNotifications(){
         items.push({key:`disc:${d.id}:${d.status}`,icon:'⏳',title:`Aguardando ${d.aguardando}`,sub:`${p.nome} · ${d.nome}`,pid:p.id,tab:'versoes'});
       }
     });
-  });
-  allPrazos().forEach(pr=>{
-    if(pr.status!=='pendente') return;
-    const {dias} = prazoInfo(pr);
-    const sub = `${pr.obraNome}${pr.disciplinaNome?' · '+pr.disciplinaNome:''}`;
-    if(dias<0){
-      items.push({key:`prazo:${pr.id}:atrasado`,icon:'⚠️',title:`Prazo atrasado: ${pr.titulo}`,sub,view:'agenda'});
-    } else if(dias<=1){
-      items.push({key:`prazo:${pr.id}:1d`,icon:'⏰',title:`Prazo vence ${dias===0?'hoje':'amanhã'}: ${pr.titulo}`,sub,view:'agenda'});
-    } else if(dias<=7){
-      items.push({key:`prazo:${pr.id}:7d`,icon:'📅',title:`Prazo em ${dias} dias: ${pr.titulo}`,sub,view:'agenda'});
-    }
   });
   return items.filter(n=>!dismissedNotifs.has(n.key));
 }
@@ -1815,76 +1568,6 @@ async function updateVersionStatus(versaoId, newStatus){
   await loadData(); render();
   toast('Status atualizado ✓');
 }
-
-/* ============================================================
-   AGENDA / PRAZOS
-   ============================================================ */
-function modalNewPrazo(){
-  const obraOpts = projects.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
-  openModal(`<div class="modal">
-    <div class="modal-head"><h3>Novo prazo</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
-    <div class="modal-body">
-      <div class="field"><label>Obra</label><select id="pz-obra" onchange="onPrazoObraChange()">${obraOpts}</select></div>
-      <div class="field"><label>Disciplina</label><select id="pz-disc"></select></div>
-      <div class="field"><label>Título</label><input id="pz-titulo" placeholder="Ex.: Entrega do projeto executivo"/></div>
-      <div class="field"><label>Descrição (opcional)</label><textarea id="pz-desc" placeholder="Detalhes do prazo..."></textarea></div>
-      <div class="field"><label>Data de entrega</label><input id="pz-data" type="date"/></div>
-      <div class="field"><label>Mencionar pessoas</label><div class="checks" id="pz-pessoas"></div></div>
-    </div>
-    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="savePrazo()">Salvar prazo</button></div>
-  </div>`);
-  onPrazoObraChange();
-}
-function onPrazoObraChange(){
-  renderPrazoDiscOptions();
-  renderPrazoPessoas();
-}
-function renderPrazoDiscOptions(){
-  const p = projects.find(x=>x.id===document.getElementById('pz-obra').value);
-  const opts = ['<option value="">— Obra inteira —</option>', ...(p?p.disciplinas:[]).map(d=>`<option value="${d.id}">${d.nome}</option>`)];
-  document.getElementById('pz-disc').innerHTML = opts.join('');
-}
-function renderPrazoPessoas(){
-  const p = projects.find(x=>x.id===document.getElementById('pz-obra').value);
-  const pessoas = p ? peopleOf(p).filter(per=>!per.pending) : [];
-  document.getElementById('pz-pessoas').innerHTML = pessoas.length
-    ? pessoas.map(per=>`<label class="check" onclick="this.classList.toggle('on')"><input type="checkbox" value="${per.id}"> ${per.nome}</label>`).join('')
-    : '<div style="font-size:12.5px;color:var(--muted)">Nenhuma pessoa com acesso a esta obra.</div>';
-}
-async function savePrazo(){
-  const obraId = document.getElementById('pz-obra').value;
-  const discId = document.getElementById('pz-disc').value || null;
-  const titulo = document.getElementById('pz-titulo').value.trim();
-  const descricao = document.getElementById('pz-desc').value.trim();
-  const data = document.getElementById('pz-data').value;
-  if(!titulo || !data){ toast('Preencha o título e a data'); return; }
-  const pessoaIds = [...document.querySelectorAll('#pz-pessoas input:checked')].map(i=>i.value);
-  const {data:row, error} = await sb.from('prazos').insert({
-    obra_id:obraId, disciplina_id:discId, titulo, descricao:descricao||null, data, created_by:session.user.id
-  }).select().single();
-  if(error){ toast('Erro ao salvar prazo: '+error.message); return; }
-  if(pessoaIds.length){
-    const {error:ppErr} = await sb.from('prazo_pessoas').insert(pessoaIds.map(uid=>({prazo_id:row.id, user_id:uid})));
-    if(ppErr){ toast('Erro ao vincular pessoas: '+ppErr.message); }
-  }
-  closeModal();
-  await loadData(); render(); toast('Prazo adicionado ✓');
-}
-async function togglePrazoStatus(prazoId){
-  const pr = allPrazos().find(x=>x.id===prazoId);
-  if(!pr) return;
-  const novo = pr.status==='pendente' ? 'concluido' : 'pendente';
-  const {error} = await sb.from('prazos').update({status:novo}).eq('id',prazoId);
-  if(error){ toast('Erro ao atualizar prazo: '+error.message); return; }
-  await loadData(); render();
-}
-async function deletePrazo(prazoId){
-  if(!confirm('Excluir este prazo?')) return;
-  const {error} = await sb.from('prazos').delete().eq('id',prazoId);
-  if(error){ toast('Erro ao excluir prazo: '+error.message); return; }
-  await loadData(); render(); toast('Prazo excluído');
-}
-
 
 function _ataModalHTML(titulo, a){
   const isEdit=!!a;
