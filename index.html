@@ -223,13 +223,6 @@
   .disc .d-meta{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
   .disc .d-wait{font-size:12px;color:var(--muted)}
   .disc .d-wait b{display:inline;font-weight:700;color:var(--ink)}
-  .dprog-wrap{margin:10px 0 2px}
-  .dprog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
-  .dprog-header span:first-child{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);font-weight:700}
-  .dprog-pct{font-size:12px;font-weight:800}
-  .dprog-bar{height:7px;background:var(--line);border-radius:4px;overflow:hidden}
-  .dprog-fill{height:100%;border-radius:4px;transition:width .25s,background .25s}
-  .dprog-range{width:100%;margin-top:6px;cursor:pointer;accent-color:var(--blue)}
 
   /* version row */
   .vrow{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--line-2)}
@@ -785,7 +778,7 @@ async function loadData(){
         return {id:c.id, ini:initials(a.nome), autor:a.nome, cor:a.cor, hora:formatHora(c.created_at), texto:c.texto, me: !!session && c.autor_id===session.user.id};
       });
       const atrasado = prazosRows.some(pr=>pr.disciplina_id===d.id && pr.status==='pendente' && pr.data<today);
-      return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', link_drive:d.link_drive||'', progresso:d.progresso||0, versoes, chat, atrasado};
+      return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', link_drive:d.link_drive||'', cor:d.cor||null, versoes, chat, atrasado};
     });
     // Exclui prazos ligados a atas (ata_id preenchido) — aparecem como "Entregas" na ata
     const prazos = prazosRows.filter(pr=>pr.obra_id===o.id && !pr.ata_id).map(pr=>{
@@ -910,15 +903,6 @@ function versaoVigente(d){
 }
 function allVersions(p){ return p.disciplinas.flatMap(d=>d.versoes.map(v=>({...v,disc:d.nome}))); }
 function countVersions(p){ return allVersions(p).length; }
-function allFeedbacks(p){
-  const fbs = p.disciplinas.flatMap(d=>d.versoes.flatMap(v=>(v.fb||[]).map(f=>({...f,disc:d.nome,ver:v.v,type:'feedback'}))));
-  const anots = p.disciplinas.flatMap(d=>d.versoes.flatMap(v=>(v.arquivos||[]).flatMap(ar=>(ar.anotacoes||[]).map(a=>({
-    id:a.id, autor:a.autor, cor:a.autorCor, ini:a.ini, quando:a.quando, texto:a.texto,
-    disc:d.nome, ver:v.v, type:'pdf', anotCor:a.cor, arquivoId:ar.id, arquivoNome:ar.nome, pagina:a.pagina
-  })))));
-  return [...fbs, ...anots];
-}
-function countFeedbacks(p){ return allFeedbacks(p).length; }
 function countChat(p){ return p.disciplinas.reduce((s,d)=>s+(d.chat||[]).length,0); }
 
 /* ============================================================
@@ -933,7 +917,7 @@ function viewObras(){
   ) : projects;
   return `
     <div class="page-head">
-      <div><h1>Minhas obras</h1><p>Selecione uma obra para ver disciplinas, versões, atas, feedbacks e chat.</p></div>
+      <div><h1>Minhas obras</h1><p>Selecione uma obra para ver disciplinas, versões, atas e chat.</p></div>
       <div class="ph-actions">${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewProject()">+ Nova obra</button>':''}</div>
     </div>
     ${list.length?`<div class="cards grid-2">${list.map(projCard).join('')}</div>`:`<div class="empty"><div class="e-ico">🔎</div>Nenhum resultado para "${state.search}".</div>`}`;
@@ -1188,7 +1172,6 @@ function viewProj(){
   const tabs = [
     {id:'visao', label:'Visão geral'},
     {id:'versoes', label:'Versões', cnt:countVersions(p)},
-    {id:'feedbacks', label:'Feedbacks', cnt:countFeedbacks(p)},
     {id:'chat', label:'Chat', cnt:countChat(p)},
   ];
   if(isControlador()) tabs.push({id:'acessos', label:'Acessos', cnt:peopleOf(p).length});
@@ -1209,7 +1192,6 @@ function viewProj(){
   let body='';
   if(state.tab==='visao') body=tabVisao(p);
   else if(state.tab==='versoes') body=tabVersoes(p);
-  else if(state.tab==='feedbacks') body=tabFeedbacks(p);
   else if(state.tab==='chat') body=tabChat(p);
   else if(state.tab==='acessos') body=tabAcessos(p);
 
@@ -1220,10 +1202,11 @@ function setTab(t){ state.tab=t; render(); }
 function tabVisao(p){
   const cards = p.disciplinas.map((d,i)=>{
     const ic = DISC_ICONS[d.nome]||{i:'📁',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
+    const icoBg = d.cor||ic.bg; const icoC = d.cor?'#fff':ic.c;
     return `
     <div class="card disc" style="flex-direction:column;align-items:stretch;gap:0;padding:0;overflow:hidden">
       <div style="display:flex;align-items:center;gap:14px;padding:16px;cursor:pointer" onclick="setTab('versoes')">
-        <div class="d-ico" style="background:${ic.bg};color:${ic.c}">${d.nome[0].toUpperCase()}</div>
+        <div class="d-ico" style="background:${icoBg};color:${icoC}">${d.nome[0].toUpperCase()}</div>
         <div class="d-body">
           <b>${d.nome}</b>
           <div class="d-meta">
@@ -1237,7 +1220,6 @@ function tabVisao(p){
           <div style="font-size:11px;color:var(--muted)">versões</div>
         </div>
       </div>
-      <div style="padding:0 16px 14px">${discProgBar(d)}</div>
     </div>`;
   }).join('');
   return `
@@ -1266,6 +1248,7 @@ function tabVersoes(p){
     .join('');
   const blocks = visibleDiscs.map(d=>{
     const ic = DISC_ICONS[d.nome]||{i:'📁',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
+    const icoBg2 = d.cor||ic.bg; const icoC2 = d.cor?'#fff':ic.c;
     const vigenteId = versaoVigente(d);
     const rows = d.versoes.length? d.versoes.map(v=>`
       <div class="vitem"><div class="vrow">
@@ -1288,7 +1271,7 @@ function tabVersoes(p){
     return `
       <div class="card" style="margin-bottom:16px;overflow:hidden">
         <div class="vhead">
-          <div class="d-ico" style="width:34px;height:34px;border-radius:9px;font-size:15px;font-weight:800;background:${ic.bg};color:${ic.c}">${d.nome[0].toUpperCase()}</div>
+          <div class="d-ico" style="width:34px;height:34px;border-radius:9px;font-size:15px;font-weight:800;background:${icoBg2};color:${icoC2}">${d.nome[0].toUpperCase()}</div>
           <b class="vhead-name">${d.nome}</b>
           ${badge(d.status)}
           ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
@@ -1298,7 +1281,6 @@ function tabVersoes(p){
             ${isControlador()?`<button class="icon-btn" title="Excluir disciplina" onclick="deleteDisciplina('${d.id}','${d.nome}')">🗑</button>`:''}
           </div>
         </div>
-        <div style="padding:2px 16px 14px">${discProgBar(d)}</div>
         ${d.link_drive?`<div style="padding:0 16px 12px;border-bottom:1px solid var(--line-2)"><a class="drive-link" href="${d.link_drive}" target="_blank" rel="noopener">📁 Abrir pasta no Drive</a></div>`:''}
         ${rows}
       </div>`;
@@ -1313,20 +1295,6 @@ function tabVersoes(p){
 }
 function setVersDisc(discName){ state.versDisc=discName; render(); }
 
-function progColor(pct){ return `hsl(${Math.round(pct*1.2)},72%,46%)`; }
-function discProgBar(d){
-  const pct = d.progresso||0;
-  const col = progColor(pct);
-  return `<div class="dprog-wrap">
-    <div class="dprog-header">
-      <span>Progresso</span>
-      <span class="dprog-pct" style="color:${col}">${pct}%</span>
-    </div>
-    <div class="dprog-bar">
-      <div class="dprog-fill" style="width:${pct}%;background:${col}"></div>
-    </div>
-  </div>`;
-}
 
 function viewAtas(){
   const nodes = atasData.map(a=>{
@@ -1385,25 +1353,6 @@ function viewAtas(){
     <div class="tline">${nodes||'<div class="empty"><div class="e-ico">📋</div>Sem atas registradas.</div>'}</div>`;
 }
 
-function tabFeedbacks(p){
-  const rows = allFeedbacks(p).map(f=>`
-    <div class="fb">
-      <div class="avatar" style="background:${f.cor}">${f.ini}</div>
-      <div class="fb-body">
-        <div class="fb-head"><b>${f.autor}</b>${f.type==='pdf'?`<span class="fb-anot-dot" style="background:${f.anotCor}" title="Anotação no PDF"></span>`:''}<small>· ${f.quando}</small></div>
-        <p>${f.texto}</p>
-        <div class="fb-on">📎 sobre ${f.type==='pdf'
-          ? `<a onclick="openPdfViewerFromFeedback('${f.arquivoId}',${f.pagina})" style="color:var(--blue);cursor:pointer;font-weight:600">${f.disc} · ${f.ver.toUpperCase()} · ${f.arquivoNome} (pág. ${f.pagina})</a>`
-          : `<a onclick="setTab('versoes')" style="color:var(--blue);cursor:pointer;font-weight:600">${f.disc} · ${f.ver.toUpperCase()}</a>`}</div>
-      </div>
-    </div>`).join('');
-  return `
-    <div class="page-head" style="margin-bottom:16px">
-      <div><h1 style="font-size:18px">Feedbacks das versões</h1><p>Todos os comentários feitos nas versões. Para comentar, abra uma versão na aba <b>Versões</b>.</p></div>
-      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="setTab('versoes')">+ Comentar numa versão</button></div>
-    </div>
-    <div class="card">${rows||'<div class="empty"><div class="e-ico">💬</div>Nenhum feedback ainda. Abra uma versão para comentar.</div>'}</div>`;
-}
 
 /* ----- Chat por área/disciplina (entre quem tem acesso à pasta) ----- */
 function tabChat(p){
@@ -1494,9 +1443,6 @@ function getNotifications(){
       } else if(d.status==='wait'){
         items.push({key:`disc:${d.id}:${d.status}`,icon:'⏳',title:`Aguardando ${d.aguardando}`,sub:`${p.nome} · ${d.nome}`,pid:p.id,tab:'versoes'});
       }
-    });
-    allFeedbacks(p).forEach(f=>{
-      items.push({key:`fb:${f.id}`,icon:'💬',title:`Feedback de ${f.autor}`,sub:`${p.nome} · ${f.disc} ${f.ver.toUpperCase()}`,pid:p.id,tab:'feedbacks'});
     });
   });
   allPrazos().forEach(pr=>{
@@ -1984,7 +1930,7 @@ function _entregaCardHTML(e,i){
     <div class="field" style="margin-bottom:8px"><label style="font-size:12px">Entrega ${i+1} — Título</label><input id="ae-titulo-${i}" value="${e.titulo.replace(/"/g,'&quot;')}" placeholder="O que deve ser entregue?"/></div>
     <div class="field" style="margin-bottom:8px"><label style="font-size:12px">Data limite</label><input id="ae-data-${i}" type="date" value="${e.data}"/></div>
     <div class="field" style="margin-bottom:0"><label style="font-size:12px">Responsáveis</label>
-      <div class="checks" id="ae-resps-${i}" style="grid-template-columns:1fr 1fr">${opts||'<span style="color:var(--muted);font-size:12px">Nenhum usuário.</span>'}</div>
+      <div class="checks" id="ae-resps-${i}" style="grid-template-columns:1fr">${opts||'<span style="color:var(--muted);font-size:12px">Nenhum usuário.</span>'}</div>
     </div>
   </div>`;
 }
@@ -2022,7 +1968,7 @@ function _ataModalHTML(titulo, a){
       </div>
       <div class="field"><label>Quem pode ver esta ata</label>
         <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Deixe todos desmarcados para ser visível a todos.</p>
-        <div class="checks" id="a-pessoas" style="grid-template-columns:1fr 1fr">${pessoasChecks||'<span style="color:var(--muted);font-size:13px">Nenhum outro usuário.</span>'}</div>
+        <div class="checks" id="a-pessoas" style="grid-template-columns:1fr">${pessoasChecks||'<span style="color:var(--muted);font-size:13px">Nenhum outro usuário.</span>'}</div>
       </div>
       <div style="border-top:1px solid var(--line);margin-top:4px;padding-top:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -2149,7 +2095,7 @@ async function saveDisc(){
   const nome=document.getElementById('d-name').value;
   const aguardando=document.getElementById('d-wait').value||'A iniciar';
   const {error}=await sb.from('disciplinas').insert({
-    obra_id:p.id, nome, status:'pend', aguardando, progresso:0, ordem:p.disciplinas.length+1
+    obra_id:p.id, nome, status:'pend', aguardando, ordem:p.disciplinas.length+1
   });
   if(error){toast('Erro ao adicionar disciplina: '+error.message);return;}
   closeModal(); await loadData(); render(); toast('Disciplina adicionada ✓');
@@ -2165,7 +2111,12 @@ function modalEditDisciplina(discId){
       <div class="field"><label>Nome</label><input id="ed-disc-nome" value="${d.nome}"/></div>
       <div class="field"><label>Aguardando quem?</label><input id="ed-disc-wait" value="${d.aguardando||''}" placeholder="Ex.: Meta Arquitetura"/></div>
       <div class="field"><label>Link da pasta no Drive</label><input id="ed-disc-drive" value="${d.link_drive||''}" placeholder="https://drive.google.com/..."/></div>
-      <div class="field"><label>Progresso — <span id="ed-disc-prog-lbl">${d.progresso||0}%</span></label><input id="ed-disc-prog" type="range" min="0" max="100" value="${d.progresso||0}" class="dprog-range" oninput="document.getElementById('ed-disc-prog-lbl').textContent=this.value+'%'"/></div>
+      <div class="field"><label>Cor da disciplina</label>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px">
+          ${['#5b8cff','#ff6b6b','#3ddc97','#f5b942','#a78bfa','#f97316','#0ea5e9','#ec4899','#14b8a6','#64748b'].map(c=>`<div onclick="document.getElementById('ed-disc-cor').value='${c}'" style="width:26px;height:26px;border-radius:6px;background:${c};cursor:pointer;flex-shrink:0;border:2px solid transparent" onmouseenter="this.style.borderColor='var(--ink)'" onmouseleave="this.style.borderColor='transparent'"></div>`).join('')}
+          <input id="ed-disc-cor" type="color" value="${d.cor||'#5b8cff'}" style="width:44px;height:36px;padding:2px;border:1.5px solid var(--line);border-radius:8px;cursor:pointer" title="Cor personalizada"/>
+        </div>
+      </div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveEditDisciplina('${discId}')">Salvar</button></div>
   </div>`);
@@ -2174,9 +2125,9 @@ async function saveEditDisciplina(discId){
   const nome=document.getElementById('ed-disc-nome').value.trim();
   const aguardando=document.getElementById('ed-disc-wait').value.trim();
   const link_drive=document.getElementById('ed-disc-drive').value.trim();
-  const progresso=+(document.getElementById('ed-disc-prog').value);
+  const cor=document.getElementById('ed-disc-cor').value||'#5b8cff';
   if(!nome){ toast('Informe o nome da disciplina'); return; }
-  const {error}=await sb.from('disciplinas').update({nome, aguardando, link_drive, progresso}).eq('id',discId);
+  const {error}=await sb.from('disciplinas').update({nome, aguardando, link_drive, cor}).eq('id',discId);
   if(error){toast('Erro ao salvar disciplina: '+error.message);return;}
   closeModal(); await loadData(); render(); toast('Disciplina atualizada ✓');
 }
@@ -2265,7 +2216,7 @@ async function openPdfViewer(arquivoId, page){
       <button class="icon-btn" onclick="pdfToggleFullscreen()" title="Tela cheia">⛶</button>
       <button class="icon-btn" onclick="closeModal()">✕</button>
     </div>
-    <div class="pdf-hint" id="pdf-hint">💬 Toque em "Comentar", arraste o marcador até o local desejado e confirme para escrever a anotação — ou, no computador, clique com o botão direito sobre o ponto desejado da imagem para comentar direto ali. O comentário aparece como um marcador colorido e também na aba Feedbacks.</div>
+    <div class="pdf-hint" id="pdf-hint">💬 Toque em "Comentar", arraste o marcador até o local desejado e confirme para escrever a anotação — ou, no computador, clique com o botão direito sobre o ponto desejado da imagem para comentar direto ali. O comentário aparece como um marcador colorido.</div>
     <div class="pdf-body" id="pdf-body">
       <div class="pdf-canvas-wrap" id="pdf-canvas-wrap" onclick="onPdfCanvasClick(event)" oncontextmenu="onPdfCanvasContextMenu(event)">
         <canvas id="pdf-canvas"></canvas>
