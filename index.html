@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>DIB â€” Plataforma de GestÃ£o de Projetos</title>
+<title>DIB — Plataforma de Gestão de Projetos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -391,7 +391,7 @@
   .pdf-popup p{font-size:12.5px;color:var(--ink-2);max-height:120px;overflow-y:auto}
   .pdf-hint{padding:7px 18px;font-size:11.5px;color:var(--muted);border-bottom:1px solid var(--line);background:var(--card-2)}
 
-  /* ---------- CalendÃ¡rio de prazos ---------- */
+  /* ---------- Calendário de prazos ---------- */
   .agenda-layout{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
   .cal-card{padding:16px}
   .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
@@ -471,29 +471,29 @@
           Manter conectado neste dispositivo
         </label>
         <button class="btn btn-primary" id="btn-send-magic" onclick="sendMagicLink()">Receber link de acesso</button>
-        <div class="login-mini">Acesso privado Â· vocÃª recebe um link no seu e-mail.</div>
+        <div class="login-mini">Acesso privado · você recebe um link no seu e-mail.</div>
       </div>
 
       <div id="login-step2" class="hide">
         <div class="magic">
-          <div class="ico">âœ“</div>
+          <div class="ico">✓</div>
           <b>Link enviado!</b>
           <small>Enviamos um acesso para <span id="email-echo">seu e-mail</span>. Abra o link recebido neste mesmo navegador para entrar.</small>
           <button class="btn btn-ghost" style="width:100%" onclick="showStep('login-step1')">Usar outro e-mail</button>
         </div>
-        <div class="login-mini">O link expira em alguns minutos e sÃ³ funciona uma vez.</div>
+        <div class="login-mini">O link expira em alguns minutos e só funciona uma vez.</div>
       </div>
 
       <div id="login-step3" class="hide">
         <div class="magic">
-          <div class="ico">âš ï¸</div>
-          <b>Acesso nÃ£o autorizado</b>
-          <small>O e-mail <span id="email-unauth"></span> ainda nÃ£o tem acesso liberado a esta plataforma. Fale com o administrador para ser convidado.</small>
-          <button class="btn btn-ghost" style="width:100%" onclick="confirmLogout()">â» Sair</button>
+          <div class="ico">⚠️</div>
+          <b>Acesso não autorizado</b>
+          <small>O e-mail <span id="email-unauth"></span> ainda não tem acesso liberado a esta plataforma. Fale com o administrador para ser convidado.</small>
+          <button class="btn btn-ghost" style="width:100%" onclick="confirmLogout()">⏻ Sair</button>
         </div>
       </div>
     </div>
-    <div class="login-foot">Â© 2026 DIB &amp; DIB Â· Plataforma privada</div>
+    <div class="login-foot">© 2026 DIB &amp; DIB · Plataforma privada</div>
   </div>
 </div>
 
@@ -510,22 +510,22 @@
     </div>
     <div class="side-scroll">
       <div class="side-label">Menu</div>
-      <div class="nav-item active" data-nav="obras" onclick="go('obras')"><span class="i">â–¦</span> Minhas obras</div>
-      <div class="nav-item" data-nav="agenda" onclick="go('agenda')"><span class="i">ðŸ“…</span> Agenda<span class="cnt" id="agenda-cnt" style="display:none"></span></div>
-      <div class="nav-item" data-nav="atas" onclick="go('atas')"><span class="i">ðŸ“‹</span> Atas de reuniÃ£o</div>
+      <div class="nav-item active" data-nav="obras" onclick="go('obras')"><span class="i">▦</span> Minhas obras</div>
+      <div class="nav-item" data-nav="agenda" onclick="go('agenda')"><span class="i">📅</span> Agenda<span class="cnt" id="agenda-cnt" style="display:none"></span></div>
+      <div class="nav-item" data-nav="atas" onclick="go('atas')"><span class="i">📋</span> Atas de reunião</div>
 
       <div class="side-label">Obras / Projetos</div>
       <div id="proj-list"></div>
 
-      <div class="side-label" data-admin-only>AdministraÃ§Ã£o</div>
-      <div class="nav-item" data-nav="pessoas" data-admin-only onclick="go('pessoas')"><span class="i">â—‰</span> Pessoas &amp; acessos</div>
+      <div class="side-label" data-admin-only>Administração</div>
+      <div class="nav-item" data-nav="pessoas" data-admin-only onclick="go('pessoas')"><span class="i">◉</span> Pessoas &amp; acessos</div>
     </div>
     <div class="side-bottom">
       <div class="user-chip">
         <div class="avatar" id="user-avatar">PD</div>
         <div style="flex:1"><b id="user-nome">Pedro Dib</b><small id="user-papel">Administrador</small></div>
-        <span style="color:#8493b0;cursor:pointer" onclick="modalEditProfile()" title="Editar perfil">âœï¸</span>
-        <span style="color:#c0392b;cursor:pointer;font-size:16px;opacity:.8" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.8'" onclick="confirmLogout()" title="Sair da plataforma">â»</span>
+        <span style="color:#8493b0;cursor:pointer" onclick="modalEditProfile()" title="Editar perfil">✏️</span>
+        <span style="color:#c0392b;cursor:pointer;font-size:16px;opacity:.8" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.8'" onclick="confirmLogout()" title="Sair da plataforma">⏻</span>
       </div>
     </div>
   </aside>
@@ -533,11 +533,11 @@
   <!-- MAIN -->
   <main class="main">
     <div class="topbar">
-      <button class="burger" onclick="toggleNav(true)">â˜°</button>
+      <button class="burger" onclick="toggleNav(true)">☰</button>
       <div class="crumb" id="crumb">Minhas obras</div>
-      <div class="search">ðŸ”Ž <input id="search-input" placeholder="Buscar projeto, disciplina..." autocomplete="off" oninput="onSearchInput(this.value)" /></div>
-      <button class="top-btn" onclick="openNotifs()">ðŸ””<span class="badge" id="notif-badge"></span></button>
-      <button class="top-btn" onclick="confirmLogout()" title="Sair da plataforma" style="color:#c0392b">â»</button>
+      <div class="search">🔎 <input id="search-input" placeholder="Buscar projeto, disciplina..." autocomplete="off" oninput="onSearchInput(this.value)" /></div>
+      <button class="top-btn" onclick="openNotifs()">🔔<span class="badge" id="notif-badge"></span></button>
+      <button class="top-btn" onclick="confirmLogout()" title="Sair da plataforma" style="color:#c0392b">⏻</button>
     </div>
     <div class="content" id="content"></div>
   </main>
@@ -548,9 +548,7 @@
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 /* ============================================================
    SUPABASE
@@ -571,23 +569,23 @@ let session = null;
 let profile = null;
 
 /* ============================================================
-   DADOS DE EXEMPLO  (em memÃ³ria â€” reinicia ao recarregar)
+   DADOS DE EXEMPLO  (em memória — reinicia ao recarregar)
    ============================================================ */
 const STATUS = {
   aguardando: {cls:'b-amber',  label:'Aguardando'},
-  analise:    {cls:'b-purple', label:'Em anÃ¡lise Dib'},
+  analise:    {cls:'b-purple', label:'Em análise Dib'},
   revisar:    {cls:'b-red',    label:'Revisar'},
   aprovada:   {cls:'b-green',  label:'Aprovada'},
   obsoleto:   {cls:'b-gray',   label:'Obsoleta'},
 };
 
 const DISC_ICONS = {
-  'Arquitetura':{i:'ðŸ›ï¸',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'},
-  'Estrutural':{i:'ðŸ—ï¸',c:'#f0b056',bg:'rgba(245,160,66,.16)'},
-  'Fachada':{i:'ðŸªŸ',c:'#5fe0ad',bg:'rgba(61,220,151,.16)'},
-  'InstalaÃ§Ãµes':{i:'ðŸ”§',c:'#bda6ff',bg:'rgba(167,139,250,.18)'},
-  'Paisagismo':{i:'ðŸŒ¿',c:'#5fe0ad',bg:'rgba(61,220,151,.16)'},
-  'CompatibilizaÃ§Ã£o':{i:'ðŸ§©',c:'#ff8f8f',bg:'rgba(255,107,107,.16)'},
+  'Arquitetura':{i:'🏛️',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'},
+  'Estrutural':{i:'🏗️',c:'#f0b056',bg:'rgba(245,160,66,.16)'},
+  'Fachada':{i:'🪟',c:'#5fe0ad',bg:'rgba(61,220,151,.16)'},
+  'Instalações':{i:'🔧',c:'#bda6ff',bg:'rgba(167,139,250,.18)'},
+  'Paisagismo':{i:'🌿',c:'#5fe0ad',bg:'rgba(61,220,151,.16)'},
+  'Compatibilização':{i:'🧩',c:'#ff8f8f',bg:'rgba(255,107,107,.16)'},
 };
 
 let people = [];
@@ -600,7 +598,7 @@ let dismissedNotifs = new Set();
 const ANOT_COLORS = ['#f5b942','#ff6b6b','#3ddc97','#5b8cff','#a78bfa'];
 
 /* ============================================================
-   ANEXOS (PDFs / links) â€” estado dos modais de upload
+   ANEXOS (PDFs / links) — estado dos modais de upload
    ============================================================ */
 let pendingLinks = [];
 
@@ -622,7 +620,7 @@ function renderPendingLinks(){
     <div class="link-row">
       <input placeholder="Nome do link" value="${l.nome}" oninput="pendingLinks[${i}].nome=this.value">
       <input placeholder="https://..." value="${l.url}" oninput="pendingLinks[${i}].url=this.value">
-      <span class="chip-x" onclick="removePendingLink(${i})">âœ•</span>
+      <span class="chip-x" onclick="removePendingLink(${i})">✕</span>
     </div>`).join('');
 }
 function addPendingLink(){ pendingLinks.push({nome:'',url:''}); renderPendingLinks(); }
@@ -642,11 +640,11 @@ function formatHora(ts){
 function relativeTime(ts){
   const min = Math.floor((Date.now()-new Date(ts).getTime())/60000);
   if(min<1) return 'agora';
-  if(min<60) return `hÃ¡ ${min} min`;
+  if(min<60) return `há ${min} min`;
   const h = Math.floor(min/60);
-  if(h<24) return `hÃ¡ ${h}h`;
+  if(h<24) return `há ${h}h`;
   const d = Math.floor(h/24);
-  return `hÃ¡ ${d} dia${d>1?'s':''}`;
+  return `há ${d} dia${d>1?'s':''}`;
 }
 function todayStr(){
   const d = new Date();
@@ -660,7 +658,7 @@ function daysUntil(dateStr){
    CARREGAMENTO DE DADOS (Supabase)
    ============================================================ */
 async function loadData(){
-  // Tabelas estÃ¡veis â€” Promise.all: qualquer erro aqui indica problema real
+  // Tabelas estáveis — Promise.all: qualquer erro aqui indica problema real
   const [obrasRes, discRes, versRes, fbRes, chatRes, atasRes, profRes, accessRes, invitesRes, inviteObrasRes, notifDismissalsRes, arquivosRes, anotacoesRes, prazosRes, prazoPessoasRes, discAccessRes, ataPessoasRes] = await Promise.all([
     sb.from('obras').select('*').order('ordem'),
     sb.from('disciplinas').select('*').order('ordem'),
@@ -685,7 +683,7 @@ async function loadData(){
     if(res.error) console.error(`Erro ao carregar ${nome}:`, res.error);
   }
 
-  // Nova tabela ata_obras â€” isolada em allSettled: falha silenciosa atÃ© o SQL rodar
+  // Nova tabela ata_obras — isolada em allSettled: falha silenciosa até o SQL rodar
   const [ataObrasSettled] = await Promise.allSettled([
     sb.from('ata_obras').select('*'),
   ]);
@@ -716,7 +714,7 @@ async function loadData(){
   const profileById = Object.fromEntries(allProfiles.map(p=>[p.id,p]));
   function authorInfo(autorId, autorNome){
     const pr = autorId && profileById[autorId];
-    return {nome:(pr&&pr.nome)||autorNome||'â€”', cor:(pr&&pr.cor)||DEFAULT_COR};
+    return {nome:(pr&&pr.nome)||autorNome||'—', cor:(pr&&pr.cor)||DEFAULT_COR};
   }
 
   projects = obrasRows.map(o=>{
@@ -735,7 +733,7 @@ async function loadData(){
             });
             return {id:ar.id, tipo:ar.tipo, nome:ar.nome, path:ar.path, url:ar.url, ordem:ar.ordem, anotacoes};
           });
-          return {id:v.id, v:'v'+v.numero, titulo:v.titulo, descricao:v.descricao||'', data:formatDate(v.data), autor:v.autor_nome||'â€”', status:v.status, arquivos, fb, created_by:v.created_by};
+          return {id:v.id, v:'v'+v.numero, titulo:v.titulo, descricao:v.descricao||'', data:formatDate(v.data), autor:v.autor_nome||'—', status:v.status, arquivos, fb, created_by:v.created_by};
         });
       const chat = chatRows.filter(c=>c.disciplina_id===d.id).map(c=>{
         const a = authorInfo(c.autor_id, c.autor_nome);
@@ -744,12 +742,12 @@ async function loadData(){
       const atrasado = prazosRows.some(pr=>pr.disciplina_id===d.id && pr.status==='pendente' && pr.data<today);
       return {id:d.id, nome:d.nome, status:d.status, aguardando:d.aguardando||'', link_drive:d.link_drive||'', cor:d.cor||null, versoes, chat, atrasado};
     });
-    // Exclui prazos ligados a atas (ata_id preenchido) â€” aparecem como "Entregas" na ata
+    // Exclui prazos ligados a atas (ata_id preenchido) — aparecem como "Entregas" na ata
     const prazos = prazosRows.filter(pr=>pr.obra_id===o.id && !pr.ata_id).map(pr=>{
       const disc = discRows.find(d=>d.id===pr.disciplina_id);
       const mencionados = prazoPessoasRows.filter(pp=>pp.prazo_id===pr.id).map(pp=>{
         const per = profileById[pp.user_id];
-        const nome = (per&&per.nome)||'â€”';
+        const nome = (per&&per.nome)||'—';
         return {id:pp.user_id, nome, cor:(per&&per.cor)||DEFAULT_COR, ini:initials(nome)};
       });
       return {id:pr.id, titulo:pr.titulo, descricao:pr.descricao||'', data:pr.data, status:pr.status, disciplina_id:pr.disciplina_id, disciplinaNome:disc?disc.nome:null, mencionados};
@@ -758,7 +756,7 @@ async function loadData(){
   });
 
   atasData = atasRows.map(a=>{
-    // obras: via ata_obras (novo); fallback para obra_id enquanto SQL nÃ£o rodou
+    // obras: via ata_obras (novo); fallback para obra_id enquanto SQL não rodou
     const obrasFromJoin = ataObrasRows.filter(ao=>ao.ata_id===a.id).map(ao=>{
       const o = obrasRows.find(ob=>ob.id===ao.obra_id);
       return o ? {id:o.id, nome:o.nome} : null;
@@ -770,14 +768,14 @@ async function loadData(){
 
     const pessoas = ataPessoasRows.filter(ap=>ap.ata_id===a.id).map(ap=>{
       const pr = profileById[ap.user_id];
-      return {id:ap.user_id, nome:(pr&&pr.nome)||'â€”', cor:(pr&&pr.cor)||DEFAULT_COR, ini:initials((pr&&pr.nome)||'?')};
+      return {id:ap.user_id, nome:(pr&&pr.nome)||'—', cor:(pr&&pr.cor)||DEFAULT_COR, ini:initials((pr&&pr.nome)||'?')};
     });
 
-    // entregas: prazos com ata_id === a.id (coluna existe apÃ³s SQL rodar)
+    // entregas: prazos com ata_id === a.id (coluna existe após SQL rodar)
     const entregas = prazosRows.filter(pr=>pr.ata_id===a.id).map(pr=>{
       const responsaveis = prazoPessoasRows.filter(pp=>pp.prazo_id===pr.id).map(pp=>{
         const per = profileById[pp.user_id];
-        return {id:pp.user_id, nome:(per&&per.nome)||'â€”', cor:(per&&per.cor)||DEFAULT_COR, ini:initials((per&&per.nome)||'?')};
+        return {id:pp.user_id, nome:(per&&per.nome)||'—', cor:(per&&per.cor)||DEFAULT_COR, ini:initials((per&&per.nome)||'?')};
       });
       return {id:pr.id, prazoId:pr.id, titulo:pr.titulo, data:pr.data, status:pr.status||'pendente', responsaveis};
     }).sort((x,y)=>x.data<y.data?-1:x.data>y.data?1:0);
@@ -804,7 +802,7 @@ async function loadData(){
 }
 
 /* ============================================================
-   ESTADO + NAVEGAÃ‡ÃƒO
+   ESTADO + NAVEGAÇÃO
    ============================================================ */
 let state = {view:'obras', projId:null, tab:'visao', chatDisc:null, versDisc:'all', search:''};
 
@@ -826,8 +824,8 @@ function openProj(id){ state.view='proj'; state.projId=id; state.tab='visao'; st
 
 function normalizeSearch(s){
   return (s||'').toLowerCase()
-    .replace(/[Ã¡Ã Ã¢Ã£]/g,'a').replace(/[Ã©Ã¨Ãª]/g,'e').replace(/[Ã­Ã¬]/g,'i')
-    .replace(/[Ã³Ã²Ã´Ãµ]/g,'o').replace(/[ÃºÃ¹]/g,'u').replace(/Ã§/g,'c');
+    .replace(/[áàâã]/g,'a').replace(/[éèê]/g,'e').replace(/[íì]/g,'i')
+    .replace(/[óòôõ]/g,'o').replace(/[úù]/g,'u').replace(/ç/g,'c');
 }
 function onSearchInput(v){
   state.search = v;
@@ -841,9 +839,9 @@ function render(){
   const crumb = document.getElementById('crumb');
   if(state.view==='obras'){ crumb.innerHTML='<b>Minhas obras</b>'; c.innerHTML = viewObras(); }
   else if(state.view==='agenda'){ crumb.innerHTML='<b>Agenda</b>'; c.innerHTML = viewAgenda(); }
-  else if(state.view==='atas'){ crumb.innerHTML='<b>Atas de reuniÃ£o</b>'; c.innerHTML = viewAtas(); }
-  else if(state.view==='pessoas'){ crumb.innerHTML='AdministraÃ§Ã£o â€º <b>Pessoas & acessos</b>'; c.innerHTML = viewPessoas(); }
-  else if(state.view==='proj'){ const p=proj(); crumb.innerHTML=`Projetos â€º <b>${p.nome}</b>`; c.innerHTML = viewProj(); }
+  else if(state.view==='atas'){ crumb.innerHTML='<b>Atas de reunião</b>'; c.innerHTML = viewAtas(); }
+  else if(state.view==='pessoas'){ crumb.innerHTML='Administração › <b>Pessoas & acessos</b>'; c.innerHTML = viewPessoas(); }
+  else if(state.view==='proj'){ const p=proj(); crumb.innerHTML=`Projetos › <b>${p.nome}</b>`; c.innerHTML = viewProj(); }
   document.querySelector('.main').scrollTop=0;
   updateNotifBadge();
   updateAgendaBadge();
@@ -851,11 +849,11 @@ function render(){
 function proj(){ return projects.find(p=>p.id===state.projId); }
 
 /* ---------- helpers ---------- */
-function badge(st){ const s=STATUS[st]||{cls:'b-gray',label:st||'â€”'}; return `<span class="badge ${s.cls}"><span class="bdot"></span>${s.label}</span>`; }
+function badge(st){ const s=STATUS[st]||{cls:'b-gray',label:st||'—'}; return `<span class="badge ${s.cls}"><span class="bdot"></span>${s.label}</span>`; }
 function statusSelect(v){
-  const s=STATUS[v.status];
+  const s=STATUS[v.status]||{cls:'b-gray',label:v.status||'—'};
   return `<select class="badge status-select ${s.cls}" onclick="event.stopPropagation()" onchange="updateVersionStatus('${v.id}',this.value)">
-    ${Object.entries(STATUS).map(([k,st])=>`<option value="${k}" ${k===v.status?'selected':''}>${st.label}</option>`).join('')}
+    ${Object.entries(STATUS).filter(([k])=>k!=='obsoleto').map(([k,st])=>`<option value="${k}" ${k===v.status?'selected':''}>${st.label}</option>`).join('')}
   </select>`;
 }
 function versaoVigente(d){
@@ -879,10 +877,10 @@ function viewObras(){
   ) : projects;
   return `
     <div class="page-head">
-      <div><h1>Minhas obras</h1><p>Selecione uma obra para ver disciplinas, versÃµes, atas e chat.</p></div>
+      <div><h1>Minhas obras</h1><p>Selecione uma obra para ver disciplinas, versões, atas e chat.</p></div>
       <div class="ph-actions">${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewProject()">+ Nova obra</button>':''}</div>
     </div>
-    ${list.length?`<div class="cards grid-2">${list.map(projCard).join('')}</div>`:`<div class="empty"><div class="e-ico">ðŸ”Ž</div>Nenhum resultado para "${state.search}".</div>`}`;
+    ${list.length?`<div class="cards grid-2">${list.map(projCard).join('')}</div>`:`<div class="empty"><div class="e-ico">🔎</div>Nenhum resultado para "${state.search}".</div>`}`;
 }
 function projCard(p){
     const waitList = p.disciplinas.filter(d=>d.status!=='ok'&&d.status!=='pend');
@@ -890,8 +888,8 @@ function projCard(p){
     <div class="card" style="cursor:pointer;overflow:hidden;position:relative" onclick="openProj('${p.id}')">
       <div style="height:6px;background:${p.cor}"></div>
       ${isControlador()?`<div style="position:absolute;top:14px;right:14px;display:flex;gap:6px">
-        <button class="icon-btn" title="Editar obra" style="background:var(--card)" onclick="event.stopPropagation();modalEditProject('${p.id}')">âœŽ</button>
-        <button class="icon-btn" title="Excluir obra" style="background:var(--card)" onclick="event.stopPropagation();deleteObra('${p.id}')">ðŸ—‘</button>
+        <button class="icon-btn" title="Editar obra" style="background:var(--card)" onclick="event.stopPropagation();modalEditProject('${p.id}')">✎</button>
+        <button class="icon-btn" title="Excluir obra" style="background:var(--card)" onclick="event.stopPropagation();deleteObra('${p.id}')">🗑</button>
       </div>`:''}
       <div class="card-pad">
         <div style="display:flex;align-items:center;gap:12px">
@@ -902,7 +900,7 @@ function projCard(p){
           </div>
           <div style="text-align:right">
             <div style="font-size:20px;font-weight:800;color:var(--ink)">${countVersions(p)}</div>
-            <div style="font-size:11px;color:var(--muted)">versÃµes</div>
+            <div style="font-size:11px;color:var(--muted)">versões</div>
           </div>
         </div>
         <div style="height:1px;background:var(--line-2);margin:14px 0"></div>
@@ -910,10 +908,10 @@ function projCard(p){
           ${waitList.length? waitList.map(d=>`
             <div style="display:flex;align-items:center;gap:8px;font-size:12.5px">
               ${badge(d.status)}
-              ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>âš  Atrasado</span>':''}
+              ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
               <span style="color:var(--ink-2)">${d.nome}</span>
-              <span style="margin-left:auto;color:var(--muted)">â†’ <b style="color:var(--ink)">${d.aguardando}</b></span>
-            </div>`).join('') : '<div style="font-size:12.5px;color:var(--muted)">Tudo em dia âœ“</div>'}
+              <span style="margin-left:auto;color:var(--muted)">→ <b style="color:var(--ink)">${d.aguardando}</b></span>
+            </div>`).join('') : '<div style="font-size:12.5px;color:var(--muted)">Tudo em dia ✓</div>'}
         </div>
       </div>
     </div>`;
@@ -929,7 +927,7 @@ function allPrazos(){
 function allEntregas(){
   return atasData.flatMap(a=>
     a.entregas.map(e=>{
-      const obraNome = a.obras.length ? a.obras.map(o=>o.nome).join(', ') : (a.obraNome||'â€”');
+      const obraNome = a.obras.length ? a.obras.map(o=>o.nome).join(', ') : (a.obraNome||'—');
       return {...e, ataId:a.id, ataTitulo:a.titulo, obraNome, status:e.status||'pendente', mencionados:e.responsaveis};
     })
   ).filter(e=> isControlador() || e.responsaveis.some(r=>r.id===session.user.id));
@@ -951,7 +949,7 @@ function updateAgendaBadge(){
 }
 
 /* ============================================================
-   CALENDÃRIO DE PRAZOS (compartilhado: Agenda + Atas)
+   CALENDÁRIO DE PRAZOS (compartilhado: Agenda + Atas)
    ============================================================ */
 const WEEKDAYS = ['D','S','T','Q','Q','S','S'];
 
@@ -964,15 +962,15 @@ function prazoDotColor(pr){
 }
 function calPreviewItem(pr){
   let tag;
-  if(pr.status==='concluido') tag='<span class="badge b-green"><span class="bdot"></span>ConcluÃ­do</span>';
-  else if(daysUntil(pr.data)<0) tag='<span class="badge b-red"><span class="bdot"></span>âš  Atrasado</span>';
+  if(pr.status==='concluido') tag='<span class="badge b-green"><span class="bdot"></span>Concluído</span>';
+  else if(daysUntil(pr.data)<0) tag='<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>';
   else tag='<span class="badge b-gray"><span class="bdot"></span>Pendente</span>';
   return `
     <div class="cal-preview-item">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <b style="font-size:12.5px;color:var(--ink)">${pr.titulo}</b>${tag}
       </div>
-      <div style="font-size:11.5px;color:var(--muted);margin-top:2px">${pr.obraNome?pr.obraNome+' Â· ':''}${pr.disciplinaNome||''}</div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:2px">${pr.obraNome?pr.obraNome+' · ':''}${pr.disciplinaNome||''}</div>
       ${pr.descricao?`<p style="font-size:12px;color:var(--ink-2);margin-top:4px">${pr.descricao}</p>`:''}
     </div>`;
 }
@@ -1007,9 +1005,9 @@ function calendarHTML(prazosList, calState, navFn, selectFn){
   return `
     <div class="card cal-card">
       <div class="cal-head">
-        <button class="icon-btn" onclick="${navFn}(-1)">â€¹</button>
+        <button class="icon-btn" onclick="${navFn}(-1)">‹</button>
         <b>${MESES[m]} ${y}</b>
-        <button class="icon-btn" onclick="${navFn}(1)">â€º</button>
+        <button class="icon-btn" onclick="${navFn}(1)">›</button>
       </div>
       <div class="cal-grid">${WEEKDAYS.map(w=>`<div class="cal-dow">${w}</div>`).join('')}${cells}</div>
       ${previewHtml}
@@ -1032,7 +1030,7 @@ function openCalendarModal(prazosList, title){
   const now = new Date();
   modalCal = {y:now.getFullYear(), m:now.getMonth(), sel:null, prazos:prazosList};
   openModal(`<div class="modal" style="max-width:420px">
-    <div class="modal-head"><h3>ðŸ“… ${title}</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>📅 ${title}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body" id="modal-cal-body">${calendarHTML(modalCal.prazos, modalCal, 'calNavModal', 'calSelectDayModal')}</div>
   </div>`);
 }
@@ -1053,7 +1051,7 @@ function calSelectDayModal(dateStr){
 function openObraCalendar(pid){
   const p = projects.find(x=>x.id===pid);
   if(!p) return;
-  openCalendarModal(obraPrazos(p), `CalendÃ¡rio Â· ${p.nome}`);
+  openCalendarModal(obraPrazos(p), `Calendário · ${p.nome}`);
 }
 
 function viewAgenda(){
@@ -1067,14 +1065,14 @@ function viewAgenda(){
   function prazoCard(pr){
     const {dias} = prazoInfo(pr);
     let tag;
-    if(pr.status==='concluido') tag = '<span class="badge b-green"><span class="bdot"></span>Conclu&#237;do</span>';
-    else if(dias<0) tag = '<span class="badge b-red"><span class="bdot"></span>&#9888; Atrasado</span>';
+    if(pr.status==='concluido') tag = '<span class="badge b-green"><span class="bdot"></span>Concluído</span>';
+    else if(dias<0) tag = '<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>';
     else if(dias===0) tag = '<span class="badge b-amber"><span class="bdot"></span>Vence hoje</span>';
     else if(dias<=7) tag = `<span class="badge b-amber"><span class="bdot"></span>Em ${dias} dia${dias>1?'s':''}</span>`;
     else tag = '<span class="badge b-gray"><span class="bdot"></span>Pendente</span>';
 
     const pessoas = (pr.mencionados||[]).map(m=>`<div class="avatar" title="${m.nome}" style="width:26px;height:26px;font-size:10.5px;background:${m.cor}">${m.ini}</div>`).join('');
-    const sub = `${pr.obraNome}${pr.disciplinaNome?' &middot; '+pr.disciplinaNome:''}`;
+    const sub = `${pr.obraNome}${pr.disciplinaNome?' · '+pr.disciplinaNome:''}`;
 
     return `
     <div class="card" style="margin-bottom:12px">
@@ -1093,8 +1091,8 @@ function viewAgenda(){
           ${pessoas?`<div style="display:flex;align-items:center;gap:6px;margin-top:10px">${pessoas}</div>`:''}
         </div>
         ${isControlador()?`<div style="display:flex;flex-direction:column;gap:6px">
-          <button class="icon-btn" title="${pr.status==='pendente'?'Marcar como conclu&#237;do':'Reabrir'}" onclick="togglePrazoStatus('${pr.id}')">${pr.status==='pendente'?'&#10003;':'&#8634;'}</button>
-          <button class="icon-btn" title="Excluir prazo" onclick="deletePrazo('${pr.id}')">&#128465;</button>
+          <button class="icon-btn" title="${pr.status==='pendente'?'Marcar como concluído':'Reabrir'}" onclick="togglePrazoStatus('${pr.id}')">${pr.status==='pendente'?'✓':'↺'}</button>
+          <button class="icon-btn" title="Excluir prazo" onclick="deletePrazo('${pr.id}')">🗑</button>
         </div>`:''}
       </div>
     </div>`;
@@ -1103,7 +1101,7 @@ function viewAgenda(){
   const obraOptions = projects.map(p=>`<option value="${p.id}" ${p.id===obraFilter?'selected':''}>${p.nome}</option>`).join('');
   return `
     <div class="page-head">
-      <div><h1>Agenda</h1><p>Prazos de entrega em que voc&#234; foi mencionado.</p></div>
+      <div><h1>Agenda</h1><p>Prazos de entrega em que você foi mencionado.</p></div>
       <div class="ph-actions" style="gap:8px">
         <select style="padding:6px 10px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);font-size:13px" onchange="state.agendaObraFilter=this.value;render()">
           <option value="">Todas as obras</option>
@@ -1114,8 +1112,8 @@ function viewAgenda(){
     </div>
     <div class="agenda-layout">
       <div class="agenda-list">
-        ${pendentes.length?pendentes.map(pr=>prazoCard(pr)).join(''):'<div class="empty"><div class="e-ico">&#128197;</div>Nenhum prazo pendente.</div>'}
-        ${concluidos.length?`<div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:22px 0 10px">Conclu&#237;dos</div>${concluidos.map(pr=>prazoCard(pr)).join('')}`:''}
+        ${pendentes.length?pendentes.map(pr=>prazoCard(pr)).join(''):'<div class="empty"><div class="e-ico">📅</div>Nenhum prazo pendente.</div>'}
+        ${concluidos.length?`<div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:22px 0 10px">Concluídos</div>${concluidos.map(pr=>prazoCard(pr)).join('')}`:''}
       </div>
       ${calendarHTML(items, state.cal, 'calNav', 'calSelectDay')}
     </div>`;
@@ -1128,9 +1126,9 @@ function viewProj(){
   const p = proj();
   if(state.tab==='acessos' && !isControlador()) state.tab='visao';
   const tabs = [
-    {id:'visao', label:'VisÃ£o geral'},
-    {id:'versoes', label:'VersÃµes', cnt:countVersions(p)},
-    {id:'vigente', label:'VersÃ£o vigente'},
+    {id:'visao', label:'Visão geral'},
+    {id:'versoes', label:'Versões', cnt:countVersions(p)},
+    {id:'vigente', label:'Versão vigente'},
     {id:'chat', label:'Chat', cnt:countChat(p)},
   ];
   if(isControlador()) tabs.push({id:'acessos', label:'Acessos', cnt:peopleOf(p).length});
@@ -1141,7 +1139,7 @@ function viewProj(){
       <div>
         <h1>${p.nome}</h1>
         <div class="ph-sub">
-          <span>ðŸ“ ${p.local}</span><span>ðŸ—‚ï¸ ${p.disciplinas.length} disciplinas</span><span>ðŸ“‘ ${countVersions(p)} versÃµes</span>
+          <span>📍 ${p.local}</span><span>🗂️ ${p.disciplinas.length} disciplinas</span><span>📑 ${countVersions(p)} versões</span>
         </div>
       </div>
     </div>`;
@@ -1161,7 +1159,7 @@ function setTab(t){ state.tab=t; render(); }
 
 function tabVisao(p){
   const cards = p.disciplinas.map((d,i)=>{
-    const ic = DISC_ICONS[d.nome]||{i:'ðŸ“',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
+    const ic = DISC_ICONS[d.nome]||{i:'📁',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
     const revisar = d.status==='revisar';
     const icoBg = revisar ? 'rgba(220,53,53,.15)' : (d.cor||ic.bg);
     const icoC  = revisar ? '#e03535' : (d.cor?'#fff':ic.c);
@@ -1171,16 +1169,16 @@ function tabVisao(p){
         <div class="d-ico" style="background:${icoBg};color:${icoC}">${d.nome[0].toUpperCase()}</div>
         <div class="d-body">
           <b>${d.nome}</b>
+          ${revisar?'<span style="font-size:12px;color:#e03535;font-weight:600">aguardando nova versão</span>':''}
           <div class="d-meta">
             ${badge(d.status)}
-            ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>âš  Atrasado</span>':''}
-            ${revisar?'<span style="font-size:12px;color:#e03535;font-weight:600">aguardando nova versÃ£o</span>':''}
-            ${d.aguardando?`<span class="d-wait">ResponsÃ¡vel: <b>${d.aguardando}</b></span>`:''}
+            ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
+            <span class="d-wait">Responsável: <b>${d.aguardando}</b></span>
           </div>
         </div>
         <div style="text-align:right;flex:0 0 auto">
           <div style="font-size:18px;font-weight:800;color:var(--ink)">${d.versoes.length}</div>
-          <div style="font-size:11px;color:var(--muted)">versÃµes</div>
+          <div style="font-size:11px;color:var(--muted)">versões</div>
         </div>
       </div>
     </div>`;
@@ -1195,10 +1193,7 @@ function tabVisao(p){
 
 function attachChip(ar, d, v){
   const canEdit = canDeleteVersao(v);
-  if(ar.tipo==='pdf'){
-    return `<span class="attach-chip">ðŸ“„ ${ar.nome}${canEdit?`<span class="chip-x" onclick="event.stopPropagation();deleteArquivo('${ar.id}','${ar.path}')">âœ•</span>`:''}</span>`;
-  }
-  return `<a class="attach-chip" href="${ar.url}" target="_blank" rel="noopener">ðŸ”— ${ar.nome}${canEdit?`<span class="chip-x" onclick="event.preventDefault();event.stopPropagation();deleteArquivo('${ar.id}','')">âœ•</span>`:''}</a>`;
+  return `<a class="attach-chip" href="${ar.url||ar.path||'#'}" target="_blank" rel="noopener">🔗 ${ar.nome}${canEdit?`<span class="chip-x" onclick="event.preventDefault();event.stopPropagation();deleteArquivo('${ar.id}','')">✕</span>`:''}</a>`;
 }
 
 function tabVersoes(p){
@@ -1209,71 +1204,71 @@ function tabVersoes(p){
     .concat(discs.map(x=>`<div class="chat-tab ${x.nome===state.versDisc?'active':''}" onclick="setVersDisc('${x.nome.replace(/'/g,"\\'")}')">${x.nome}${x.versoes.length?`<span class="cnt">${x.versoes.length}</span>`:''}</div>`))
     .join('');
   const blocks = visibleDiscs.map(d=>{
-    const ic = DISC_ICONS[d.nome]||{i:'ðŸ“',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
+    const ic = DISC_ICONS[d.nome]||{i:'📁',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
     const icoBg2 = d.cor||ic.bg; const icoC2 = d.cor?'#fff':ic.c;
     const vigenteId = versaoVigente(d);
     const rows = d.versoes.length? d.versoes.map(v=>`
       <div class="vitem"><div class="vrow">
         <div class="vtag${v.id===vigenteId?' vtag-current':''}">${v.v.toUpperCase()}</div>
         <div class="vbody">
-          <b>${v.titulo}</b>${v.id===vigenteId?'<span class="badge b-green" style="margin-left:8px"><span class="bdot"></span>VersÃ£o vigente</span>':''}
-          <div class="vmeta"><span>ðŸ‘¤ ${v.autor}</span><span>ðŸ“… ${v.data}</span></div>
+          <b>${v.titulo}</b>${v.id===vigenteId?'<span class="badge b-green" style="margin-left:8px"><span class="bdot"></span>Versão vigente</span>':''}
+          <div class="vmeta"><span>👤 ${v.autor}</span><span>📅 ${v.data}</span></div>
           ${v.descricao?`<p class="vdesc">${v.descricao}</p>`:''}
         </div>
         ${isControlador()?statusSelect(v):badge(v.status)}
-        <button class="drive-link" onclick="modalVersionFb('${d.nome}','${v.v}')">ðŸ’¬ ${(v.fb||[]).length}</button>
-        ${canDeleteVersao(v)?`<button class="icon-btn" title="Excluir versÃ£o" onclick="deleteVersao('${v.id}')">ðŸ—‘</button>`:''}
+        <button class="drive-link" onclick="modalVersionFb('${d.nome}','${v.v}')">💬 ${(v.fb||[]).length}</button>
+        ${canDeleteVersao(v)?`<button class="icon-btn" title="Excluir versão" onclick="deleteVersao('${v.id}')">🗑</button>`:''}
       </div>
       <div class="vattach">
         ${(v.arquivos||[]).map(ar=>attachChip(ar,d,v)).join('')}
         <span class="attach-chip add" onclick="modalAddArquivo('${v.id}','${d.id}')">+ arquivo</span>
       </div>
-      ${(v.fb&&v.fb.length)?`<div class="vfb">${v.fb.map(f=>`<div class="fb-mini"><div class="avatar" style="background:${f.cor}">${f.ini}</div><div><div class="fb-head"><b>${f.autor}</b><small>Â· ${f.quando}</small></div><p>${f.texto}</p></div></div>`).join('')}</div>`:''}
-      </div>`).join('') : `<div class="empty" style="padding:26px"><div class="e-ico">ðŸ“‚</div>Nenhuma versÃ£o ainda nesta disciplina.</div>`;
+      ${(v.fb&&v.fb.length)?`<div class="vfb">${v.fb.map(f=>`<div class="fb-mini"><div class="avatar" style="background:${f.cor}">${f.ini}</div><div><div class="fb-head"><b>${f.autor}</b><small>· ${f.quando}</small></div><p>${f.texto}</p></div></div>`).join('')}</div>`:''}
+      </div>`).join('') : `<div class="empty" style="padding:26px"><div class="e-ico">📂</div>Nenhuma versão ainda nesta disciplina.</div>`;
     return `
       <div class="card" style="margin-bottom:16px;overflow:hidden">
         <div class="vhead">
           <div class="d-ico" style="width:34px;height:34px;border-radius:9px;font-size:15px;font-weight:800;background:${icoBg2};color:${icoC2}">${d.nome[0].toUpperCase()}</div>
           <b class="vhead-name">${d.nome}</b>
           ${badge(d.status)}
-          ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>âš  Atrasado</span>':''}
-          ${d.aguardando?`<span class="vhead-wait">ResponsÃ¡vel: <b style="color:var(--ink)">${d.aguardando}</b></span>`:''}
+          ${d.atrasado?'<span class="badge b-red"><span class="bdot"></span>⚠ Atrasado</span>':''}
+          <span class="vhead-wait">Responsável: <b style="color:var(--ink)">${d.aguardando}</b></span>
           <div class="vhead-actions">
-            ${isControlador()?`<button class="icon-btn" title="Editar disciplina" onclick="modalEditDisciplina('${d.id}')">âœï¸</button>`:''}
-            ${isControlador()?`<button class="icon-btn" title="Excluir disciplina" onclick="deleteDisciplina('${d.id}','${d.nome}')">ðŸ—‘</button>`:''}
+            ${isControlador()?`<button class="icon-btn" title="Editar disciplina" onclick="modalEditDisciplina('${d.id}')">✏️</button>`:''}
+            ${isControlador()?`<button class="icon-btn" title="Excluir disciplina" onclick="deleteDisciplina('${d.id}','${d.nome}')">🗑</button>`:''}
           </div>
         </div>
-        ${d.link_drive?`<div style="padding:0 16px 12px;border-bottom:1px solid var(--line-2)"><a class="drive-link" href="${d.link_drive}" target="_blank" rel="noopener">ðŸ“ Abrir pasta no Drive</a></div>`:''}
+        ${d.link_drive?`<div style="padding:0 16px 12px;border-bottom:1px solid var(--line-2)"><a class="drive-link" href="${d.link_drive}" target="_blank" rel="noopener">📁 Abrir pasta no Drive</a></div>`:''}
         ${rows}
       </div>`;
   }).join('');
   return `
     <div class="page-head" style="margin-bottom:16px">
-      <div><h1 style="font-size:18px">VersÃµes de projeto</h1><p>Cada versÃ£o pode ter um ou mais PDFs e/ou links externos.</p></div>
-      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalNewVersion()">+ Nova versÃ£o</button></div>
+      <div><h1 style="font-size:18px">Versões de projeto</h1><p>Cada versão pode ter um ou mais PDFs e/ou links externos.</p></div>
+      <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalNewVersion()">+ Nova versão</button></div>
     </div>
     <div class="chat-tabs">${tabsHtml}</div>
-    ${blocks || '<div class="empty" style="padding:26px"><div class="e-ico">ðŸ“‚</div>Nenhuma disciplina encontrada.</div>'}`;
+    ${blocks || '<div class="empty" style="padding:26px"><div class="e-ico">📂</div>Nenhuma disciplina encontrada.</div>'}`;
 }
 function setVersDisc(discName){ state.versDisc=discName; render(); }
 
 function tabVigente(p){
   const cards=p.disciplinas.map(d=>{
-    const ic=DISC_ICONS[d.nome]||{i:'ðŸ“',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
+    const ic=DISC_ICONS[d.nome]||{i:'📁',c:'#8fb4ff',bg:'rgba(91,140,255,.16)'};
     const icoBg=d.cor||ic.bg; const icoC=d.cor?'#fff':ic.c;
     const vigenteId=versaoVigente(d);
     const v=vigenteId&&d.versoes.find(x=>x.id===vigenteId);
     if(!v) return `<div class="card" style="padding:16px;opacity:.55">
       <div style="display:flex;align-items:center;gap:12px">
         <div class="d-ico" style="background:${icoBg};color:${icoC}">${d.nome[0].toUpperCase()}</div>
-        <div><b>${d.nome}</b><div style="font-size:13px;color:var(--muted);margin-top:2px">Sem versÃ£o aprovada</div></div>
+        <div><b>${d.nome}</b><div style="font-size:13px;color:var(--muted);margin-top:2px">Sem versão aprovada</div></div>
       </div></div>`;
     return `<div class="card" style="overflow:hidden;padding:0">
       <div style="display:flex;align-items:center;gap:12px;padding:14px 16px 10px">
         <div class="d-ico" style="background:${icoBg};color:${icoC}">${d.nome[0].toUpperCase()}</div>
         <div style="flex:1;min-width:0">
           <b>${d.nome}</b>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">${v.v.toUpperCase()} Â· ${v.titulo} Â· ${v.data}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${v.v.toUpperCase()} · ${v.titulo} · ${v.data}</div>
         </div>
         <span class="badge b-green"><span class="bdot"></span>Vigente</span>
       </div>
@@ -1283,29 +1278,27 @@ function tabVigente(p){
   }).join('');
   return `
     <div class="page-head" style="margin-bottom:14px">
-      <div><h1 style="font-size:18px">VersÃ£o vigente</h1><p>VersÃ£o aprovada atual de cada disciplina da obra.</p></div>
+      <div><h1 style="font-size:18px">Versão vigente</h1><p>Versão aprovada atual de cada disciplina da obra.</p></div>
     </div>
-    <div class="cards grid-2">${cards||'<div class="empty"><div class="e-ico">ðŸ“‚</div>Nenhuma disciplina.</div>'}</div>`;
+    <div class="cards grid-2">${cards||'<div class="empty"><div class="e-ico">📂</div>Nenhuma disciplina.</div>'}</div>`;
 }
 
 function viewAtas(){
   const obraFilter = state.ataObraFilter||'';
-  const filtered = obraFilter
-    ? atasData.filter(a=>a.obras.some(o=>o.id===obraFilter))
-    : atasData;
+  const filtered = obraFilter ? atasData.filter(a=>a.obras.some(o=>o.id===obraFilter)) : atasData;
   const nodes = filtered.map(a=>{
     const visTag = a.pessoas.length
-      ? `<span style="font-size:11.5px;color:var(--muted)">&#128065; ${a.pessoas.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`
-      : `<span style="font-size:11.5px;color:var(--muted)">&#128065; Todos</span>`;
+      ? `<span style="font-size:11.5px;color:var(--muted)">👁 ${a.pessoas.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`
+      : `<span style="font-size:11.5px;color:var(--muted)">👁 Todos</span>`;
     const obraBadges = a.obras.length
       ? a.obras.map(o=>`<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${o.nome}</span>`).join(' ')
       : '';
     const adminBtns = isControlador() ? `
-      <button class="icon-btn" title="Editar ata" onclick="modalEditAta('${a.id}')">&#9998;</button>
-      <button class="icon-btn" title="Excluir ata" style="color:#c0392b;opacity:.7" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.7'" onclick="deleteAta('${a.id}','${a.titulo.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">&#128465;</button>` : '';
+      <button class="icon-btn" title="Editar ata" onclick="modalEditAta('${a.id}')">✏️</button>
+      <button class="icon-btn" title="Excluir ata" style="color:#c0392b;opacity:.7" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.7'" onclick="deleteAta('${a.id}','${a.titulo.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">🗑</button>` : '';
     return `
     <div class="tnode ${a.cls}">
-      <div class="tdate">&#128197; ${a.data}</div>
+      <div class="tdate">📅 ${a.data}</div>
       <div class="tcard">
         <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px">
           <b style="flex:1">${a.titulo}</b>
@@ -1314,7 +1307,7 @@ function viewAtas(){
         </div>
         <p>${a.resumo}</p>
         <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
-          ${a.drive_url?`<a class="drive-link" href="${a.drive_url}" target="_blank" rel="noopener">&#128196; Ata completa no Drive</a>`:''}
+          ${a.drive_url?`<a class="drive-link" href="${a.drive_url}" target="_blank" rel="noopener">📄 Ata completa no Drive</a>`:''}
           ${visTag}
         </div>
       </div>
@@ -1323,7 +1316,7 @@ function viewAtas(){
   const obraOptions = projects.map(p=>`<option value="${p.id}" ${p.id===obraFilter?'selected':''}>${p.nome}</option>`).join('');
   return `
     <div class="page-head" style="margin-bottom:18px">
-      <div><h1>Atas de reuni&atilde;o</h1><p>Registros de reuni&otilde;es de todas as obras.</p></div>
+      <div><h1>Atas de reunião</h1><p>Registros de reuniões de todas as obras.</p></div>
       <div class="ph-actions" style="gap:8px">
         <select style="padding:6px 10px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);font-size:13px" onchange="state.ataObraFilter=this.value;render()">
           <option value="">Todas as obras</option>
@@ -1332,11 +1325,11 @@ function viewAtas(){
         ${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewAta()">+ Nova ata</button>':''}
       </div>
     </div>
-    <div class="tline">${nodes||'<div class="empty"><div class="e-ico">&#128203;</div>Sem atas registradas.</div>'}</div>`;
+    <div class="tline">${nodes||'<div class="empty"><div class="e-ico">📋</div>Sem atas registradas.</div>'}</div>`;
 }
 
 
-/* ----- Chat por Ã¡rea/disciplina (entre quem tem acesso Ã  pasta) ----- */
+/* ----- Chat por área/disciplina (entre quem tem acesso à pasta) ----- */
 function tabChat(p){
   const discs = p.disciplinas;
   if(!state.chatDisc || !discs.find(x=>x.nome===state.chatDisc)) state.chatDisc = discs[0].nome;
@@ -1344,7 +1337,7 @@ function tabChat(p){
   const members = peopleOfDisc(p, d.nome);
   const msgs = (d.chat||[]).map(m=>{
     const canDel=m.me||isControlador();
-    const delBtn=canDel?`<button class="icon-btn" style="opacity:.35;font-size:11px;align-self:flex-start;flex-shrink:0;margin-top:2px" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.35'" onclick="deleteChatMsg('${m.id}')" title="Excluir mensagem">âœ•</button>`:'';
+    const delBtn=canDel?`<button class="icon-btn" style="opacity:.35;font-size:11px;align-self:flex-start;flex-shrink:0;margin-top:2px" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.35'" onclick="deleteChatMsg('${m.id}')" title="Excluir mensagem">✕</button>`:'';
     return `<div class="msg ${m.me?'me':''}" style="align-items:flex-start">
       ${m.me?'':`<div class="avatar" style="background:${m.cor}">${m.ini}</div>`}
       <div class="bubble">
@@ -1360,7 +1353,7 @@ function tabChat(p){
   }).join('');
   return `
     <div class="page-head" style="margin-bottom:14px">
-      <div><h1 style="font-size:18px">Chat por Ã¡rea</h1><p>Converse com quem tem acesso Ã  pasta de cada disciplina.</p></div>
+      <div><h1 style="font-size:18px">Chat por área</h1><p>Converse com quem tem acesso à pasta de cada disciplina.</p></div>
     </div>
     <div class="chat-tabs">${tabsHtml}</div>
     <div class="chat-members">${members.map(m=>`<div class="cm"><div class="avatar" style="background:${m.cor}">${initials(m.nome)}</div><span>${m.nome.split(' ')[0]}</span></div>`).join('')}</div>
@@ -1389,16 +1382,16 @@ async function deleteChatMsg(id){
   await loadData(); render();
 }
 
-/* ----- Feedback dentro de uma versÃ£o ----- */
+/* ----- Feedback dentro de uma versão ----- */
 function modalVersionFb(discName,vv){
   state._fbTarget={disc:discName,v:vv};
   const p=proj(); const d=p.disciplinas.find(x=>x.nome===discName); const v=d.versoes.find(x=>x.v===vv);
-  const list=(v.fb||[]).map(f=>`<div class="fb"><div class="avatar" style="background:${f.cor}">${f.ini}</div><div class="fb-body"><div class="fb-head"><b>${f.autor}</b><small>Â· ${f.quando}</small></div><p>${f.texto}</p></div></div>`).join('')||'<div class="empty" style="padding:24px"><div class="e-ico">ðŸ’¬</div>Seja o primeiro a comentar esta versÃ£o.</div>';
+  const list=(v.fb||[]).map(f=>`<div class="fb"><div class="avatar" style="background:${f.cor}">${f.ini}</div><div class="fb-body"><div class="fb-head"><b>${f.autor}</b><small>· ${f.quando}</small></div><p>${f.texto}</p></div></div>`).join('')||'<div class="empty" style="padding:24px"><div class="e-ico">💬</div>Seja o primeiro a comentar esta versão.</div>';
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>ðŸ’¬ ${discName} Â· ${vv.toUpperCase()}</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>💬 ${discName} · ${vv.toUpperCase()}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body" style="padding:6px"><div>${list}</div></div>
     <div class="modal-foot" style="flex-direction:column;align-items:stretch;gap:10px">
-      <textarea id="vfb-text" placeholder="Escreva um feedback sobre esta versÃ£o..." style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;resize:vertical;min-height:64px;outline:none"></textarea>
+      <textarea id="vfb-text" placeholder="Escreva um feedback sobre esta versão..." style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;resize:vertical;min-height:64px;outline:none"></textarea>
       <button class="btn btn-primary btn-sm" onclick="addVersionFb()" style="align-self:flex-end">Publicar feedback</button>
     </div>
   </div>`);
@@ -1410,7 +1403,7 @@ async function addVersionFb(){
     versao_id:v.id, autor_id:session.user.id, autor_nome:profile.nome, texto:t
   });
   if(error){toast('Erro ao publicar feedback: '+error.message);return;}
-  closeModal(); await loadData(); render(); toast('Feedback publicado na versÃ£o âœ“');
+  closeModal(); await loadData(); render(); toast('Feedback publicado na versão ✓');
 }
 
 function peopleOf(p){
@@ -1421,31 +1414,31 @@ function peopleOfDisc(p, _discName){
 }
 
 /* ============================================================
-   NOTIFICAÃ‡Ã•ES
+   NOTIFICAÇÕES
    ============================================================ */
 function getNotifications(){
   const items=[];
   projects.forEach(p=>{
     p.disciplinas.forEach(d=>{
-      if(d.status==='review'){
-        items.push({key:`disc:${d.id}:${d.status}`,icon:'ðŸ”',title:`${d.nome} aguardando anÃ¡lise Dib & Dib`,sub:p.nome,pid:p.id,tab:'versoes'});
-      } else if(d.status==='redo'){
-        items.push({key:`disc:${d.id}:${d.status}`,icon:'ðŸ”',title:`${d.nome} precisa de revisÃ£o`,sub:p.nome,pid:p.id,tab:'versoes'});
-      } else if(d.status==='wait'){
-        items.push({key:`disc:${d.id}:${d.status}`,icon:'â³',title:`Aguardando ${d.aguardando}`,sub:`${p.nome} Â· ${d.nome}`,pid:p.id,tab:'versoes'});
+      if(d.status==='analise'){
+        items.push({key:`disc:${d.id}:${d.status}`,icon:'🔍',title:`${d.nome} aguardando análise Dib & Dib`,sub:p.nome,pid:p.id,tab:'versoes'});
+      } else if(d.status==='revisar'){
+        items.push({key:`disc:${d.id}:${d.status}`,icon:'🔁',title:`${d.nome} precisa de revisão`,sub:p.nome,pid:p.id,tab:'versoes'});
+      } else if(d.status==='aguardando'){
+        items.push({key:`disc:${d.id}:${d.status}`,icon:'⏳',title:`Aguardando ${d.aguardando}`,sub:`${p.nome} · ${d.nome}`,pid:p.id,tab:'versoes'});
       }
     });
   });
   allPrazos().forEach(pr=>{
     if(pr.status!=='pendente') return;
     const {dias} = prazoInfo(pr);
-    const sub = `${pr.obraNome}${pr.disciplinaNome?' Â· '+pr.disciplinaNome:''}`;
+    const sub = `${pr.obraNome}${pr.disciplinaNome?' · '+pr.disciplinaNome:''}`;
     if(dias<0){
-      items.push({key:`prazo:${pr.id}:atrasado`,icon:'âš ï¸',title:`Prazo atrasado: ${pr.titulo}`,sub,view:'agenda'});
+      items.push({key:`prazo:${pr.id}:atrasado`,icon:'⚠️',title:`Prazo atrasado: ${pr.titulo}`,sub,view:'agenda'});
     } else if(dias<=1){
-      items.push({key:`prazo:${pr.id}:1d`,icon:'â°',title:`Prazo vence ${dias===0?'hoje':'amanhÃ£'}: ${pr.titulo}`,sub,view:'agenda'});
+      items.push({key:`prazo:${pr.id}:1d`,icon:'⏰',title:`Prazo vence ${dias===0?'hoje':'amanhã'}: ${pr.titulo}`,sub,view:'agenda'});
     } else if(dias<=7){
-      items.push({key:`prazo:${pr.id}:7d`,icon:'ðŸ“…',title:`Prazo em ${dias} dias: ${pr.titulo}`,sub,view:'agenda'});
+      items.push({key:`prazo:${pr.id}:7d`,icon:'📅',title:`Prazo em ${dias} dias: ${pr.titulo}`,sub,view:'agenda'});
     }
   });
   return items.filter(n=>!dismissedNotifs.has(n.key));
@@ -1464,11 +1457,11 @@ function openNotifs(){
     <div class="notif" onclick="goNotif(${i})">
       <div class="notif-ico">${n.icon}</div>
       <div style="flex:1"><b>${n.title}</b><small>${n.sub}</small></div>
-      <button class="icon-btn" title="Dispensar" onclick="event.stopPropagation();dismissNotif(${i})">âœ•</button>
+      <button class="icon-btn" title="Dispensar" onclick="event.stopPropagation();dismissNotif(${i})">✕</button>
     </div>`).join('');
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>ðŸ”” NotificaÃ§Ãµes</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
-    <div class="modal-body" style="padding:8px">${list||'<div class="empty"><div class="e-ico">ðŸŽ‰</div>Tudo em dia, sem pendÃªncias.</div>'}</div>
+    <div class="modal-head"><h3>🔔 Notificações</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body" style="padding:8px">${list||'<div class="empty"><div class="e-ico">🎉</div>Tudo em dia, sem pendências.</div>'}</div>
   </div>`);
 }
 async function dismissNotif(i){
@@ -1476,7 +1469,7 @@ async function dismissNotif(i){
   if(!n||!n.key) return;
   dismissedNotifs.add(n.key);
   const {error}=await sb.from('notif_dismissals').insert({user_id:session.user.id, notif_key:n.key});
-  if(error){ toast('Erro ao dispensar notificaÃ§Ã£o: '+error.message); }
+  if(error){ toast('Erro ao dispensar notificação: '+error.message); }
   updateNotifBadge();
   openNotifs();
 }
@@ -1490,7 +1483,7 @@ function tabAcessos(p){
   const rows = peopleOf(p).map(per=>{
     const folders = per.folders==='ALL'
       ? '<span class="ftag all">Todas as obras</span>'
-      : '<span class="ftag">Acesso Ã  obra</span>';
+      : '<span class="ftag">Acesso à obra</span>';
     const discIdsOfObra = p.disciplinas.map(d=>d.id);
     const restrictedIds = (per.discAccessIds||[]).filter(id=>discIdsOfObra.includes(id));
     const discTags = per.role==='controlador'
@@ -1504,14 +1497,14 @@ function tabAcessos(p){
       <td><div class="folder-tags">${folders}</div></td>
       <td><div class="folder-tags">${discTags}</div></td>
       <td style="text-align:right">
-        ${(per.role!=='controlador' && !per.pending)?`<button class="icon-btn" title="Disciplinas liberadas" onclick="modalDiscAccess('${p.id}','${per.id}')">ðŸ“‚</button>`:''}
-        <button class="icon-btn" onclick="modalInvite('${p.id}','${per.email}')">âœŽ</button>
+        ${(per.role!=='controlador' && !per.pending)?`<button class="icon-btn" title="Disciplinas liberadas" onclick="modalDiscAccess('${p.id}','${per.id}')">📂</button>`:''}
+        <button class="icon-btn" onclick="modalInvite('${p.id}','${per.email}')">✎</button>
       </td>
     </tr>`;
   }).join('');
   return `
     <div class="page-head" style="margin-bottom:16px">
-      <div><h1 style="font-size:18px">Quem tem acesso a ${p.nome}</h1><p>Cada pessoa sÃ³ enxerga as pastas liberadas para ela.</p></div>
+      <div><h1 style="font-size:18px">Quem tem acesso a ${p.nome}</h1><p>Cada pessoa só enxerga as pastas liberadas para ela.</p></div>
       <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalInvite('${p.id}', null)">+ Convidar pessoa</button></div>
     </div>
     <div class="card" style="overflow:hidden"><table class="ptable">
@@ -1532,21 +1525,21 @@ function viewPessoas(){
       <td><div class="pperson"><div class="avatar" style="background:${per.cor}">${initials(per.nome)}</div><div><b>${per.nome}</b><small>${per.email}</small></div></div></td>
       <td>${papel}</td>
       <td><div class="folder-tags">${folders}</div></td>
-      <td style="text-align:right"><button class="icon-btn" onclick="modalInvite(null,'${per.email}')">âœŽ</button> <button class="icon-btn" onclick="revokeAccess('${per.email}')">ðŸ—‘</button></td>
+      <td style="text-align:right"><button class="icon-btn" onclick="modalInvite(null,'${per.email}')">✎</button> <button class="icon-btn" onclick="revokeAccess('${per.email}')">🗑</button></td>
     </tr>`;
   }).join('');
   return `
     <div class="page-head">
-      <div><h1>Pessoas &amp; acessos</h1><p>Convide por link mÃ¡gico e defina exatamente quais pastas cada pessoa pode ver.</p></div>
+      <div><h1>Pessoas &amp; acessos</h1><p>Convide por link mágico e defina exatamente quais pastas cada pessoa pode ver.</p></div>
       <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="modalInvite(null, null)">+ Convidar pessoa</button></div>
     </div>
     <div class="card" style="overflow:hidden"><table class="ptable">
       <thead><tr><th>Pessoa</th><th>Papel</th><th>Pastas liberadas</th><th></th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <div class="card card-pad" style="margin-top:16px;display:flex;gap:14px;align-items:center;background:var(--card-2)">
-      <div style="font-size:26px">ðŸ”</div>
-      <div><b style="color:var(--ink)">Acesso privado por link mÃ¡gico</b>
-      <p style="color:var(--muted);font-size:13px;margin-top:3px">NinguÃ©m entra sem ser convidado. O convidado recebe um link no e-mail, confirma a identidade e passa a ver somente as pastas autorizadas.</p></div>
+      <div style="font-size:26px">🔐</div>
+      <div><b style="color:var(--ink)">Acesso privado por link mágico</b>
+      <p style="color:var(--muted);font-size:13px;margin-top:3px">Ninguém entra sem ser convidado. O convidado recebe um link no e-mail, confirma a identidade e passa a ver somente as pastas autorizadas.</p></div>
     </div>`;
 }
 
@@ -1564,14 +1557,14 @@ function modalNewVersion(){
   const opts = p.disciplinas.map(d=>`<option>${d.nome}</option>`).join('');
   pendingLinks=[];
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>Nova versÃ£o</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>Nova versão</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Disciplina</label><select id="m-disc">${opts}</select></div>
-      <div class="field"><label>TÃ­tulo da versÃ£o <span style="color:#e03535">*</span></label><input id="m-title" placeholder="Ex.: Executivo â€” revisÃ£o de layout"/></div>
-      <div class="field"><label>DescriÃ§Ã£o <span style="color:#e03535">*</span></label><textarea id="m-desc" placeholder="Descreva o que mudou nesta versÃ£o..."></textarea></div>
+      <div class="field"><label>Título da versão <span style="color:#e03535">*</span></label><input id="m-title" placeholder="Ex.: Executivo — revisão de layout"/></div>
+      <div class="field"><label>Descrição <span style="color:#e03535">*</span></label><textarea id="m-desc" placeholder="Descreva o que mudou nesta versão..."></textarea></div>
       ${attachFieldsHtml()}
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveVersion()">Postar versÃ£o</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveVersion()">Salvar versão</button></div>
   </div>`);
   renderPendingLinks();
 }
@@ -1580,21 +1573,21 @@ async function saveVersion(){
   const discName=document.getElementById('m-disc').value;
   const title=document.getElementById('m-title').value.trim();
   const descricao=document.getElementById('m-desc').value.trim();
-  if(!title){ toast('Informe o tÃ­tulo da versÃ£o'); return; }
-  if(!descricao){ toast('A descriÃ§Ã£o Ã© obrigatÃ³ria'); return; }
-  const validLinks=pendingLinks.filter(l=>l.url.trim());
-  if(!validLinks.length){ toast('Adicione ao menos um link antes de postar'); return; }
+  if(!title){toast('Informe o título da versão');return;}
+  if(!descricao){toast('A descrição é obrigatória');return;}
+  const hasLink=pendingLinks.some(l=>l.url.trim());
+  if(!hasLink){toast('Adicione ao menos um link antes de postar');return;}
   const d=p.disciplinas.find(x=>x.nome===discName);
   const {data,error}=await sb.from('versoes').insert({
     disciplina_id:d.id, titulo:title, descricao, autor_nome:profile.nome, status:'aguardando', created_by:session.user.id
   }).select().single();
-  if(error){toast('Erro ao salvar versÃ£o: '+error.message);return;}
-  await uploadPendingArquivos(data.id);
+  if(error){toast('Erro ao salvar versão: '+error.message);return;}
+  await uploadPendingArquivos(data.id, d.id);
   await sb.from('disciplinas').update({status:'aguardando'}).eq('id',d.id);
   closeModal(); state.tab='versoes';
-  await loadData(); render(); toast('VersÃ£o postada âœ“');
+  await loadData(); render(); toast('Versão adicionada ✓');
 }
-async function uploadPendingArquivos(versaoId){
+async function uploadPendingArquivos(versaoId, discId){
   let ordem=0;
   for(const link of pendingLinks){
     if(!link.url.trim()) continue;
@@ -1609,7 +1602,7 @@ function modalEditProfile(){
   const swatchColors=['#2f6bff','#1f9d62','#b9711a','#7a52cc','#e05252','#0ea5e9','#f97316','#ec4899','#14b8a6','#64748b'];
   const swatches=swatchColors.map(c=>`<div onclick="document.getElementById('ep-cor').value='${c}'" style="width:26px;height:26px;border-radius:6px;background:${c};cursor:pointer;flex-shrink:0;border:2px solid transparent" onmouseenter="this.style.borderColor='var(--ink)'" onmouseleave="this.style.borderColor='transparent'"></div>`).join('');
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>Editar perfil</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>Editar perfil</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Nome</label><input id="ep-nome" value="${profile.nome||''}" placeholder="Seu nome"/></div>
       <div class="field"><label>E-mail</label><input value="${profile.email||''}" disabled/></div>
@@ -1630,7 +1623,7 @@ async function saveOwnProfile(){
   if(error){toast('Erro ao salvar perfil: '+error.message);return;}
   profile.nome=nome; profile.cor=cor;
   closeModal(); renderUserChip(); await loadData(); render();
-  toast('Perfil atualizado âœ“');
+  toast('Perfil atualizado ✓');
 }
 function modalInvite(obraId, personEmail){
   const per = personEmail ? people.find(x=>x.email===personEmail) : null;
@@ -1641,12 +1634,12 @@ function modalInvite(obraId, personEmail){
     return `<label class="check ${on?'on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}" ${on?'checked':''}> ${p.nome}</label>`;
   }).join('');
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>${per?'Editar acesso':'Convidar pessoa'}</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>${per?'Editar acesso':'Convidar pessoa'}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
-      <div class="field"><label>Nome</label><input id="i-nome" value="${per?per.nome:''}" placeholder="Nome da pessoa ou escritÃ³rio"/></div>
-      <div class="field"><label>E-mail (recebe o link mÃ¡gico)</label><input id="i-email" type="email" value="${per?per.email:''}" ${per?'readonly':''} placeholder="email@empresa.com"/></div>
+      <div class="field"><label>Nome</label><input id="i-nome" value="${per?per.nome:''}" placeholder="Nome da pessoa ou escritório"/></div>
+      <div class="field"><label>E-mail (recebe o link mágico)</label><input id="i-email" type="email" value="${per?per.email:''}" ${per?'readonly':''} placeholder="email@empresa.com"/></div>
       <div class="field"><label>Papel</label><input id="i-papel" value="${per?per.papel:''}" placeholder="Ex.: Arquitetura, Estrutural, Cliente..."/></div>
-      <div class="field"><label>FunÃ§Ã£o</label><select id="i-role" onchange="toggleInviteObras()">
+      <div class="field"><label>Função</label><select id="i-role" onchange="toggleInviteObras()">
         <option value="membro" ${role==='membro'?'selected':''}>Membro</option>
         <option value="controlador" ${role==='controlador'?'selected':''}>Administrador (acesso total)</option>
       </select></div>
@@ -1654,7 +1647,7 @@ function modalInvite(obraId, personEmail){
         <div class="checks" style="grid-template-columns:1fr">${obrasChecks}</div>
       </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveInvite('${per?per.email:''}')">âœ‰ï¸ ${per?'Salvar':'Enviar convite'}</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveInvite('${per?per.email:''}')">✉️ ${per?'Salvar':'Enviar convite'}</button></div>
   </div>`);
 }
 function toggleInviteObras(){
@@ -1696,7 +1689,7 @@ async function saveInvite(existingEmail){
   }
 
   closeModal(); await loadData(); render();
-  toast(per?'Acesso atualizado âœ“':'Convite enviado para '+email+' âœ“');
+  toast(per?'Acesso atualizado ✓':'Convite enviado para '+email+' ✓');
 }
 function modalDiscAccess(obraId, personId){
   const p = projects.find(x=>x.id===obraId);
@@ -1708,7 +1701,7 @@ function modalDiscAccess(obraId, personId){
     return `<label class="check ${on?'on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${d.id}" ${on?'checked':''}> ${d.nome}</label>`;
   }).join('');
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>Disciplinas liberadas</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>Disciplinas liberadas</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <p style="color:var(--muted);font-size:13px;margin-bottom:10px">Em <b style="color:var(--ink)">${p.nome}</b>, para <b style="color:var(--ink)">${per.nome}</b>. Se nenhuma disciplina for marcada, a pessoa enxerga todas as disciplinas desta obra. Marque apenas as disciplinas que deseja liberar para restringir o acesso.</p>
       <div class="checks" id="da-checks" style="grid-template-columns:1fr">${discsChecks}</div>
@@ -1730,10 +1723,10 @@ async function saveDiscAccess(obraId, personId){
     await sb.from('disciplina_access').delete().eq('user_id',personId).eq('disciplina_id',disciplina_id);
   }
   closeModal(); await loadData(); render();
-  toast('Disciplinas atualizadas âœ“');
+  toast('Disciplinas atualizadas ✓');
 }
 async function revokeAccess(email){
-  if(profile && email===profile.email){toast('VocÃª nÃ£o pode revogar seu prÃ³prio acesso');return;}
+  if(profile && email===profile.email){toast('Você não pode revogar seu próprio acesso');return;}
   if(!confirm('Revogar todo o acesso de '+email+'?')) return;
   const per = people.find(x=>x.email===email);
   await sb.from('invites').update({status:'revoked'}).eq('email',email);
@@ -1749,23 +1742,23 @@ function canDeleteVersao(v){
   return isControlador() || (!!session && v.created_by===session.user.id);
 }
 async function deleteVersao(versaoId){
-  if(!confirm('Excluir esta versÃ£o? Essa aÃ§Ã£o nÃ£o pode ser desfeita.')) return;
+  if(!confirm('Excluir esta versão? Essa ação não pode ser desfeita.')) return;
   const {error} = await sb.from('versoes').delete().eq('id',versaoId);
-  if(error){ toast('Erro ao excluir versÃ£o: '+error.message); return; }
+  if(error){ toast('Erro ao excluir versão: '+error.message); return; }
   await loadData(); render();
-  toast('VersÃ£o excluÃ­da âœ“');
+  toast('Versão excluída ✓');
 }
 async function deleteObra(obraId){
   const p = projects.find(x=>x.id===obraId);
-  if(!confirm('Excluir a obra "'+(p?p.nome:'')+'"? Todas as disciplinas, versÃµes, atas e acessos relacionados tambÃ©m serÃ£o excluÃ­dos. Essa aÃ§Ã£o nÃ£o pode ser desfeita.')) return;
+  if(!confirm('Excluir a obra "'+(p?p.nome:'')+'"? Todas as disciplinas, versões, atas e acessos relacionados também serão excluídos. Essa ação não pode ser desfeita.')) return;
   const {error} = await sb.from('obras').delete().eq('id',obraId);
   if(error){ toast('Erro ao excluir obra: '+error.message); return; }
   await loadData(); render();
-  toast('Obra excluÃ­da âœ“');
+  toast('Obra excluída ✓');
 }
 
 async function deleteDisciplina(discId, discNome){
-  if(!confirm(`Excluir a disciplina "${discNome}"? Todas as versÃµes, arquivos, comentÃ¡rios e o chat dessa pasta tambÃ©m serÃ£o excluÃ­dos. Essa aÃ§Ã£o nÃ£o pode ser desfeita.`)) return;
+  if(!confirm(`Excluir a disciplina "${discNome}"? Todas as versões, arquivos, comentários e o chat dessa pasta também serão excluídos. Essa ação não pode ser desfeita.`)) return;
   const {data:versFolders} = await sb.storage.from('versao-arquivos').list(discId);
   for(const folder of versFolders||[]){
     const {data:files} = await sb.storage.from('versao-arquivos').list(`${discId}/${folder.name}`);
@@ -1776,24 +1769,24 @@ async function deleteDisciplina(discId, discNome){
   const {error} = await sb.from('disciplinas').delete().eq('id',discId);
   if(error){ toast('Erro ao excluir disciplina: '+error.message); return; }
   await loadData(); render();
-  toast('Disciplina excluÃ­da âœ“');
+  toast('Disciplina excluída ✓');
 }
 
 /* ---------- anexos (PDFs / links) ---------- */
 function modalAddArquivo(versaoId, discId){
-  pendingFiles=[]; pendingLinks=[];
+  pendingLinks=[];
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>Adicionar arquivo</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>Adicionar link</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">${attachFieldsHtml()}</div>
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveArquivos('${versaoId}','${discId}')">Adicionar</button></div>
   </div>`);
-  renderPendingFiles(); renderPendingLinks();
+  renderPendingLinks();
 }
 async function saveArquivos(versaoId, discId){
-  if(!pendingFiles.length && !pendingLinks.some(l=>l.url.trim())){ toast('Adicione um arquivo PDF ou link'); return; }
+  if(!pendingLinks.some(l=>l.url.trim())){ toast('Adicione ao menos um link'); return; }
   await uploadPendingArquivos(versaoId, discId);
   closeModal(); await loadData(); render();
-  toast('Arquivo adicionado âœ“');
+  toast('Link adicionado ✓');
 }
 async function deleteArquivo(arquivoId, path){
   if(!confirm('Remover este arquivo?')) return;
@@ -1801,7 +1794,7 @@ async function deleteArquivo(arquivoId, path){
   const {error} = await sb.from('versao_arquivos').delete().eq('id',arquivoId);
   if(error){ toast('Erro ao remover arquivo: '+error.message); return; }
   await loadData(); render();
-  toast('Arquivo removido âœ“');
+  toast('Arquivo removido ✓');
 }
 
 async function updateVersionStatus(versaoId, newStatus){
@@ -1820,7 +1813,7 @@ async function updateVersionStatus(versaoId, newStatus){
     }
   }
   await loadData(); render();
-  toast('Status atualizado âœ“');
+  toast('Status atualizado ✓');
 }
 
 /* ============================================================
@@ -1829,12 +1822,12 @@ async function updateVersionStatus(versaoId, newStatus){
 function modalNewPrazo(){
   const obraOpts = projects.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>Novo prazo</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>Novo prazo</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Obra</label><select id="pz-obra" onchange="onPrazoObraChange()">${obraOpts}</select></div>
       <div class="field"><label>Disciplina</label><select id="pz-disc"></select></div>
-      <div class="field"><label>TÃ­tulo</label><input id="pz-titulo" placeholder="Ex.: Entrega do projeto executivo"/></div>
-      <div class="field"><label>DescriÃ§Ã£o (opcional)</label><textarea id="pz-desc" placeholder="Detalhes do prazo..."></textarea></div>
+      <div class="field"><label>Título</label><input id="pz-titulo" placeholder="Ex.: Entrega do projeto executivo"/></div>
+      <div class="field"><label>Descrição (opcional)</label><textarea id="pz-desc" placeholder="Detalhes do prazo..."></textarea></div>
       <div class="field"><label>Data de entrega</label><input id="pz-data" type="date"/></div>
       <div class="field"><label>Mencionar pessoas</label><div class="checks" id="pz-pessoas"></div></div>
     </div>
@@ -1848,7 +1841,7 @@ function onPrazoObraChange(){
 }
 function renderPrazoDiscOptions(){
   const p = projects.find(x=>x.id===document.getElementById('pz-obra').value);
-  const opts = ['<option value="">â€” Obra inteira â€”</option>', ...(p?p.disciplinas:[]).map(d=>`<option value="${d.id}">${d.nome}</option>`)];
+  const opts = ['<option value="">— Obra inteira —</option>', ...(p?p.disciplinas:[]).map(d=>`<option value="${d.id}">${d.nome}</option>`)];
   document.getElementById('pz-disc').innerHTML = opts.join('');
 }
 function renderPrazoPessoas(){
@@ -1864,7 +1857,7 @@ async function savePrazo(){
   const titulo = document.getElementById('pz-titulo').value.trim();
   const descricao = document.getElementById('pz-desc').value.trim();
   const data = document.getElementById('pz-data').value;
-  if(!titulo || !data){ toast('Preencha o tÃ­tulo e a data'); return; }
+  if(!titulo || !data){ toast('Preencha o título e a data'); return; }
   const pessoaIds = [...document.querySelectorAll('#pz-pessoas input:checked')].map(i=>i.value);
   const {data:row, error} = await sb.from('prazos').insert({
     obra_id:obraId, disciplina_id:discId, titulo, descricao:descricao||null, data, created_by:session.user.id
@@ -1875,7 +1868,7 @@ async function savePrazo(){
     if(ppErr){ toast('Erro ao vincular pessoas: '+ppErr.message); }
   }
   closeModal();
-  await loadData(); render(); toast('Prazo adicionado âœ“');
+  await loadData(); render(); toast('Prazo adicionado ✓');
 }
 async function togglePrazoStatus(prazoId){
   const pr = allPrazos().find(x=>x.id===prazoId);
@@ -1889,7 +1882,7 @@ async function deletePrazo(prazoId){
   if(!confirm('Excluir este prazo?')) return;
   const {error} = await sb.from('prazos').delete().eq('id',prazoId);
   if(error){ toast('Erro ao excluir prazo: '+error.message); return; }
-  await loadData(); render(); toast('Prazo excluÃ­do');
+  await loadData(); render(); toast('Prazo excluído');
 }
 
 
@@ -1905,29 +1898,29 @@ function _ataModalHTML(titulo, a){
     return `<label class="check${sel?' on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}"${sel?' checked':''}> ${p.nome}</label>`;
   }).join('');
   const saveFn=isEdit?'_doUpdateAta()':'saveAta()';
-  return `<div class=”modal”>
-    <div class=”modal-head”><h3>${titulo}</h3><button class=”icon-btn” onclick=”closeModal()”>✕</button></div>
-    <div class=”modal-body”>
-      <div class=”field”><label>Título <span style=”color:#e03535”>*</span></label><input id=”a-title” value=”${isEdit?a.titulo.replace(/”/g,'&quot;'):''}” placeholder=”Ex.: Reunião de compatibilização”/></div>
-      <div class=”field”><label>Data da reunião</label><input id=”a-data” type=”date” value=”${isEdit?(a.rawData||today):today}”/></div>
-      <div class=”field”><label>Resumo / decisões <span style=”color:#e03535”>*</span></label><textarea id=”a-res” placeholder=”Principais pontos e próximos passos...”>${isEdit?a.resumo.replace(/</g,'&lt;'):''}</textarea></div>
-      <div class=”field”><label>Link da ata completa (Drive) <span style=”color:#e03535”>*</span></label><input id=”a-drive” value=”${isEdit?(a.drive_url||'').replace(/”/g,'&quot;'):''}” placeholder=”https://drive.google.com/...”/></div>
-      <div class=”field”><label>Obras relacionadas</label>
-        <div class=”checks” id=”a-obras” style=”grid-template-columns:1fr 1fr”>${obraChecks}</div>
+  return `<div class="modal">
+    <div class="modal-head"><h3>${titulo}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Título <span style="color:#e03535">*</span></label><input id="a-title" value="${isEdit?a.titulo.replace(/"/g,'&quot;'):''}" placeholder="Ex.: Reunião de compatibilização"/></div>
+      <div class="field"><label>Data da reunião</label><input id="a-data" type="date" value="${isEdit?(a.rawData||today):today}"/></div>
+      <div class="field"><label>Resumo / decisões <span style="color:#e03535">*</span></label><textarea id="a-res" placeholder="Principais pontos e próximos passos...">${isEdit?a.resumo.replace(/</g,'&lt;'):''}</textarea></div>
+      <div class="field"><label>Link da ata completa (Drive) <span style="color:#e03535">*</span></label><input id="a-drive" value="${isEdit?(a.drive_url||'').replace(/"/g,'&quot;'):''}" placeholder="https://drive.google.com/..."/></div>
+      <div class="field"><label>Obras relacionadas</label>
+        <div class="checks" id="a-obras" style="grid-template-columns:1fr 1fr">${obraChecks}</div>
       </div>
-      <div class=”field”><label>Quem pode ver esta ata</label>
-        <p style=”font-size:12px;color:var(--muted);margin-bottom:8px”>Deixe todos desmarcados para ser visível a todos.</p>
-        <div class=”checks” id=”a-pessoas” style=”grid-template-columns:1fr”>${pessoasChecks||'<span style=”color:var(--muted);font-size:13px”>Nenhum outro usuário.</span>'}</div>
+      <div class="field"><label>Quem pode ver esta ata</label>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Deixe todos desmarcados para ser visível a todos.</p>
+        <div class="checks" id="a-pessoas" style="grid-template-columns:1fr">${pessoasChecks||'<span style="color:var(--muted);font-size:13px">Nenhum outro usuário.</span>'}</div>
       </div>
     </div>
-    <div class=”modal-foot”><button class=”btn btn-ghost btn-sm” onclick=”closeModal()”>Cancelar</button><button class=”btn btn-primary btn-sm” onclick=”${saveFn}”>${isEdit?'Salvar alterações':'Salvar ata'}</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="${saveFn}">${isEdit?'Salvar alterações':'Salvar ata'}</button></div>
   </div>`;
 }
 
 function modalNewAta(){
   if(!isControlador()) return;
   _editingAtaId=null;
-  openModal(_ataModalHTML('Nova ata de reuniÃ£o', null));
+  openModal(_ataModalHTML('Nova ata de reunião', null));
 }
 
 function modalEditAta(ataId){
@@ -1981,32 +1974,33 @@ async function _doUpdateAta(){
 
 async function deleteAta(ataId, titulo){
   if(!isControlador()) return;
-  if(!confirm(`Excluir a ata "${titulo}"?\n\nEsta aÃ§Ã£o nÃ£o pode ser desfeita.`)) return;
+  if(!confirm(`Excluir a ata "${titulo}"?\n\nEsta ação não pode ser desfeita.`)) return;
   const {error} = await sb.from('atas').delete().eq('id', ataId);
   if(error){ toast('Erro ao excluir ata: '+error.message); return; }
   await loadData(); render();
-  toast('Ata excluÃ­da âœ“');
+  toast('Ata excluída ✓');
 }
 
 function modalNewDisc(){
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>Nova disciplina</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>Nova disciplina</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Nome da disciplina</label><input id="d-name" placeholder="Ex.: Arquitetura, Estrutural, Fachada..."/></div>
-      <div class="field"><label>ResponsÃ¡vel</label><input id="d-wait" placeholder="Ex.: Meta Arquitetura"/></div>
+      <div class="field"><label>Responsável</label><input id="d-wait" placeholder="Ex.: Meta Arquitetura"/></div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveDisc()">Adicionar</button></div>
   </div>`);
 }
 async function saveDisc(){
   const p=proj();
-  const nome=document.getElementById('d-name').value;
-  const aguardando=document.getElementById('d-wait').value||'A iniciar';
+  const nome=document.getElementById('d-name').value.trim();
+  if(!nome){ toast('Informe o nome da disciplina'); return; }
+  const aguardando=document.getElementById('d-wait').value.trim()||'A iniciar';
   const {error}=await sb.from('disciplinas').insert({
-    obra_id:p.id, nome, status:'pend', aguardando, ordem:p.disciplinas.length+1
+    obra_id:p.id, nome, status:'aguardando', aguardando, ordem:p.disciplinas.length+1
   });
   if(error){toast('Erro ao adicionar disciplina: '+error.message);return;}
-  closeModal(); await loadData(); render(); toast('Disciplina adicionada âœ“');
+  closeModal(); await loadData(); render(); toast('Disciplina adicionada ✓');
 }
 
 function modalEditDisciplina(discId){
@@ -2014,10 +2008,10 @@ function modalEditDisciplina(discId){
   const d=p.disciplinas.find(x=>x.id===discId);
   if(!d) return;
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>Editar disciplina</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>Editar disciplina</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Nome</label><input id="ed-disc-nome" value="${d.nome}"/></div>
-      <div class="field"><label>ResponsÃ¡vel</label><input id="ed-disc-wait" value="${d.aguardando||''}" placeholder="Ex.: Meta Arquitetura"/></div>
+      <div class="field"><label>Responsável</label><input id="ed-disc-wait" value="${d.aguardando||''}" placeholder="Ex.: Meta Arquitetura"/></div>
       <div class="field"><label>Link da pasta no Drive</label><input id="ed-disc-drive" value="${d.link_drive||''}" placeholder="https://drive.google.com/..."/></div>
       <div class="field"><label>Cor da disciplina</label>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px">
@@ -2037,28 +2031,28 @@ async function saveEditDisciplina(discId){
   if(!nome){ toast('Informe o nome da disciplina'); return; }
   const {error}=await sb.from('disciplinas').update({nome, aguardando, link_drive, cor}).eq('id',discId);
   if(error){toast('Erro ao salvar disciplina: '+error.message);return;}
-  closeModal(); await loadData(); render(); toast('Disciplina atualizada âœ“');
+  closeModal(); await loadData(); render(); toast('Disciplina atualizada ✓');
 }
 
 function modalNewProject(){
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>Novo projeto / obra</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>Novo projeto / obra</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Nome da obra</label><input id="p-name" placeholder="Ex.: Perimetral"/></div>
-      <div class="field"><label>Local</label><input id="p-local" placeholder="Ex.: Rio de Janeiro Â· RJ"/></div>
+      <div class="field"><label>Local</label><input id="p-local" placeholder="Ex.: Rio de Janeiro · RJ"/></div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveProject()">Criar projeto</button></div>
   </div>`);
 }
 async function saveProject(){
   const name=document.getElementById('p-name').value||'Novo Projeto';
-  const local=document.getElementById('p-local').value||'â€”';
+  const local=document.getElementById('p-local').value||'—';
   const cores=['linear-gradient(135deg,#2f6bff,#16357a)','linear-gradient(135deg,#c9a24b,#8a6a1f)','linear-gradient(135deg,#1f9d62,#0f6b41)','linear-gradient(135deg,#7a52cc,#523587)'];
   const cor=cores[projects.length%cores.length];
   const {data,error}=await sb.from('obras').insert({nome:name, local, cor, progresso:0, ordem:projects.length+1}).select().single();
   if(error){toast('Erro ao criar projeto: '+error.message);return;}
-  await sb.from('disciplinas').insert({obra_id:data.id, nome:'Arquitetura', status:'pend', aguardando:'A iniciar', progresso:0, ordem:1});
-  closeModal(); await loadData(); openProj(data.id); toast('Projeto criado âœ“');
+  await sb.from('disciplinas').insert({obra_id:data.id, nome:'Arquitetura', status:'aguardando', aguardando:'A iniciar', ordem:1});
+  closeModal(); await loadData(); openProj(data.id); toast('Projeto criado ✓');
 }
 
 function modalEditProject(obraId){
@@ -2067,10 +2061,10 @@ function modalEditProject(obraId){
   const swatchColors=['#2f6bff','#c9a24b','#1f9d62','#7a52cc','#e05252','#0ea5e9','#f97316','#ec4899','#14b8a6','#64748b'];
   const swatches=swatchColors.map(c=>`<div onclick="document.getElementById('p-cor').value='${c}'" style="width:26px;height:26px;border-radius:6px;background:${c};cursor:pointer;flex-shrink:0;border:2px solid transparent" onmouseenter="this.style.borderColor='var(--ink)'" onmouseleave="this.style.borderColor='transparent'"></div>`).join('');
   openModal(`<div class="modal">
-    <div class="modal-head"><h3>Editar obra</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>Editar obra</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Nome da obra</label><input id="p-name" value="${p.nome}" placeholder="Ex.: Perimetral"/></div>
-      <div class="field"><label>Local</label><input id="p-local" value="${p.local}" placeholder="Ex.: Rio de Janeiro Â· RJ"/></div>
+      <div class="field"><label>Local</label><input id="p-local" value="${p.local}" placeholder="Ex.: Rio de Janeiro · RJ"/></div>
       <div class="field"><label>Cor da obra</label>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px">
           ${swatches}
@@ -2078,7 +2072,7 @@ function modalEditProject(obraId){
         </div>
       </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="updateProject('${obraId}')">Salvar alteraÃ§Ãµes</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="updateProject('${obraId}')">Salvar alterações</button></div>
   </div>`);
 }
 async function updateProject(obraId){
@@ -2088,25 +2082,23 @@ async function updateProject(obraId){
   if(!nome){toast('Informe o nome da obra');return;}
   const {error}=await sb.from('obras').update({nome,local,cor}).eq('id',obraId);
   if(error){toast('Erro ao atualizar obra: '+error.message);return;}
-  closeModal(); await loadData(); render(); toast('Obra atualizada âœ“');
+  closeModal(); await loadData(); render(); toast('Obra atualizada ✓');
 }
-
-/* PDF viewer removido */
-
 
 
 
 /* ============================================================
+   UTIL/* ============================================================
    UTIL
    ============================================================ */
 function initials(n){ return n.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase(); }
 function isControlador(){ return !!profile && profile.role==='controlador'; }
-function openDrive(e){ e.preventDefault(); toast('ðŸ”— No app real, abre a pasta/arquivo no Google Drive'); }
-function toast(msg){ const t=document.getElementById('toast'); t.innerHTML=`<span class="tk">â—</span>${msg}`; t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),2600); }
+function openDrive(e){ e.preventDefault(); toast('🔗 No app real, abre a pasta/arquivo no Google Drive'); }
+function toast(msg){ const t=document.getElementById('toast'); t.innerHTML=`<span class="tk">●</span>${msg}`; t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),2600); }
 function toggleNav(open){ document.getElementById('app').classList.toggle('nav-open',open); }
 
 /* ============================================================
-   LOGIN FLOW (Supabase Auth â€” magic link)
+   LOGIN FLOW (Supabase Auth — magic link)
    ============================================================ */
 function showStep(id){
   ['login-step1','login-step2','login-step3'].forEach(s=>{
@@ -2116,7 +2108,7 @@ function showStep(id){
 
 async function sendMagicLink(){
   const em=document.getElementById('email').value.trim().toLowerCase();
-  if(!em||!em.includes('@')){toast('Digite um e-mail vÃ¡lido');return;}
+  if(!em||!em.includes('@')){toast('Digite um e-mail válido');return;}
   const remember=document.getElementById('remember-device').checked;
   localStorage.setItem(REMEMBER_KEY, remember?'1':'0');
   const btn=document.getElementById('btn-send-magic');
@@ -2165,14 +2157,14 @@ async function enterApp(){
 
 function confirmLogout(){
   openModal(`<div class="modal" style="max-width:360px">
-    <div class="modal-head"><h3>Sair da plataforma</h3><button class="icon-btn" onclick="closeModal()">âœ•</button></div>
+    <div class="modal-head"><h3>Sair da plataforma</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body" style="text-align:center;padding:28px 20px 16px">
-      <div style="font-size:36px;margin-bottom:12px">â»</div>
-      <p style="color:var(--muted);font-size:14px;line-height:1.5">Deseja mesmo sair? VocÃª precisarÃ¡ usar o <b>magic link</b> para entrar novamente.</p>
+      <div style="font-size:36px;margin-bottom:12px">⏻</div>
+      <p style="color:var(--muted);font-size:14px;line-height:1.5">Deseja mesmo sair? Você precisará usar o <b>magic link</b> para entrar novamente.</p>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-sm" style="background:#c0392b;color:#fff" onclick="logout()">â» Sair</button>
+      <button class="btn btn-sm" style="background:#c0392b;color:#fff" onclick="logout()">⏻ Sair</button>
     </div>
   </div>`);
 }
@@ -2204,4 +2196,3 @@ initAuth();
 </script>
 </body>
 </html>
-
