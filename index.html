@@ -840,10 +840,9 @@ const STATUS_COLORS = {
 };
 function statusSelect(v){
   if(v.status==='obsoleto') return badge(v.status);
-  const s = STATUS[v.status]||STATUS.aguardando;
   const style = STATUS_COLORS[v.status]||STATUS_COLORS.aguardando;
   const opts = ['aguardando','analise','revisar','aprovada'];
-  return `<select class="badge status-select" style="${style}" onclick="event.stopPropagation()" onchange="updateVersionStatus('${v.id}',this.value)">
+  return `<select class="badge status-select" style="${style}" onclick="event.stopPropagation()" onchange="this.style.cssText=STATUS_COLORS[this.value]||STATUS_COLORS.aguardando;updateVersionStatus('${v.id}',this.value)">
     ${opts.map(k=>`<option value="${k}" ${k===v.status?'selected':''}>${STATUS[k].label}</option>`).join('')}
   </select>`;
 }
@@ -1653,18 +1652,20 @@ async function updateVersionStatus(versaoId, newStatus){
   const {data:updated, error} = await sb.from('versoes').update({status:newStatus}).eq('id',versaoId).select('id');
   if(error){ toast('Erro ao atualizar status: '+error.message); return; }
   if(!updated?.length){ toast('Sem permissão para alterar este status. Verifique a política RLS em versoes_update no Supabase.'); return; }
-  const p = proj();
-  const d = p.disciplinas.find(x=>x.versoes.some(v=>v.id===versaoId));
-  if(d){
-    if(newStatus==='aprovada'){
-      const otherIds = d.versoes.filter(v=>v.id!==versaoId).map(v=>v.id);
-      if(otherIds.length) await sb.from('versoes').update({status:'obsoleto'}).in('id',otherIds);
-      await sb.from('disciplinas').update({status:'aprovada'}).eq('id',d.id);
-    } else {
-      if(d.versoes[0]&&d.versoes[0].id===versaoId)
-        await sb.from('disciplinas').update({status:newStatus}).eq('id',d.id);
+  try {
+    const p = proj();
+    const d = p?.disciplinas?.find(x=>x.versoes.some(v=>v.id===versaoId));
+    if(d){
+      if(newStatus==='aprovada'){
+        const otherIds = d.versoes.filter(v=>v.id!==versaoId).map(v=>v.id);
+        if(otherIds.length) await sb.from('versoes').update({status:'obsoleto'}).in('id',otherIds);
+        await sb.from('disciplinas').update({status:'aprovada'}).eq('id',d.id);
+      } else {
+        if(d.versoes[0]&&d.versoes[0].id===versaoId)
+          await sb.from('disciplinas').update({status:newStatus}).eq('id',d.id);
+      }
     }
-  }
+  } catch(e){ console.error('cascade status error:', e); }
   await loadData(); render();
   toast('Status atualizado ✓');
 }
