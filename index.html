@@ -832,11 +832,18 @@ function proj(){ return projects.find(p=>p.id===state.projId); }
 
 /* ---------- helpers ---------- */
 function badge(st){ const s=STATUS[st]||{cls:'b-gray',label:st||'—'}; return `<span class="badge ${s.cls}"><span class="bdot"></span>${s.label}</span>`; }
+const STATUS_COLORS = {
+  aguardando: 'background:var(--amber-bg);color:var(--amber)',
+  analise:    'background:var(--purple-bg);color:var(--purple)',
+  revisar:    'background:var(--red-bg);color:var(--red)',
+  aprovada:   'background:var(--green-bg);color:var(--green)',
+};
 function statusSelect(v){
   if(v.status==='obsoleto') return badge(v.status);
-  const s=STATUS[v.status]||{cls:'b-amber',label:'Aguardando'};
-  const opts=['aguardando','analise','revisar','aprovada'];
-  return `<select class="badge status-select ${s.cls}" onclick="event.stopPropagation()" onchange="updateVersionStatus('${v.id}',this.value)">
+  const s = STATUS[v.status]||STATUS.aguardando;
+  const style = STATUS_COLORS[v.status]||STATUS_COLORS.aguardando;
+  const opts = ['aguardando','analise','revisar','aprovada'];
+  return `<select class="badge status-select" style="${style}" onclick="event.stopPropagation()" onchange="updateVersionStatus('${v.id}',this.value)">
     ${opts.map(k=>`<option value="${k}" ${k===v.status?'selected':''}>${STATUS[k].label}</option>`).join('')}
   </select>`;
 }
@@ -1643,8 +1650,9 @@ async function deleteArquivo(arquivoId, path){
 }
 
 async function updateVersionStatus(versaoId, newStatus){
-  const {error} = await sb.from('versoes').update({status:newStatus}).eq('id',versaoId);
+  const {data:updated, error} = await sb.from('versoes').update({status:newStatus}).eq('id',versaoId).select('id');
   if(error){ toast('Erro ao atualizar status: '+error.message); return; }
+  if(!updated?.length){ toast('Sem permissão para alterar este status. Verifique a política RLS em versoes_update no Supabase.'); return; }
   const p = proj();
   const d = p.disciplinas.find(x=>x.versoes.some(v=>v.id===versaoId));
   if(d){
