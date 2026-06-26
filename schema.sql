@@ -1065,3 +1065,89 @@ insert into public.atas (obra_id, data, titulo, resumo, cls) values
   ('a0000000-0000-0000-0000-000000000001', '2026-05-20', 'Aprovação do estudo preliminar',  'Cliente aprovou implantação e volumetria. Liberado avanço para executivo.', 'green'),
   ('a0000000-0000-0000-0000-000000000002', '2026-06-02', 'Briefing com a família',          'Definido programa de necessidades: 4 suítes, home e área gourmet integrada. Meta inicia plantas.', '')
 on conflict do nothing;
+
+
+-- ============================================================
+-- 15) MIGRAÇÃO — ata estruturada: pauta, presentes, decisões e
+--     responsável em encaminhamentos (entregas de ata reaproveitam
+--     a tabela prazos, já existente desde a seção 9m)
+-- ============================================================
+
+-- 15a) atas.decisoes — decisões tomadas na reunião
+alter table public.atas add column if not exists decisoes text;
+
+-- 15b) ata_pauta — itens de pauta/discussão de cada ata
+create table if not exists public.ata_pauta (
+  id         uuid primary key default gen_random_uuid(),
+  ata_id     uuid not null references public.atas(id) on delete cascade,
+  ordem      int  not null default 0,
+  titulo     text not null,
+  descricao  text,
+  created_at timestamptz not null default now()
+);
+create index if not exists ata_pauta_ata_id_idx on public.ata_pauta(ata_id);
+
+alter table public.ata_pauta enable row level security;
+
+-- select segue a mesma visibilidade da ata pai: a subquery em
+-- public.atas já é filtrada pela policy atas_select para o usuário atual
+drop policy if exists ata_pauta_select on public.ata_pauta;
+create policy ata_pauta_select on public.ata_pauta
+  for select using (
+    exists (select 1 from public.atas a where a.id = ata_pauta.ata_id)
+  );
+
+drop policy if exists ata_pauta_insert on public.ata_pauta;
+create policy ata_pauta_insert on public.ata_pauta
+  for insert with check (public.is_controlador());
+
+drop policy if exists ata_pauta_update on public.ata_pauta;
+create policy ata_pauta_update on public.ata_pauta
+  for update using (public.is_controlador())
+  with check (public.is_controlador());
+
+drop policy if exists ata_pauta_delete on public.ata_pauta;
+create policy ata_pauta_delete on public.ata_pauta
+  for delete using (public.is_controlador());
+
+grant select, insert, update, delete on public.ata_pauta to authenticated;
+
+-- 15c) ata_presentes — quem efetivamente esteve presente na reunião
+--      (diferente de ata_pessoas, que controla apenas quem PODE VER a ata)
+create table if not exists public.ata_presentes (
+  ata_id  uuid not null references public.atas(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  primary key (ata_id, user_id)
+);
+create index if not exists ata_presentes_user_id_idx on public.ata_presentes(user_id);
+
+alter table public.ata_presentes enable row level security;
+
+drop policy if exists ata_presentes_select on public.ata_presentes;
+create policy ata_presentes_select on public.ata_presentes
+  for select using (public.is_controlador() or user_id = auth.uid());
+
+drop policy if exists ata_presentes_insert on public.ata_presentes;
+create policy ata_presentes_insert on public.ata_presentes
+  for insert with check (public.is_controlador());
+
+drop policy if exists ata_presentes_delete on public.ata_presentes;
+create policy ata_presentes_delete on public.ata_presentes
+  for delete using (public.is_controlador());
+
+grant select, insert, delete on public.ata_presentes to authenticated;
+
+-- 15d) prazos.responsavel_id — pessoa dona do encaminhamento
+--      (diferente de prazo_pessoas, que é visibilidade)
+alter table public.prazos
+  add column if not exists responsavel_id uuid references public.profiles(id) on delete set null;
+
+-- 15e) CORREÇÃO — antes, ao criar um encaminhamento de ata nunca se
+--      inserva em prazo_pessoas, então prazos_select (que exige
+--      is_mentioned_in_prazo) bloqueava o responsável de ver o
+--      próprio prazo na agenda. A partir desta versão, o front-end
+--      (saveAta/_doUpdateAta) insere também em prazo_pessoas
+--      (prazo_id, responsavel_id) sempre que responsavel_id é
+--      preenchido — não há nada a corrigir aqui no schema, a policy
+--      prazo_pessoas_insert (seção 12, is_controlador()) já permite
+--      esse insert pois quem cria atas é sempre o controlador.
