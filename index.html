@@ -2457,7 +2457,9 @@ function exportAtaPdf(ataId){
   const printArea = document.getElementById('print-area');
   printArea.innerHTML = ataPrintHTML(a);
   window.addEventListener('afterprint', ()=>{ printArea.innerHTML=''; }, {once:true});
-  window.print();
+  const img = printArea.querySelector('img');
+  if(img && !img.complete){ img.onload=()=>window.print(); img.onerror=()=>window.print(); }
+  else { window.print(); }
 }
 
 function modalNewDisc(){
