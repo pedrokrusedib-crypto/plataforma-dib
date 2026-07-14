@@ -2455,10 +2455,16 @@ function ataPrintHTML(a){
 }
 function exportAtaPdf(ataId){
   const a = atasData.find(x=>x.id===ataId); if(!a) return;
-  const w = window.open('','_blank','width=900,height=700');
-  if(!w){ toast('Permita popups neste site para imprimir'); return; }
   const html = ataPrintHTML(a);
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${a.titulo}</title><style>
+  const old = document.getElementById('_print_iframe');
+  if(old) old.remove();
+  const iframe = document.createElement('iframe');
+  iframe.id = '_print_iframe';
+  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:900px;height:700px;border:none;visibility:hidden';
+  document.body.appendChild(iframe);
+  const doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open();
+  doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${a.titulo}</title><style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Arial,sans-serif;color:#111;padding:30px;background:#fff}
     img{display:block !important;max-height:80px;max-width:240px;object-fit:contain}
@@ -2469,8 +2475,9 @@ function exportAtaPdf(ataId){
     td{padding:10px 8px;border-bottom:1px solid #eee;font-size:13px}
     ol{padding-left:20px;font-size:13px}li{margin-bottom:4px}p{font-size:13px}
     @media print{body{padding:20px}}
-  </style></head><body>${html}<script>setTimeout(function(){window.print();},400);<\/script></body></html>`);
-  w.document.close();
+  </style></head><body>${html}</body></html>`);
+  doc.close();
+  setTimeout(()=>{ iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 600);
 }
 
 function modalNewDisc(){
