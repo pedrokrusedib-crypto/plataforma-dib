@@ -966,14 +966,19 @@ function projCard(p){
 }
 
 
-function buildCalendar(entregas){
+function buildCalendar(entregas, convocacoes){
   const now = new Date();
   const year = state.calYear ?? now.getFullYear();
   const month = state.calMonth ?? now.getMonth();
   const sel = state.calSel || '';
   const todayIso = now.toISOString().split('T')[0];
   const byDate = {};
-  entregas.forEach(e=>{ if(!byDate[e.data]) byDate[e.data]=[]; byDate[e.data].push(e); });
+  entregas.forEach(e=>{ if(!byDate[e.data]) byDate[e.data]=[]; byDate[e.data].push({...e,tipo:'entrega'}); });
+  (convocacoes||[]).forEach(c=>{
+    const ds = String(c.rawDataReuniao).slice(0,10);
+    if(!byDate[ds]) byDate[ds]=[];
+    byDate[ds].push({...c,tipo:'convocacao',data:ds});
+  });
   const firstDow = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month+1, 0).getDate();
   const monthLabel = new Date(year, month, 1).toLocaleString('pt-BR',{month:'long',year:'numeric'});
@@ -985,7 +990,9 @@ function buildCalendar(entregas){
     const items = byDate[ds];
     const cls = ['cal-cell',items?'has':'',ds===todayIso?'today':'',ds===sel?'sel':''].filter(Boolean).join(' ');
     const dots = items ? `<div class="cal-dots">${items.slice(0,3).map(e=>{
-      const bg = e.status==='concluido'?'var(--green)':e.data<todayIso?'var(--red)':'var(--amber)';
+      let bg;
+      if(e.tipo==='convocacao') bg='var(--primary)';
+      else bg = e.status==='concluido'?'var(--green)':e.data<todayIso?'var(--red)':'var(--amber)';
       return `<div class="cal-dot" style="background:${bg}"></div>`;
     }).join('')}</div>` : '';
     const act = items ? `onclick="state.calSel='${ds}';render()"` : '';
@@ -996,6 +1003,16 @@ function buildCalendar(entregas){
   let preview = '';
   if(sel && byDate[sel]){
     preview = `<div class="cal-preview">${byDate[sel].map(e=>{
+      if(e.tipo==='convocacao'){
+        const hora = String(e.rawDataReuniao).slice(11,16);
+        return `<div class="cal-preview-item">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:13px;flex:1">${e.titulo}</span>
+            <span class="badge b-blue" style="font-size:11px"><span class="bdot"></span>Convocação</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:2px">⏰ ${hora}${e.local?' · 📍 '+e.local:''}</div>
+        </div>`;
+      }
       let tag;
       if(e.status==='concluido') tag='<span class="badge b-green" style="font-size:11px"><span class="bdot"></span>Concluída</span>';
       else if(e.data<todayIso) tag='<span class="badge b-red" style="font-size:11px"><span class="bdot"></span>Atrasada</span>';
@@ -1021,6 +1038,7 @@ function buildCalendar(entregas){
 
 function viewAgenda(){
   const obraFilter = state.agendaObraFilter||'';
+  const uid = session&&session.user ? session.user.id : null;
   const allEntregas = atasData.flatMap(a=>{
     const obraNome = a.obras.length ? a.obras.map(o=>o.nome).join(', ') : '—';
     return (a.entregas||[]).map(e=>({...e, ataId:a.id, ataTitulo:a.titulo, obras:a.obras, obraNome}));
@@ -1028,6 +1046,9 @@ function viewAgenda(){
   const items = obraFilter ? allEntregas.filter(e=>e.obras.some(o=>o.id===obraFilter)) : allEntregas;
   const pendentes = items.filter(e=>e.status==='pendente');
   const concluidas = items.filter(e=>e.status==='concluido');
+  const myConvs = convocacoesData.filter(c=>
+    isControlador() || (uid && c.pessoas.some(p=>p.id===uid))
+  ).sort((a,b)=>a.rawDataReuniao<b.rawDataReuniao?-1:a.rawDataReuniao>b.rawDataReuniao?1:0);
   const hoje = todayStr();
   function entregaCard(e){
     let tag;
@@ -1055,20 +1076,53 @@ function viewAgenda(){
       </div>
     </div>`;
   }
+  function convCard(c){
+    const ds = String(c.rawDataReuniao).slice(0,10);
+    const hora = String(c.rawDataReuniao).slice(11,16);
+    const [y,m,d] = ds.split('-');
+    const isPast = ds < hoje;
+    const tag = isPast
+      ? '<span class="badge b-gray"><span class="bdot"></span>Realizada</span>'
+      : ds===hoje
+        ? '<span class="badge b-amber"><span class="bdot"></span>Hoje</span>'
+        : '<span class="badge b-blue"><span class="bdot"></span>Agendada</span>';
+    return `
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-pad" style="display:flex;align-items:flex-start;gap:14px">
+        <div style="text-align:center;min-width:52px">
+          <div style="font-size:20px;font-weight:800;color:var(--ink)">${d}/${m}</div>
+          <div style="font-size:11px;color:var(--muted)">${hora}</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <b style="font-size:14.5px;color:var(--ink)">${c.titulo}</b>${tag}
+          </div>
+          ${c.local?`<div style="font-size:12.5px;color:var(--muted);margin-top:4px">📍 ${c.local}</div>`:''}
+          ${c.pessoas.length?`<div style="font-size:12px;color:var(--muted);margin-top:2px">👥 ${c.pessoas.map(p=>p.nome.split(' ')[0]).join(', ')}</div>`:''}
+        </div>
+        <button class="icon-btn" title="Ver convocação" onclick="go('convocacoes')">→</button>
+      </div>
+    </div>`;
+  }
   const tabsHtml = [`<div class="chat-tab ${!obraFilter?'active':''}" onclick="state.agendaObraFilter='';render()">Todas</div>`]
     .concat(projects.map(p=>`<div class="chat-tab ${p.id===obraFilter?'active':''}" onclick="state.agendaObraFilter='${p.id}';render()">${p.nome}</div>`))
     .join('');
-  const listHtml = pendentes.length
+  const convSection = myConvs.length ? `
+    <div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 10px">Convocações</div>
+    ${myConvs.map(convCard).join('')}
+    <div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:22px 0 10px">Entregas</div>
+  ` : '';
+  const listHtml = convSection + (pendentes.length
     ? pendentes.map(entregaCard).join('')+''+( concluidas.length ? `<div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:22px 0 10px">Concluídas</div>${concluidas.map(entregaCard).join('')}` : '')
-    : '<div class="empty"><div class="e-ico">📅</div>Nenhuma entrega pendente.</div>'+(concluidas.length?`<div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:22px 0 10px">Concluídas</div>${concluidas.map(entregaCard).join('')}`:'');
+    : '<div class="empty"><div class="e-ico">📅</div>Nenhuma entrega pendente.</div>'+(concluidas.length?`<div style="font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:22px 0 10px">Concluídas</div>${concluidas.map(entregaCard).join('')}`:''));
   return `
     <div class="page-head">
-      <div><h1>Agenda</h1><p>Entregas definidas nas atas de reunião.</p></div>
+      <div><h1>Agenda</h1><p>Entregas e convocações de reunião.</p></div>
     </div>
     <div class="chat-tabs">${tabsHtml}</div>
     <div class="agenda-layout">
       <div>${listHtml}</div>
-      ${buildCalendar(items)}
+      ${buildCalendar(items, myConvs)}
     </div>`;
 }
 
@@ -2168,7 +2222,6 @@ function _convModalHTML(titulo, c){
     return `<label class="check${sel?' on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}"${sel?' checked':''}> ${p.nome}</label>`;
   }).join('')||'<span style="color:var(--muted);font-size:13px">Nenhum usuário cadastrado.</span>';
   const saveFn=isEdit?'_doUpdateConvocacao()':'saveConvocacao()';
-  const emailFn=isEdit?'_doUpdateConvocacaoEmail()':'saveConvocacaoEmail()';
   return `<div class="modal" style="max-width:520px">
     <div class="modal-head"><h3>${titulo}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
@@ -2189,7 +2242,6 @@ function _convModalHTML(titulo, c){
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-ghost btn-sm" onclick="${emailFn}">✉️ Salvar e enviar</button>
       <button class="btn btn-primary btn-sm" onclick="${saveFn}">Salvar</button>
     </div>
   </div>`;
@@ -2224,19 +2276,6 @@ function _convFields(){
 }
 
 async function saveConvocacao(){
-  const f=_convFields(); if(!f) return;
-  const {titulo,dt,local,pessoaIds,obraIds,pauta}=f;
-  const {data:convRow,error}=await sb.from('convocacoes').insert({titulo,data_reuniao:dt,local:local||null,created_by:session.user.id}).select().single();
-  if(error){toast('Erro ao salvar convocação: '+error.message);return;}
-  if(pessoaIds.length) await sb.from('convocacao_pessoas').insert(pessoaIds.map(uid=>({convocacao_id:convRow.id,user_id:uid})));
-  if(obraIds.length) await sb.from('convocacao_obras').insert(obraIds.map(oid=>({convocacao_id:convRow.id,obra_id:oid})));
-  if(pauta.length) await sb.from('convocacao_pauta').insert(pauta.map(it=>({convocacao_id:convRow.id,ordem:it.ordem,titulo:it.titulo})));
-  closeModal(); state.view='convocacoes';
-  await loadData(); render();
-  toast('Convocação salva ✓');
-}
-
-async function saveConvocacaoEmail(){
   const f=_convFields(); if(!f) return;
   const {titulo,dt,local,pessoaIds,obraIds,pauta}=f;
   const {data:convRow,error}=await sb.from('convocacoes').insert({titulo,data_reuniao:dt,local:local||null,created_by:session.user.id}).select().single();
