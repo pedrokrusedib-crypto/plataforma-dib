@@ -2436,6 +2436,7 @@ function ataPrintHTML(a){
         ${encHtml}
       </div>
     </div>`;
+}
 function exportAtaPdf(ataId){
   const a = atasData.find(x=>x.id===ataId); if(!a) return;
   const printArea = document.getElementById('print-area');
