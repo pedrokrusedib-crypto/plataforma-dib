@@ -1151,3 +1151,125 @@ alter table public.prazos
 --      preenchido — não há nada a corrigir aqui no schema, a policy
 --      prazo_pessoas_insert (seção 12, is_controlador()) já permite
 --      esse insert pois quem cria atas é sempre o controlador.
+
+
+-- ============================================================
+-- 16) CONVOCAÇÕES — etapa opcional antes da ata de reunião
+-- ============================================================
+
+-- 16a) convocacoes — cabeçalho da convocação
+create table if not exists public.convocacoes (
+  id           uuid primary key default gen_random_uuid(),
+  titulo       text not null,
+  data_reuniao timestamptz not null,
+  local        text,
+  created_by   uuid references public.profiles(id) on delete set null,
+  created_at   timestamptz not null default now()
+);
+alter table public.convocacoes enable row level security;
+
+-- controlador vê tudo; membro vê se foi convocado
+drop policy if exists convocacoes_select on public.convocacoes;
+create policy convocacoes_select on public.convocacoes
+  for select using (
+    public.is_controlador()
+    or exists (
+      select 1 from public.convocacao_pessoas cp
+      where cp.convocacao_id = id and cp.user_id = auth.uid()
+    )
+  );
+drop policy if exists convocacoes_insert on public.convocacoes;
+create policy convocacoes_insert on public.convocacoes
+  for insert with check (public.is_controlador());
+drop policy if exists convocacoes_update on public.convocacoes;
+create policy convocacoes_update on public.convocacoes
+  for update using (public.is_controlador()) with check (public.is_controlador());
+drop policy if exists convocacoes_delete on public.convocacoes;
+create policy convocacoes_delete on public.convocacoes
+  for delete using (public.is_controlador());
+
+grant select, insert, update, delete on public.convocacoes to authenticated;
+
+
+-- 16b) convocacao_pauta — itens de pauta da convocação
+create table if not exists public.convocacao_pauta (
+  id             uuid primary key default gen_random_uuid(),
+  convocacao_id  uuid not null references public.convocacoes(id) on delete cascade,
+  ordem          int  not null default 0,
+  titulo         text not null
+);
+create index if not exists convocacao_pauta_conv_id_idx on public.convocacao_pauta(convocacao_id);
+alter table public.convocacao_pauta enable row level security;
+
+drop policy if exists convocacao_pauta_select on public.convocacao_pauta;
+create policy convocacao_pauta_select on public.convocacao_pauta
+  for select using (
+    exists (select 1 from public.convocacoes c where c.id = convocacao_id)
+  );
+drop policy if exists convocacao_pauta_insert on public.convocacao_pauta;
+create policy convocacao_pauta_insert on public.convocacao_pauta
+  for insert with check (public.is_controlador());
+drop policy if exists convocacao_pauta_delete on public.convocacao_pauta;
+create policy convocacao_pauta_delete on public.convocacao_pauta
+  for delete using (public.is_controlador());
+
+grant select, insert, delete on public.convocacao_pauta to authenticated;
+
+
+-- 16c) convocacao_pessoas — quem foi convocado
+create table if not exists public.convocacao_pessoas (
+  convocacao_id uuid not null references public.convocacoes(id) on delete cascade,
+  user_id       uuid not null references public.profiles(id) on delete cascade,
+  primary key (convocacao_id, user_id)
+);
+create index if not exists convocacao_pessoas_user_id_idx on public.convocacao_pessoas(user_id);
+alter table public.convocacao_pessoas enable row level security;
+
+drop policy if exists convocacao_pessoas_select on public.convocacao_pessoas;
+create policy convocacao_pessoas_select on public.convocacao_pessoas
+  for select using (public.is_controlador() or user_id = auth.uid());
+drop policy if exists convocacao_pessoas_insert on public.convocacao_pessoas;
+create policy convocacao_pessoas_insert on public.convocacao_pessoas
+  for insert with check (public.is_controlador());
+drop policy if exists convocacao_pessoas_delete on public.convocacao_pessoas;
+create policy convocacao_pessoas_delete on public.convocacao_pessoas
+  for delete using (public.is_controlador());
+
+grant select, insert, delete on public.convocacao_pessoas to authenticated;
+
+
+-- 16d) convocacao_obras — obras relacionadas à convocação
+create table if not exists public.convocacao_obras (
+  convocacao_id uuid not null references public.convocacoes(id) on delete cascade,
+  obra_id       uuid not null references public.obras(id) on delete cascade,
+  primary key (convocacao_id, obra_id)
+);
+create index if not exists convocacao_obras_obra_id_idx on public.convocacao_obras(obra_id);
+alter table public.convocacao_obras enable row level security;
+
+drop policy if exists convocacao_obras_select on public.convocacao_obras;
+create policy convocacao_obras_select on public.convocacao_obras
+  for select using (
+    public.is_controlador()
+    or exists (
+      select 1 from public.obra_access oa
+      where oa.user_id = auth.uid() and oa.obra_id = convocacao_obras.obra_id
+    )
+  );
+drop policy if exists convocacao_obras_insert on public.convocacao_obras;
+create policy convocacao_obras_insert on public.convocacao_obras
+  for insert with check (public.is_controlador());
+drop policy if exists convocacao_obras_delete on public.convocacao_obras;
+create policy convocacao_obras_delete on public.convocacao_obras
+  for delete using (public.is_controlador());
+
+grant select, insert, delete on public.convocacao_obras to authenticated;
+
+
+-- 16e) atas.convocacao_id — link entre ata e a convocação que a originou
+alter table public.atas
+  add column if not exists convocacao_id uuid references public.convocacoes(id) on delete set null;
+
+-- 16f) ata_pauta.convocacao_pauta_id — sub-item referenciado da convocação
+alter table public.ata_pauta
+  add column if not exists convocacao_pauta_id uuid references public.convocacao_pauta(id) on delete set null;

@@ -521,6 +521,7 @@
       <div class="nav-item active" data-nav="obras" onclick="go('obras')"><span class="i">▦</span> Minhas obras</div>
       <div class="nav-item" data-nav="agenda" onclick="go('agenda')"><span class="i">📅</span> Agenda</div>
       <div class="nav-item" data-nav="atas" onclick="go('atas')"><span class="i">📋</span> Atas de reunião</div>
+      <div class="nav-item" data-nav="convocacoes" onclick="go('convocacoes')"><span class="i">📨</span> Convocações</div>
 
       <div class="side-label">Obras / Projetos</div>
       <div id="proj-list"></div>
@@ -600,8 +601,13 @@ const DISC_ICONS = {
 let people = [];
 let projects = [];
 let atasData = [];
+let convocacoesData = [];
 let allProfiles = [];
 let _editingAtaId = null;
+let _editingConvId = null;
+let _modalConvPauta = [];
+let _convPautaCount = 0;
+let _selectedConvocacaoId = null;
 let dismissedNotifs = new Set();
 
 const ANOT_COLORS = ['#f5b942','#ff6b6b','#3ddc97','#5b8cff','#a78bfa'];
@@ -691,11 +697,15 @@ async function loadData(){
   }
 
   // Tabelas opcionais — allSettled: falha silenciosa se coluna/tabela não existir
-  const [ataObrasSettled, prazosSettled, ataPautaSettled, ataPresentesSettled] = await Promise.allSettled([
+  const [ataObrasSettled, prazosSettled, ataPautaSettled, ataPresentesSettled, convsSettled, convPautaSettled, convPessoasSettled, convObrasSettled] = await Promise.allSettled([
     sb.from('ata_obras').select('*'),
     sb.from('prazos').select('*').not('ata_id','is',null).order('data'),
     sb.from('ata_pauta').select('*').order('ordem'),
     sb.from('ata_presentes').select('*'),
+    sb.from('convocacoes').select('*').order('data_reuniao',{ascending:false}),
+    sb.from('convocacao_pauta').select('*').order('ordem'),
+    sb.from('convocacao_pessoas').select('*'),
+    sb.from('convocacao_obras').select('*'),
   ]);
   const ataObrasRows = (ataObrasSettled.status==='fulfilled' && !ataObrasSettled.value?.error)
     ? (ataObrasSettled.value?.data||[]) : [];
@@ -705,6 +715,14 @@ async function loadData(){
     ? (ataPautaSettled.value?.data||[]) : [];
   const ataPresentesRows = (ataPresentesSettled.status==='fulfilled' && !ataPresentesSettled.value?.error)
     ? (ataPresentesSettled.value?.data||[]) : [];
+  const convsRows = (convsSettled.status==='fulfilled' && !convsSettled.value?.error)
+    ? (convsSettled.value?.data||[]) : [];
+  const convPautaRows = (convPautaSettled.status==='fulfilled' && !convPautaSettled.value?.error)
+    ? (convPautaSettled.value?.data||[]) : [];
+  const convPessoasRows = (convPessoasSettled.status==='fulfilled' && !convPessoasSettled.value?.error)
+    ? (convPessoasSettled.value?.data||[]) : [];
+  const convObrasRows = (convObrasSettled.status==='fulfilled' && !convObrasSettled.value?.error)
+    ? (convObrasSettled.value?.data||[]) : [];
 
 
   dismissedNotifs = new Set((notifDismissalsRes.data||[]).map(r=>r.notif_key));
@@ -780,7 +798,7 @@ async function loadData(){
     });
 
     const pauta = ataPautaRows.filter(it=>it.ata_id===a.id).map(it=>({
-      id:it.id, ordem:it.ordem, titulo:it.titulo, descricao:it.descricao||''
+      id:it.id, ordem:it.ordem, titulo:it.titulo, descricao:it.descricao||'', convocacaoPautaId:it.convocacao_pauta_id||null
     }));
 
     const entregas = prazosRows.filter(pr=>pr.ata_id===a.id).map(pr=>{
@@ -788,7 +806,7 @@ async function loadData(){
       return {id:pr.id, titulo:pr.titulo, data:pr.data, status:pr.status||'pendente', obraId:pr.obra_id, responsavelId:pr.responsavel_id||null, responsavelNome:(rp&&rp.nome)||null};
     }).sort((x,y)=>x.data<y.data?-1:x.data>y.data?1:0);
 
-    return {id:a.id, titulo:a.titulo, resumo:a.resumo||'', decisoes:a.decisoes||'', data:formatDate(a.data), rawData:a.data, drive_url:a.drive_url||'', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, obras, pessoas, presentes, pauta, entregas};
+    return {id:a.id, titulo:a.titulo, resumo:a.resumo||'', decisoes:a.decisoes||'', data:formatDate(a.data), rawData:a.data, drive_url:a.drive_url||'', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, convocacaoId:a.convocacao_id||null, obras, pessoas, presentes, pauta, entregas};
   });
 
   const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
@@ -807,6 +825,21 @@ async function loadData(){
   });
 
   people = [...activePeople, ...pendingInvites];
+
+  convocacoesData = convsRows.map(c=>{
+    const pauta = convPautaRows.filter(cp=>cp.convocacao_id===c.id).map(cp=>({
+      id:cp.id, ordem:cp.ordem, titulo:cp.titulo
+    }));
+    const pessoas = convPessoasRows.filter(cp=>cp.convocacao_id===c.id).map(cp=>{
+      const pr = profileById[cp.user_id];
+      return {id:cp.user_id, nome:(pr&&pr.nome)||'—', email:(pr&&pr.email)||'', cor:(pr&&pr.cor)||DEFAULT_COR, ini:initials((pr&&pr.nome)||'?')};
+    });
+    const obras = convObrasRows.filter(co=>co.convocacao_id===c.id).map(co=>{
+      const o = obrasRows.find(ob=>ob.id===co.obra_id);
+      return o ? {id:o.id, nome:o.nome} : null;
+    }).filter(Boolean);
+    return {id:c.id, titulo:c.titulo, dataReuniao:c.data_reuniao, rawDataReuniao:c.data_reuniao, local:c.local||'', created_by:c.created_by, pauta, pessoas, obras};
+  });
 }
 
 /* ============================================================
@@ -848,6 +881,7 @@ function render(){
   if(state.view==='obras'){ crumb.innerHTML='<b>Minhas obras</b>'; c.innerHTML = viewObras(); }
   else if(state.view==='agenda'){ crumb.innerHTML='<b>Agenda</b>'; c.innerHTML = viewAgenda(); }
   else if(state.view==='atas'){ crumb.innerHTML='<b>Atas de reunião</b>'; c.innerHTML = viewAtas(); }
+  else if(state.view==='convocacoes'){ crumb.innerHTML='<b>Convocações</b>'; c.innerHTML = viewConvocacoes(); }
   else if(state.view==='pessoas'){ crumb.innerHTML='Administração › <b>Pessoas & acessos</b>'; c.innerHTML = viewPessoas(); }
   else if(state.view==='proj'){ const p=proj(); crumb.innerHTML=`Projetos › <b>${p.nome}</b>`; c.innerHTML = viewProj(); }
   document.querySelector('.main').scrollTop=0;
@@ -1056,13 +1090,7 @@ function viewAtas(){
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
         ${a.presentes.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome.split(' ')[0]}</span>`).join('')}
       </div>` : '';
-    const pautaHtml = (a.pauta||[]).length ? `
-      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
-        <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px">Pauta</div>
-        <ol style="padding-left:18px;display:flex;flex-direction:column;gap:6px">
-          ${a.pauta.map(it=>`<li style="font-size:12.5px;color:var(--ink-2)"><b style="color:var(--ink)">${it.titulo}</b>${it.descricao?`<br><span>${it.descricao}</span>`:''}</li>`).join('')}
-        </ol>
-      </div>` : '';
+    const pautaHtml = buildPautaHtml(a);
     const decisoesHtml = a.decisoes ? `
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
         <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px">Decisões</div>
@@ -1130,6 +1158,83 @@ async function deleteEntrega(prazoId){
   const {error} = await sb.from('prazos').delete().eq('id',prazoId);
   if(error){ toast('Erro ao excluir entrega: '+error.message); return; }
   await loadData(); render(); toast('Entrega excluída');
+}
+
+function buildPautaHtml(a){
+  if(!(a.pauta||[]).length) return '';
+  const conv = a.convocacaoId ? convocacoesData.find(c=>c.id===a.convocacaoId) : null;
+  const convPauta = conv ? conv.pauta : [];
+  let innerHtml;
+  if(convPauta.length){
+    const standAlone = a.pauta.filter(it=>!it.convocacaoPautaId);
+    const linked = a.pauta.filter(it=>it.convocacaoPautaId);
+    const items = convPauta.map((cp,ci)=>{
+      const subs = linked.filter(it=>it.convocacaoPautaId===cp.id);
+      const subHtml = subs.length
+        ? `<ol style="padding-left:16px;margin-top:4px;list-style:none;display:flex;flex-direction:column;gap:4px">${subs.map((it,si)=>`<li style="font-size:12px;color:var(--ink-2)"><span style="color:var(--muted);font-size:11px;margin-right:4px">${ci+1}.${si+1}</span><b style="color:var(--ink)">${it.titulo}</b>${it.descricao?`<div style="padding-left:22px;margin-top:2px;font-size:11.5px">${it.descricao}</div>`:''}</li>`).join('')}</ol>`
+        : '';
+      return `<li style="font-size:12.5px;color:var(--ink-2)"><b style="color:var(--ink)">${cp.titulo}</b>${subHtml}</li>`;
+    });
+    if(standAlone.length) items.push(...standAlone.map(it=>`<li style="font-size:12.5px;color:var(--ink-2)"><b style="color:var(--ink)">${it.titulo}</b>${it.descricao?`<br><span>${it.descricao}</span>`:''}</li>`));
+    innerHtml = `<ol style="padding-left:18px;display:flex;flex-direction:column;gap:6px">${items.join('')}</ol>`;
+  } else {
+    innerHtml = `<ol style="padding-left:18px;display:flex;flex-direction:column;gap:6px">${a.pauta.map(it=>`<li style="font-size:12.5px;color:var(--ink-2)"><b style="color:var(--ink)">${it.titulo}</b>${it.descricao?`<br><span>${it.descricao}</span>`:''}</li>`).join('')}</ol>`;
+  }
+  const label = conv
+    ? `Pauta <span style="font-size:10px;color:var(--blue);font-weight:normal;text-transform:none;letter-spacing:0">· convocação: ${conv.titulo}</span>`
+    : 'Pauta';
+  return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)"><div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px">${label}</div>${innerHtml}</div>`;
+}
+
+function formatDataReuniao(dt){
+  if(!dt) return '—';
+  const s = String(dt).slice(0,16); // "YYYY-MM-DDTHH:mm" — evita conversão UTC→local
+  const [date, time] = s.split('T');
+  const [y,m,d] = date.split('-');
+  return `${d}/${m}/${y} às ${time}`;
+}
+
+function viewConvocacoes(){
+  const now = new Date();
+  const nodes = convocacoesData.map(c=>{
+    const obraBadges = c.obras.length
+      ? c.obras.map(o=>`<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${o.nome}</span>`).join(' ')
+      : '';
+    const pessoasChips = c.pessoas.length
+      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${c.pessoas.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome.split(' ')[0]}</span>`).join('')}</div>`
+      : `<span style="font-size:12px;color:var(--muted)">Sem participantes definidos</span>`;
+    const pautaHtml = c.pauta.length
+      ? `<ol style="padding-left:18px;margin-top:8px;display:flex;flex-direction:column;gap:4px">${c.pauta.map(it=>`<li style="font-size:13px;color:var(--ink-2)">${it.titulo}</li>`).join('')}</ol>`
+      : '';
+    const dtFormatted = formatDataReuniao(c.dataReuniao);
+    const isPast = new Date(c.dataReuniao) < now;
+    const adminBtns = isControlador() ? `
+      <button class="btn btn-ghost btn-sm" onclick="criarAtaDaConvocacao('${c.id}')" title="Criar ata com base nesta convocação" style="gap:6px">📋 Criar ata</button>
+      <button class="icon-btn" onclick="sendConvocacaoEmail('${c.id}')" title="Abrir cliente de e-mail para enviar convocação">✉️</button>
+      <button class="icon-btn" onclick="modalEditConvocacao('${c.id}')">✏️</button>
+      <button class="icon-btn" style="color:#c0392b;opacity:.7" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.7'" onclick="deleteConvocacao('${c.id}','${c.titulo.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">🗑</button>` : '';
+    return `
+    <div class="tnode ${isPast?'':'gold'}">
+      <div class="tdate">📅 ${dtFormatted}</div>
+      <div class="tcard">
+        <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+          <b style="flex:1">${c.titulo}</b>
+          ${obraBadges}
+          <span class="badge ${isPast?'b-gray':'b-amber'}" style="font-size:11px">${isPast?'Realizada':'Agendada'}</span>
+        </div>
+        ${c.local?`<div style="font-size:13px;color:var(--muted);margin-bottom:4px">📍 ${c.local}</div>`:''}
+        ${pessoasChips}
+        ${pautaHtml}
+        ${adminBtns?`<div style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap">${adminBtns}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  return `
+    <div class="page-head" style="margin-bottom:18px">
+      <div><h1>Convocações</h1><p>Notificações de reunião com pauta previamente definida.</p></div>
+      <div class="ph-actions">${isControlador()?'<button class="btn btn-primary btn-sm" onclick="modalNewConvocacao()">+ Nova convocação</button>':''}</div>
+    </div>
+    <div class="tline">${nodes||'<div class="empty"><div class="e-ico">📨</div>Sem convocações registradas.</div>'}</div>`;
 }
 
 /* ============================================================
@@ -1811,9 +1916,18 @@ let _modalPauta = [];
 let _pautaCount = 0;
 function renderModalPauta(){
   const el = document.getElementById('a-pauta'); if(!el) return;
+  const conv = _selectedConvocacaoId ? convocacoesData.find(c=>c.id===_selectedConvocacaoId) : null;
+  const convPauta = conv ? conv.pauta : [];
+  const parentSelect = (uid, cur) => convPauta.length
+    ? `<select style="font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card-2);color:var(--ink);margin-bottom:6px;width:100%" onchange="setPautaParent(${uid},this.value)">
+        <option value="">Tópico independente</option>
+        ${convPauta.map((cp,ci)=>`<option value="${cp.id}"${cur===cp.id?' selected':''}>${ci+1}. ${cp.titulo}</option>`).join('')}
+      </select>`
+    : '';
   el.innerHTML = _modalPauta.length
     ? _modalPauta.map((it,idx)=>`
     <div style="margin-bottom:10px;padding:10px;border:1.5px solid var(--line);border-radius:10px">
+      ${parentSelect(it._uid, it.convocacaoPautaId||'')}
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
         <span style="font-size:12px;color:var(--muted);font-weight:700">${idx+1}.</span>
         <input style="flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" placeholder="Título do item" value="${it.titulo.replace(/"/g,'&quot;')}" oninput="setPautaTitulo(${it._uid},this.value)"/>
@@ -1824,7 +1938,7 @@ function renderModalPauta(){
     : '<div style="font-size:12.5px;color:var(--muted);padding:4px 0">Nenhum item de pauta. Use o botão abaixo para adicionar.</div>';
 }
 function addModalPauta(){
-  _modalPauta.push({_uid:++_pautaCount, titulo:'', descricao:''});
+  _modalPauta.push({_uid:++_pautaCount, titulo:'', descricao:'', convocacaoPautaId:null});
   renderModalPauta();
 }
 function removeModalPauta(uid){
@@ -1833,6 +1947,8 @@ function removeModalPauta(uid){
 }
 function setPautaTitulo(uid, v){ const it=_modalPauta.find(x=>x._uid===uid); if(it) it.titulo=v; }
 function setPautaDescricao(uid, v){ const it=_modalPauta.find(x=>x._uid===uid); if(it) it.descricao=v; }
+function setPautaParent(uid, v){ const it=_modalPauta.find(x=>x._uid===uid); if(it) it.convocacaoPautaId=v||null; }
+function onConvocacaoSelect(convId){ _selectedConvocacaoId=convId||null; renderModalPauta(); }
 
 function _ataModalHTML(titulo, a){
   const isEdit=!!a;
@@ -1855,6 +1971,13 @@ function _ataModalHTML(titulo, a){
     <div class="modal-body">
       <div class="field"><label>Título <span style="color:#e03535">*</span></label><input id="a-title" value="${isEdit?a.titulo.replace(/"/g,'&quot;'):''}" placeholder="Ex.: Reunião de compatibilização"/></div>
       <div class="field"><label>Data da reunião <span style="color:#e03535">*</span></label><input id="a-data" type="date" value="${isEdit?(a.rawData||today):today}"/></div>
+
+      <div class="field"><label>Convocação vinculada (opcional)</label>
+        <select id="a-conv" onchange="onConvocacaoSelect(this.value)">
+          <option value="">Nenhuma</option>
+          ${convocacoesData.map(c=>`<option value="${c.id}"${isEdit&&a.convocacaoId===c.id?' selected':''}${!isEdit&&_selectedConvocacaoId===c.id?' selected':''}>${c.titulo} · ${formatDataReuniao(c.dataReuniao)}</option>`).join('')}
+        </select>
+      </div>
 
       <div class="field"><label>Participantes presentes</label>
         <div class="checks" id="a-presentes" style="grid-template-columns:1fr 1fr">${presentesChecks}</div>
@@ -1893,7 +2016,7 @@ function _ataModalHTML(titulo, a){
 
 function modalNewAta(){
   if(!isControlador()) return;
-  _editingAtaId=null; _modalEntregas=[]; _entregaCount=0; _modalPauta=[]; _pautaCount=0;
+  _editingAtaId=null; _selectedConvocacaoId=null; _modalEntregas=[]; _entregaCount=0; _modalPauta=[]; _pautaCount=0;
   openModal(_ataModalHTML('Nova ata de reunião', null));
   renderModalEntregas(); renderModalPauta();
 }
@@ -1901,9 +2024,9 @@ function modalNewAta(){
 function modalEditAta(ataId){
   if(!isControlador()) return;
   const a=atasData.find(x=>x.id===ataId); if(!a) return;
-  _editingAtaId=ataId;
+  _editingAtaId=ataId; _selectedConvocacaoId=a.convocacaoId||null;
   _modalEntregas=(a.entregas||[]).map(e=>({_uid:++_entregaCount, id:e.id, titulo:e.titulo, data:e.data, status:e.status, responsavelId:e.responsavelId||''}));
-  _modalPauta=(a.pauta||[]).map(it=>({_uid:++_pautaCount, id:it.id, titulo:it.titulo, descricao:it.descricao||''}));
+  _modalPauta=(a.pauta||[]).map(it=>({_uid:++_pautaCount, id:it.id, titulo:it.titulo, descricao:it.descricao||'', convocacaoPautaId:it.convocacaoPautaId||null}));
   openModal(_ataModalHTML('Editar ata de reunião', a));
   renderModalEntregas(); renderModalPauta();
 }
@@ -1918,9 +2041,11 @@ function _ataFields(){
   const obraIds=[...document.querySelectorAll('#a-obras input:checked')].map(i=>i.value);
   const pessoaIds=[...document.querySelectorAll('#a-pessoas input:checked')].map(i=>i.value);
   const presentesIds=[...document.querySelectorAll('#a-presentes input:checked')].map(i=>i.value);
-  const pauta=_modalPauta.filter(it=>it.titulo.trim()).map((it,idx)=>({titulo:it.titulo.trim(), descricao:it.descricao.trim()||null, ordem:idx}));
+  const convEl=document.getElementById('a-conv');
+  const convocacaoId=convEl ? (convEl.value||null) : (_selectedConvocacaoId||null);
+  const pauta=_modalPauta.filter(it=>it.titulo.trim()).map((it,idx)=>({titulo:it.titulo.trim(), descricao:it.descricao.trim()||null, ordem:idx, convocacaoPautaId:it.convocacaoPautaId||null}));
   const encaminhamentos=_modalEntregas.filter(e=>e.titulo.trim()&&e.data).map(e=>({titulo:e.titulo.trim(), data:e.data, status:e.status||'pendente', responsavelId:e.responsavelId||null}));
-  return {titulo,resumo,decisoes,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId:obraIds[0]||null};
+  return {titulo,resumo,decisoes,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId:obraIds[0]||null,convocacaoId};
 }
 
 async function _saveEncaminhamentos(ataId, firstObraId, encaminhamentos){
@@ -1935,15 +2060,15 @@ async function _saveEncaminhamentos(ataId, firstObraId, encaminhamentos){
 
 async function saveAta(){
   const f=_ataFields(); if(!f) return;
-  const {titulo,resumo,decisoes,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId}=f;
+  const {titulo,resumo,decisoes,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId,convocacaoId}=f;
   const {data:ataRow,error}=await sb.from('atas').insert({
-    obra_id:firstObraId, titulo, resumo:resumo||null, decisoes:decisoes||null, data, drive_url:drive||null, cls:'gold', created_by:session.user.id
+    obra_id:firstObraId, titulo, resumo:resumo||null, decisoes:decisoes||null, data, drive_url:drive||null, cls:'gold', created_by:session.user.id, convocacao_id:convocacaoId||null
   }).select().single();
   if(error){toast('Erro ao registrar ata: '+error.message);return;}
   if(obraIds.length) await sb.from('ata_obras').insert(obraIds.map(oid=>({ata_id:ataRow.id,obra_id:oid})));
   if(pessoaIds.length) await sb.from('ata_pessoas').insert(pessoaIds.map(uid=>({ata_id:ataRow.id,user_id:uid})));
   if(presentesIds.length) await sb.from('ata_presentes').insert(presentesIds.map(uid=>({ata_id:ataRow.id,user_id:uid})));
-  if(pauta.length) await sb.from('ata_pauta').insert(pauta.map(it=>({ata_id:ataRow.id, ordem:it.ordem, titulo:it.titulo, descricao:it.descricao})));
+  if(pauta.length) await sb.from('ata_pauta').insert(pauta.map(it=>({ata_id:ataRow.id, ordem:it.ordem, titulo:it.titulo, descricao:it.descricao, convocacao_pauta_id:it.convocacaoPautaId||null})));
   await _saveEncaminhamentos(ataRow.id, firstObraId, encaminhamentos);
   closeModal(); state.view='atas'; state.projId=null;
   await loadData(); render();
@@ -1953,9 +2078,9 @@ async function saveAta(){
 async function _doUpdateAta(){
   if(!_editingAtaId) return;
   const f=_ataFields(); if(!f) return;
-  const {titulo,resumo,decisoes,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId}=f;
+  const {titulo,resumo,decisoes,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId,convocacaoId}=f;
   const ataId=_editingAtaId;
-  const {error}=await sb.from('atas').update({titulo,resumo:resumo||null,decisoes:decisoes||null,data,drive_url:drive||null,obra_id:firstObraId}).eq('id',ataId);
+  const {error}=await sb.from('atas').update({titulo,resumo:resumo||null,decisoes:decisoes||null,data,drive_url:drive||null,obra_id:firstObraId,convocacao_id:convocacaoId||null}).eq('id',ataId);
   if(error){toast('Erro ao atualizar ata: '+error.message);return;}
   await sb.from('ata_obras').delete().eq('ata_id',ataId);
   if(obraIds.length) await sb.from('ata_obras').insert(obraIds.map(oid=>({ata_id:ataId,obra_id:oid})));
@@ -1964,7 +2089,7 @@ async function _doUpdateAta(){
   await sb.from('ata_presentes').delete().eq('ata_id',ataId);
   if(presentesIds.length) await sb.from('ata_presentes').insert(presentesIds.map(uid=>({ata_id:ataId,user_id:uid})));
   await sb.from('ata_pauta').delete().eq('ata_id',ataId);
-  if(pauta.length) await sb.from('ata_pauta').insert(pauta.map(it=>({ata_id:ataId, ordem:it.ordem, titulo:it.titulo, descricao:it.descricao})));
+  if(pauta.length) await sb.from('ata_pauta').insert(pauta.map(it=>({ata_id:ataId, ordem:it.ordem, titulo:it.titulo, descricao:it.descricao, convocacao_pauta_id:it.convocacaoPautaId||null})));
   await sb.from('prazos').delete().eq('ata_id',ataId);
   await _saveEncaminhamentos(ataId, firstObraId, encaminhamentos);
   closeModal(); await loadData(); render();
@@ -1980,13 +2105,206 @@ async function deleteAta(ataId, titulo){
   toast('Ata excluída ✓');
 }
 
+/* ----- Convocações ----- */
+function sendConvocacaoEmail(convId){
+  const c = convocacoesData.find(x=>x.id===convId); if(!c) return;
+  const emails = c.pessoas.map(p=>p.email).filter(Boolean);
+  const subject = encodeURIComponent(`Convocação: ${c.titulo}`);
+  const dtFmt = formatDataReuniao(c.dataReuniao);
+  const pautaTxt = c.pauta.length ? c.pauta.map((it,i)=>`${i+1}. ${it.titulo}`).join('\n') : 'A definir';
+  const pessoasTxt = c.pessoas.length ? c.pessoas.map(p=>`- ${p.nome}`).join('\n') : '—';
+  const body = encodeURIComponent(`Convocação de Reunião\n\nTítulo: ${c.titulo}\nData e hora: ${dtFmt}${c.local?'\nLocal: '+c.local:''}\n\nParticipantes convocados:\n${pessoasTxt}\n\nPauta:\n${pautaTxt}\n\n---\nEsta convocação foi gerada pela Plataforma Dib & Dib.`);
+  window.open(`mailto:${emails.join(',')}?subject=${subject}&body=${body}`);
+}
+
+function criarAtaDaConvocacao(convId){
+  if(!isControlador()) return;
+  const c = convocacoesData.find(x=>x.id===convId); if(!c) return;
+  _editingAtaId=null; _selectedConvocacaoId=convId; _entregaCount=0; _pautaCount=0;
+  _modalEntregas=[];
+  _modalPauta=c.pauta.map(it=>({_uid:++_pautaCount, titulo:it.titulo, descricao:'', convocacaoPautaId:it.id}));
+  openModal(_ataModalHTML('Nova ata (da convocação)', null));
+  const dataEl=document.getElementById('a-data');
+  if(dataEl && c.rawDataReuniao) dataEl.value=c.rawDataReuniao.slice(0,10);
+  const convEl=document.getElementById('a-conv');
+  if(convEl) convEl.value=convId;
+  c.pessoas.forEach(p=>{
+    const cb=document.querySelector(`#a-presentes input[value="${p.id}"]`);
+    if(cb){ cb.checked=true; cb.closest('label').classList.add('on'); }
+  });
+  c.obras.forEach(o=>{
+    const cb=document.querySelector(`#a-obras input[value="${o.id}"]`);
+    if(cb){ cb.checked=true; cb.closest('label').classList.add('on'); }
+  });
+  renderModalEntregas(); renderModalPauta();
+}
+
+function renderModalConvPauta(){
+  const el=document.getElementById('conv-pauta'); if(!el) return;
+  el.innerHTML=_modalConvPauta.length
+    ? _modalConvPauta.map((it,idx)=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--muted);font-weight:700;min-width:16px">${idx+1}.</span>
+      <input style="flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" placeholder="Título do item de pauta" value="${it.titulo.replace(/"/g,'&quot;')}" oninput="setConvPautaTitulo(${it._uid},this.value)"/>
+      <button class="icon-btn" onclick="removeConvPauta(${it._uid})">✕</button>
+    </div>`).join('')
+    : '<div style="font-size:12.5px;color:var(--muted);padding:4px 0">Nenhum item. Use o botão abaixo para adicionar.</div>';
+}
+function addConvPauta(){ _modalConvPauta.push({_uid:++_convPautaCount,titulo:''}); renderModalConvPauta(); }
+function removeConvPauta(uid){ _modalConvPauta=_modalConvPauta.filter(x=>x._uid!==uid); renderModalConvPauta(); }
+function setConvPautaTitulo(uid,v){ const it=_modalConvPauta.find(x=>x._uid===uid); if(it) it.titulo=v; }
+
+function _convModalHTML(titulo, c){
+  const isEdit=!!c;
+  const defDt=new Date(Date.now()+60*60*1000); defDt.setMinutes(0,0,0);
+  const defVal=new Date(defDt.getTime()-defDt.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  const editVal=isEdit ? c.rawDataReuniao.slice(0,16) : defVal;
+  const obraChecks=projects.map(p=>{
+    const sel=isEdit&&(c.obras||[]).some(o=>o.id===p.id);
+    return `<label class="check${sel?' on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}"${sel?' checked':''}> ${p.nome}</label>`;
+  }).join('')||'<span style="color:var(--muted);font-size:13px">Nenhuma obra cadastrada.</span>';
+  const pessoasChecks=allProfiles.map(p=>{
+    const sel=isEdit&&(c.pessoas||[]).some(x=>x.id===p.id);
+    return `<label class="check${sel?' on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}"${sel?' checked':''}> ${p.nome}</label>`;
+  }).join('')||'<span style="color:var(--muted);font-size:13px">Nenhum usuário cadastrado.</span>';
+  const saveFn=isEdit?'_doUpdateConvocacao()':'saveConvocacao()';
+  const emailFn=isEdit?'_doUpdateConvocacaoEmail()':'saveConvocacaoEmail()';
+  return `<div class="modal" style="max-width:520px">
+    <div class="modal-head"><h3>${titulo}</h3><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Título <span style="color:#e03535">*</span></label><input id="conv-titulo" value="${isEdit?c.titulo.replace(/"/g,'&quot;'):''}" placeholder="Ex.: Reunião de coordenação"/></div>
+      <div class="field"><label>Data e hora <span style="color:#e03535">*</span></label><input id="conv-dt" type="datetime-local" value="${editVal}"/></div>
+      <div class="field"><label>Local</label><input id="conv-local" value="${isEdit?(c.local||'').replace(/"/g,'&quot;'):''}" placeholder="Ex.: Sala de reuniões · Torre A"/></div>
+      <div class="field"><label>Participantes convocados</label>
+        <div class="checks" id="conv-pessoas" style="grid-template-columns:1fr 1fr">${pessoasChecks}</div>
+      </div>
+      <div class="field"><label>Obras relacionadas</label>
+        <div class="checks" id="conv-obras" style="grid-template-columns:1fr 1fr">${obraChecks}</div>
+      </div>
+      <div class="field">
+        <label>Pauta prevista</label>
+        <div id="conv-pauta"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addConvPauta()">+ Item de pauta</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-ghost btn-sm" onclick="${emailFn}">✉️ Salvar e enviar</button>
+      <button class="btn btn-primary btn-sm" onclick="${saveFn}">Salvar</button>
+    </div>
+  </div>`;
+}
+
+function modalNewConvocacao(){
+  if(!isControlador()) return;
+  _editingConvId=null; _modalConvPauta=[]; _convPautaCount=0;
+  openModal(_convModalHTML('Nova convocação', null));
+  renderModalConvPauta();
+}
+
+function modalEditConvocacao(convId){
+  if(!isControlador()) return;
+  const c=convocacoesData.find(x=>x.id===convId); if(!c) return;
+  _editingConvId=convId;
+  _modalConvPauta=c.pauta.map(it=>({_uid:++_convPautaCount, id:it.id, titulo:it.titulo}));
+  openModal(_convModalHTML('Editar convocação', c));
+  renderModalConvPauta();
+}
+
+function _convFields(){
+  const titulo=document.getElementById('conv-titulo').value.trim();
+  if(!titulo){toast('Informe o título da convocação');return null;}
+  const dt=document.getElementById('conv-dt').value;
+  if(!dt){toast('Informe a data e hora da reunião');return null;}
+  const local=document.getElementById('conv-local').value.trim();
+  const pessoaIds=[...document.querySelectorAll('#conv-pessoas input:checked')].map(i=>i.value);
+  const obraIds=[...document.querySelectorAll('#conv-obras input:checked')].map(i=>i.value);
+  const pauta=_modalConvPauta.filter(it=>it.titulo.trim()).map((it,idx)=>({titulo:it.titulo.trim(),ordem:idx}));
+  return {titulo,dt,local,pessoaIds,obraIds,pauta};
+}
+
+async function saveConvocacao(){
+  const f=_convFields(); if(!f) return;
+  const {titulo,dt,local,pessoaIds,obraIds,pauta}=f;
+  const {data:convRow,error}=await sb.from('convocacoes').insert({titulo,data_reuniao:dt,local:local||null,created_by:session.user.id}).select().single();
+  if(error){toast('Erro ao salvar convocação: '+error.message);return;}
+  if(pessoaIds.length) await sb.from('convocacao_pessoas').insert(pessoaIds.map(uid=>({convocacao_id:convRow.id,user_id:uid})));
+  if(obraIds.length) await sb.from('convocacao_obras').insert(obraIds.map(oid=>({convocacao_id:convRow.id,obra_id:oid})));
+  if(pauta.length) await sb.from('convocacao_pauta').insert(pauta.map(it=>({convocacao_id:convRow.id,ordem:it.ordem,titulo:it.titulo})));
+  closeModal(); state.view='convocacoes';
+  await loadData(); render();
+  toast('Convocação salva ✓');
+}
+
+async function saveConvocacaoEmail(){
+  const f=_convFields(); if(!f) return;
+  const {titulo,dt,local,pessoaIds,obraIds,pauta}=f;
+  const {data:convRow,error}=await sb.from('convocacoes').insert({titulo,data_reuniao:dt,local:local||null,created_by:session.user.id}).select().single();
+  if(error){toast('Erro ao salvar convocação: '+error.message);return;}
+  if(pessoaIds.length) await sb.from('convocacao_pessoas').insert(pessoaIds.map(uid=>({convocacao_id:convRow.id,user_id:uid})));
+  if(obraIds.length) await sb.from('convocacao_obras').insert(obraIds.map(oid=>({convocacao_id:convRow.id,obra_id:oid})));
+  if(pauta.length) await sb.from('convocacao_pauta').insert(pauta.map(it=>({convocacao_id:convRow.id,ordem:it.ordem,titulo:it.titulo})));
+  closeModal(); state.view='convocacoes';
+  await loadData(); render();
+  toast('Convocação salva ✓');
+  sendConvocacaoEmail(convRow.id);
+}
+
+async function _doUpdateConvocacao(){
+  if(!_editingConvId) return;
+  const f=_convFields(); if(!f) return;
+  const {titulo,dt,local,pessoaIds,obraIds,pauta}=f;
+  const convId=_editingConvId;
+  const {error}=await sb.from('convocacoes').update({titulo,data_reuniao:dt,local:local||null}).eq('id',convId);
+  if(error){toast('Erro ao atualizar convocação: '+error.message);return;}
+  await sb.from('convocacao_pessoas').delete().eq('convocacao_id',convId);
+  if(pessoaIds.length) await sb.from('convocacao_pessoas').insert(pessoaIds.map(uid=>({convocacao_id:convId,user_id:uid})));
+  await sb.from('convocacao_obras').delete().eq('convocacao_id',convId);
+  if(obraIds.length) await sb.from('convocacao_obras').insert(obraIds.map(oid=>({convocacao_id:convId,obra_id:oid})));
+  await sb.from('convocacao_pauta').delete().eq('convocacao_id',convId);
+  if(pauta.length) await sb.from('convocacao_pauta').insert(pauta.map(it=>({convocacao_id:convId,ordem:it.ordem,titulo:it.titulo})));
+  closeModal(); await loadData(); render();
+  toast('Convocação atualizada ✓');
+}
+
+async function _doUpdateConvocacaoEmail(){
+  const savedId=_editingConvId;
+  await _doUpdateConvocacao();
+  if(savedId) sendConvocacaoEmail(savedId);
+}
+
+async function deleteConvocacao(convId, titulo){
+  if(!isControlador()) return;
+  if(!confirm(`Excluir a convocação "${titulo}"?\n\nEsta ação não pode ser desfeita.`)) return;
+  const {error}=await sb.from('convocacoes').delete().eq('id',convId);
+  if(error){toast('Erro ao excluir convocação: '+error.message);return;}
+  await loadData(); render();
+  toast('Convocação excluída ✓');
+}
+
 /* ----- Exportação de ata em PDF (via window.print() + @media print) ----- */
 function ataPrintHTML(a){
   const obrasTxt = a.obras.length ? a.obras.map(o=>o.nome).join(', ') : '—';
   const presentesTxt = (a.presentes||[]).length ? a.presentes.map(p=>p.nome).join(', ') : '—';
-  const pautaHtml = (a.pauta||[]).length
-    ? `<ol>${a.pauta.map(it=>`<li><strong>${it.titulo}</strong>${it.descricao?`<div>${it.descricao}</div>`:''}</li>`).join('')}</ol>`
-    : '<p>—</p>';
+  const conv = a.convocacaoId ? convocacoesData.find(c=>c.id===a.convocacaoId) : null;
+  const convPauta = conv ? conv.pauta : [];
+  let pautaHtml;
+  if(!(a.pauta||[]).length){ pautaHtml='<p>—</p>'; }
+  else if(convPauta.length){
+    const standAlone = a.pauta.filter(it=>!it.convocacaoPautaId);
+    const linked = a.pauta.filter(it=>it.convocacaoPautaId);
+    const items = convPauta.map((cp,ci)=>{
+      const subs = linked.filter(it=>it.convocacaoPautaId===cp.id);
+      const subHtml = subs.length
+        ? `<ol style="padding-left:18px">${subs.map((it,si)=>`<li><em style="font-size:12px;color:#888">${ci+1}.${si+1}</em> <strong>${it.titulo}</strong>${it.descricao?`<div style="margin-left:8px">${it.descricao}</div>`:''}</li>`).join('')}</ol>`
+        : '';
+      return `<li><strong>${cp.titulo}</strong>${subHtml}</li>`;
+    });
+    if(standAlone.length) items.push(...standAlone.map(it=>`<li><strong>${it.titulo}</strong>${it.descricao?`<div>${it.descricao}</div>`:''}</li>`));
+    pautaHtml = `<ol>${items.join('')}</ol>`;
+  } else {
+    pautaHtml = `<ol>${a.pauta.map(it=>`<li><strong>${it.titulo}</strong>${it.descricao?`<div>${it.descricao}</div>`:''}</li>`).join('')}</ol>`;
+  }
   const encHtml = (a.entregas||[]).length
     ? `<table style="width:100%;border-collapse:collapse"><thead><tr>
          <th style="text-align:left;border-bottom:1px solid #ccc;padding:6px">Ação</th>
