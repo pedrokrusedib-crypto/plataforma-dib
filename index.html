@@ -416,8 +416,8 @@
   /* ---------- IMPRESSÃO DE ATA (Exportar PDF) ---------- */
   #print-area{display:none}
   @media print{
-    .wrapper,.topbar,#modal-mount,#toast,#_print_iframe{display:none !important}
-    #print-area{display:block !important;width:100%;padding:30px;background:#fff;color:#111}
+    body > *:not(#print-area){display:none !important}
+    #print-area{display:block !important;padding:30px;background:#fff;color:#111}
     #print-area img{display:block !important}
   }
 
@@ -2459,14 +2459,13 @@ function exportAtaPdf(ataId){
   const a = atasData.find(x=>x.id===ataId); if(!a) return;
   const printArea = document.getElementById('print-area');
   printArea.innerHTML = ataPrintHTML(a);
-  const logoEl = printArea.querySelector('#ata-logo');
-  if(logoEl){
-    logoEl.onload = ()=> window.print();
-    logoEl.onerror = ()=> window.print();
-    logoEl.src = LOGO_B64;
-  } else {
+  const doPrint = ()=>{
+    window.addEventListener('afterprint', ()=>{ printArea.innerHTML=''; }, {once:true});
     window.print();
-  }
+  };
+  const logoEl = printArea.querySelector('#ata-logo');
+  if(logoEl){ logoEl.onload=doPrint; logoEl.onerror=doPrint; logoEl.src=LOGO_B64; }
+  else { doPrint(); }
 }
 
 function modalNewDisc(){
