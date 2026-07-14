@@ -1149,11 +1149,6 @@ function viewAtas(){
         ${a.presentes.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome.split(' ')[0]}</span>`).join('')}
       </div>` : '';
     const pautaHtml = buildPautaHtml(a);
-    const decisoesHtml = a.decisoes ? `
-      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
-        <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px">Decisões</div>
-        <p style="white-space:pre-wrap">${a.decisoes}</p>
-      </div>` : '';
     const entregasHtml = (a.entregas||[]).length ? `
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
         <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px">Encaminhamentos</div>
@@ -1180,10 +1175,8 @@ function viewAtas(){
           <button class="icon-btn" title="Exportar PDF" onclick="exportAtaPdf('${a.id}')">🖨️</button>
           ${adminBtns}
         </div>
-        ${a.resumo?`<p>${a.resumo}</p>`:''}
         ${presentesHtml}
         ${pautaHtml}
-        ${decisoesHtml}
         ${entregasHtml}
         <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
           ${a.drive_url?`<a class="drive-link" href="${a.drive_url}" target="_blank" rel="noopener">📄 Link complementar</a>`:''}
@@ -2104,10 +2097,6 @@ function _ataModalHTML(titulo, a){
         <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addModalPauta()">+ Adicionar item</button>
       </div>
 
-      <div class="field"><label>Decisões tomadas</label><textarea id="a-decisoes" placeholder="Decisões definidas na reunião (opcional)...">${isEdit?(a.decisoes||'').replace(/</g,'&lt;'):''}</textarea></div>
-
-      <div class="field"><label>Resumo geral</label><textarea id="a-res" placeholder="Resumo opcional dos principais pontos...">${isEdit?(a.resumo||'').replace(/</g,'&lt;'):''}</textarea></div>
-
       <div class="field">
         <label>Encaminhamentos</label>
         <div id="a-entregas"></div>
@@ -2150,8 +2139,6 @@ function _ataFields(){
   const titulo=document.getElementById('a-title').value.trim();
   if(!titulo){toast('Informe o título da ata');return null;}
   const data=document.getElementById('a-data').value||new Date().toISOString().slice(0,10);
-  const resumo=document.getElementById('a-res').value.trim();
-  const decisoes=document.getElementById('a-decisoes').value.trim();
   const drive=document.getElementById('a-drive').value.trim();
   const obraIds=[...document.querySelectorAll('#a-obras input:checked')].map(i=>i.value);
   const pessoaIds=[...document.querySelectorAll('#a-pessoas input:checked')].map(i=>i.value);
@@ -2160,7 +2147,7 @@ function _ataFields(){
   const convocacaoId=convEl ? (convEl.value||null) : (_selectedConvocacaoId||null);
   const pauta=_modalPauta.filter(it=>it.titulo.trim()).map((it,idx)=>({titulo:it.titulo.trim(), descricao:it.descricao.trim()||null, ordem:idx, convocacaoPautaId:it.convocacaoPautaId||null}));
   const encaminhamentos=_modalEntregas.filter(e=>e.titulo.trim()&&e.data).map(e=>({titulo:e.titulo.trim(), data:e.data, status:e.status||'pendente', responsavelId:e.responsavelId||null}));
-  return {titulo,resumo,decisoes,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId:obraIds[0]||null,convocacaoId};
+  return {titulo,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId:obraIds[0]||null,convocacaoId};
 }
 
 async function _saveEncaminhamentos(ataId, firstObraId, encaminhamentos){
@@ -2175,9 +2162,9 @@ async function _saveEncaminhamentos(ataId, firstObraId, encaminhamentos){
 
 async function saveAta(){
   const f=_ataFields(); if(!f) return;
-  const {titulo,resumo,decisoes,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId,convocacaoId}=f;
+  const {titulo,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId,convocacaoId}=f;
   const {data:ataRow,error}=await sb.from('atas').insert({
-    obra_id:firstObraId, titulo, resumo:resumo||null, decisoes:decisoes||null, data, drive_url:drive||null, cls:'gold', created_by:session.user.id, convocacao_id:convocacaoId||null
+    obra_id:firstObraId, titulo, data, drive_url:drive||null, cls:'gold', created_by:session.user.id, convocacao_id:convocacaoId||null
   }).select().single();
   if(error){toast('Erro ao registrar ata: '+error.message);return;}
   if(obraIds.length) await sb.from('ata_obras').insert(obraIds.map(oid=>({ata_id:ataRow.id,obra_id:oid})));
@@ -2193,9 +2180,9 @@ async function saveAta(){
 async function _doUpdateAta(){
   if(!_editingAtaId) return;
   const f=_ataFields(); if(!f) return;
-  const {titulo,resumo,decisoes,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId,convocacaoId}=f;
+  const {titulo,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId,convocacaoId}=f;
   const ataId=_editingAtaId;
-  const {error}=await sb.from('atas').update({titulo,resumo:resumo||null,decisoes:decisoes||null,data,drive_url:drive||null,obra_id:firstObraId,convocacao_id:convocacaoId||null}).eq('id',ataId);
+  const {error}=await sb.from('atas').update({titulo,data,drive_url:drive||null,obra_id:firstObraId,convocacao_id:convocacaoId||null}).eq('id',ataId);
   if(error){toast('Erro ao atualizar ata: '+error.message);return;}
   await sb.from('ata_obras').delete().eq('ata_id',ataId);
   if(obraIds.length) await sb.from('ata_obras').insert(obraIds.map(oid=>({ata_id:ataId,obra_id:oid})));
@@ -2419,8 +2406,7 @@ function ataPrintHTML(a){
           ${a.obras.length?`<div style="font-size:11px;color:#7a90aa">Obra(s): ${obrasTxt}</div>`:''}
         </div>
       </div>
-      <h1 style="font-size:20px;font-weight:800;color:#1a2b3c;margin:0 0 4px">${a.titulo}</h1>
-      <div style="font-size:12px;color:#7a90aa;margin-bottom:26px">${a.data}${a.obras.length?' · '+obrasTxt:''}</div>
+      <h1 style="font-size:20px;font-weight:800;color:#1a2b3c;margin:0 0 22px">${a.titulo}</h1>
       <div style="margin-bottom:22px">
         <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Participantes presentes</div>
         ${(a.presentes||[]).length?`<table style="width:100%;border-collapse:collapse;border:1px solid #dde5ef;border-top:none"><thead><tr><th style="text-align:left;padding:8px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef">Nome</th><th style="text-align:left;padding:8px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef;width:220px">Assinatura</th></tr></thead><tbody>${(a.presentes||[]).map(p=>`<tr><td style="padding:11px 12px;border-bottom:1px solid #eef1f7;font-size:13px">${p.nome}</td><td style="padding:11px 12px;border-bottom:1px solid #eef1f7"></td></tr>`).join('')}</tbody></table>`:`<div style="padding:10px 12px;border:1px solid #dde5ef;border-top:none;font-size:13px;color:#777">${presentesTxt}</div>`}
@@ -2429,8 +2415,6 @@ function ataPrintHTML(a){
         <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Pauta</div>
         <div style="padding:12px 16px;border:1px solid #dde5ef;border-top:none;font-size:13px">${pautaHtml}</div>
       </div>
-      ${a.decisoes?`<div style="margin-bottom:22px"><div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Decisões tomadas</div><div style="padding:12px 16px;border:1px solid #dde5ef;border-top:none;font-size:13px;white-space:pre-wrap">${a.decisoes}</div></div>`:''}
-      ${a.resumo?`<div style="margin-bottom:22px"><div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Resumo</div><div style="padding:12px 16px;border:1px solid #dde5ef;border-top:none;font-size:13px;white-space:pre-wrap">${a.resumo}</div></div>`:''}
       <div style="margin-bottom:22px">
         <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Encaminhamentos</div>
         ${encHtml}
