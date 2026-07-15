@@ -698,7 +698,7 @@ async function loadData(){
   }
 
   // Tabelas opcionais — allSettled: falha silenciosa se coluna/tabela não existir
-  const [ataObrasSettled, prazosSettled, ataPautaSettled, ataPresentesSettled, convsSettled, convPautaSettled, convPessoasSettled, convObrasSettled] = await Promise.allSettled([
+  const [ataObrasSettled, prazosSettled, ataPautaSettled, ataPresentesSettled, convsSettled, convPautaSettled, convPessoasSettled, convObrasSettled, ataAssinaturasSettled] = await Promise.allSettled([
     sb.from('ata_obras').select('*'),
     sb.from('prazos').select('*').not('ata_id','is',null).order('data'),
     sb.from('ata_pauta').select('*').order('ordem'),
@@ -707,6 +707,7 @@ async function loadData(){
     sb.from('convocacao_pauta').select('*').order('ordem'),
     sb.from('convocacao_pessoas').select('*'),
     sb.from('convocacao_obras').select('*'),
+    sb.from('ata_assinaturas').select('*'),
   ]);
   const ataObrasRows = (ataObrasSettled.status==='fulfilled' && !ataObrasSettled.value?.error)
     ? (ataObrasSettled.value?.data||[]) : [];
@@ -724,6 +725,8 @@ async function loadData(){
     ? (convPessoasSettled.value?.data||[]) : [];
   const convObrasRows = (convObrasSettled.status==='fulfilled' && !convObrasSettled.value?.error)
     ? (convObrasSettled.value?.data||[]) : [];
+  const ataAssinaturasRows = (ataAssinaturasSettled.status==='fulfilled' && !ataAssinaturasSettled.value?.error)
+    ? (ataAssinaturasSettled.value?.data||[]) : [];
 
 
   dismissedNotifs = new Set((notifDismissalsRes.data||[]).map(r=>r.notif_key));
@@ -804,10 +807,11 @@ async function loadData(){
 
     const entregas = prazosRows.filter(pr=>pr.ata_id===a.id).map(pr=>{
       const rp = pr.responsavel_id && profileById[pr.responsavel_id];
-      return {id:pr.id, titulo:pr.titulo, data:pr.data, status:pr.status||'pendente', obraId:pr.obra_id, responsavelId:pr.responsavel_id||null, responsavelNome:(rp&&rp.nome)||null};
+      return {id:pr.id, titulo:pr.titulo, data:pr.data, status:pr.status||'pendente', obraId:pr.obra_id, responsavelId:pr.responsavel_id||null, responsavelNome:(rp&&rp.nome)||null, pautaItemOrdem:pr.pauta_item_ordem||null};
     }).sort((x,y)=>x.data<y.data?-1:x.data>y.data?1:0);
+    const assinaturas = ataAssinaturasRows.filter(s=>s.ata_id===a.id).map(s=>s.user_id);
 
-    return {id:a.id, titulo:a.titulo, resumo:a.resumo||'', decisoes:a.decisoes||'', data:formatDate(a.data), rawData:a.data, drive_url:a.drive_url||'', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, convocacaoId:a.convocacao_id||null, obras, pessoas, presentes, pauta, entregas};
+    return {id:a.id, titulo:a.titulo, data:formatDate(a.data), rawData:a.data, cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, convocacaoId:a.convocacao_id||null, obras, pessoas, presentes, pauta, entregas, assinaturas};
   });
 
   const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
@@ -1132,15 +1136,18 @@ function viewAtas(){
   const typeFilter = state.ataTypeFilter||'all';
   const hoje = todayStr();
 
-  const filteredAtas = obraFilter ? atasData.filter(a=>a.obras.some(o=>o.id===obraFilter)) : atasData;
-  const filteredConvs = obraFilter ? convocacoesData.filter(c=>c.obras.some(o=>o.id===obraFilter)) : convocacoesData;
+  const filteredAtas = obraFilter ? atasData.filter(a=>a.obras.length===0||a.obras.some(o=>o.id===obraFilter)) : atasData;
+  const filteredConvs = obraFilter ? convocacoesData.filter(c=>c.obras.length===0||c.obras.some(o=>o.id===obraFilter)) : convocacoesData;
 
   // nó de ata
   function ataNode(a){
+    const uid = session?.user?.id;
     const visTag = a.pessoas.length
       ? `<span style="font-size:11.5px;color:var(--muted)">👁 ${a.pessoas.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`
       : `<span style="font-size:11.5px;color:var(--muted)">👁 Todos</span>`;
-    const obraBadges = a.obras.length ? a.obras.map(o=>`<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${o.nome}</span>`).join(' ') : '';
+    const obraBadges = a.obras.length
+      ? a.obras.map(o=>`<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${o.nome}</span>`).join(' ')
+      : '<span class="badge b-gray" style="font-size:11px;padding:2px 8px">Geral</span>';
     const adminBtns = isControlador() ? `
       <button class="icon-btn" title="Editar ata" onclick="modalEditAta('${a.id}')">✏️</button>
       <button class="icon-btn" title="Excluir ata" style="color:#c0392b;opacity:.7" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.7'" onclick="deleteAta('${a.id}','${a.titulo.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">🗑</button>` : '';
@@ -1151,18 +1158,29 @@ function viewAtas(){
     const pautaHtml = buildPautaHtml(a);
     const entregasHtml = (a.entregas||[]).length ? `
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
-        <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px">Encaminhamentos</div>
+        <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px">Definições</div>
         ${a.entregas.map(e=>{
           let tag;
           if(e.status==='concluido') tag='<span class="badge b-green" style="font-size:11px"><span class="bdot"></span>Concluída</span>';
           else if(e.data<hoje) tag='<span class="badge b-red" style="font-size:11px"><span class="bdot"></span>Atrasada</span>';
           else tag='<span class="badge b-gray" style="font-size:11px"><span class="bdot"></span>Pendente</span>';
+          const pautaPrefix = e.pautaItemOrdem!=null ? `<span style="font-size:11px;color:var(--muted);margin-right:4px">Item ${e.pautaItemOrdem}:</span>` : '';
           return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;flex-wrap:wrap">
-            <span style="font-size:12.5px;flex:1;min-width:0">${e.titulo}${e.responsavelNome?` <span style="color:var(--muted)">· ${e.responsavelNome}</span>`:''}</span>
+            <span style="font-size:12.5px;flex:1;min-width:0">${pautaPrefix}${e.titulo}${e.responsavelNome?` <span style="color:var(--muted)">· ${e.responsavelNome}</span>`:''}</span>
             <span style="font-size:11.5px;color:var(--muted);white-space:nowrap">${formatDate(e.data)}</span>
             ${tag}
           </div>`;
         }).join('')}
+      </div>` : '';
+    const isPresente = (a.presentes||[]).some(p=>p.id===uid);
+    const jaAssinou = (a.assinaturas||[]).includes(uid);
+    const naoAssinaram = (a.presentes||[]).filter(p=>!(a.assinaturas||[]).includes(p.id));
+    const assinaturaHtml = (a.presentes||[]).length ? `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        ${isPresente && !jaAssinou ? `<button class="btn btn-primary btn-sm" onclick="assinarAta('${a.id}')">✓ Confirmar leitura</button>` : ''}
+        ${naoAssinaram.length===0
+          ? `<span style="font-size:11.5px;color:var(--green)">✓ Todos confirmaram</span>`
+          : `<span style="font-size:11.5px;color:var(--muted)">Aguardando: ${naoAssinaram.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`}
       </div>` : '';
     return `
     <div class="tnode ${a.cls}">
@@ -1178,10 +1196,8 @@ function viewAtas(){
         ${presentesHtml}
         ${pautaHtml}
         ${entregasHtml}
-        <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
-          ${a.drive_url?`<a class="drive-link" href="${a.drive_url}" target="_blank" rel="noopener">📄 Link complementar</a>`:''}
-          ${visTag}
-        </div>
+        ${assinaturaHtml}
+        <div style="margin-top:10px">${visTag}</div>
       </div>
     </div>`;
   }
@@ -1271,23 +1287,7 @@ async function deleteEntrega(prazoId){
 function buildPautaHtml(a){
   if(!(a.pauta||[]).length) return '';
   const conv = a.convocacaoId ? convocacoesData.find(c=>c.id===a.convocacaoId) : null;
-  const convPauta = conv ? conv.pauta : [];
-  let innerHtml;
-  if(convPauta.length){
-    const standAlone = a.pauta.filter(it=>!it.convocacaoPautaId);
-    const linked = a.pauta.filter(it=>it.convocacaoPautaId);
-    const items = convPauta.map((cp,ci)=>{
-      const subs = linked.filter(it=>it.convocacaoPautaId===cp.id);
-      const subHtml = subs.length
-        ? `<ol style="padding-left:16px;margin-top:4px;list-style:none;display:flex;flex-direction:column;gap:4px">${subs.map((it,si)=>`<li style="font-size:12px;color:var(--ink-2)"><span style="color:var(--muted);font-size:11px;margin-right:4px">${ci+1}.${si+1}</span><b style="color:var(--ink)">${it.titulo}</b>${it.descricao?`<div style="padding-left:22px;margin-top:2px;font-size:11.5px">${it.descricao}</div>`:''}</li>`).join('')}</ol>`
-        : '';
-      return `<li style="font-size:12.5px;color:var(--ink-2)"><b style="color:var(--ink)">${cp.titulo}</b>${subHtml}</li>`;
-    });
-    if(standAlone.length) items.push(...standAlone.map(it=>`<li style="font-size:12.5px;color:var(--ink-2)"><b style="color:var(--ink)">${it.titulo}</b>${it.descricao?`<br><span>${it.descricao}</span>`:''}</li>`));
-    innerHtml = `<ol style="padding-left:18px;display:flex;flex-direction:column;gap:6px">${items.join('')}</ol>`;
-  } else {
-    innerHtml = `<ol style="padding-left:18px;display:flex;flex-direction:column;gap:6px">${a.pauta.map(it=>`<li style="font-size:12.5px;color:var(--ink-2)"><b style="color:var(--ink)">${it.titulo}</b>${it.descricao?`<br><span>${it.descricao}</span>`:''}</li>`).join('')}</ol>`;
-  }
+  const innerHtml = `<ol style="padding-left:18px;display:flex;flex-direction:column;gap:6px">${a.pauta.map(it=>`<li style="font-size:12.5px;color:var(--ink-2)"><b style="color:var(--ink)">${it.titulo}</b></li>`).join('')}</ol>`;
   const label = conv
     ? `Pauta <span style="font-size:10px;color:var(--blue);font-weight:normal;text-transform:none;letter-spacing:0">· convocação: ${conv.titulo}</span>`
     : 'Pauta';
@@ -1986,14 +1986,39 @@ async function updateVersionStatus(versaoId, newStatus){
   toast('Status atualizado ✓');
 }
 
+async function assinarAta(ataId){
+  const {error}=await sb.from('ata_assinaturas').insert({ata_id:ataId, user_id:session.user.id});
+  if(error){toast('Erro ao confirmar: '+error.message);return;}
+  await loadData(); render(); toast('Leitura confirmada ✓');
+}
+
+function toggleGeralObra(label, containerId, isGeral){
+  const wasOn = label.classList.contains('on');
+  label.classList.toggle('on');
+  const cb = label.querySelector('input');
+  cb.checked = !wasOn;
+  if(isGeral && !wasOn){
+    document.querySelectorAll(`#${containerId} input[type=checkbox]`).forEach(c=>{
+      if(c.value!=='__geral__'){ c.checked=false; c.closest('label').classList.remove('on'); }
+    });
+  } else if(!isGeral && !wasOn){
+    const geralCb=document.querySelector(`#${containerId} input[value="__geral__"]`);
+    if(geralCb){ geralCb.checked=false; geralCb.closest('label').classList.remove('on'); }
+  }
+}
+
 let _modalEntregas = [];
 let _entregaCount = 0;
 function renderModalEntregas(){
   const el = document.getElementById('a-entregas'); if(!el) return;
+  const pautaOpts = _modalPauta.length
+    ? `<option value="">— item de pauta</option>${_modalPauta.map((it,idx)=>`<option value="${idx+1}">${idx+1}. ${it.titulo||'(sem título)'}</option>`).join('')}`
+    : `<option value="">— item de pauta</option>`;
   el.innerHTML = _modalEntregas.length
     ? _modalEntregas.map(e=>`
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-      <input style="flex:1 1 160px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" placeholder="Ação / encaminhamento" value="${e.titulo.replace(/"/g,'&quot;')}" oninput="setEntregaTitulo(${e._uid},this.value)"/>
+      <select style="width:110px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:12px" onchange="setEntregaPauta(${e._uid},this.value)">${pautaOpts.replace(`value="${e.pautaItemOrdem||''}"`,`value="${e.pautaItemOrdem||''}" selected`)}</select>
+      <input style="flex:1 1 140px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" placeholder="Definição / ação" value="${e.titulo.replace(/"/g,'&quot;')}" oninput="setEntregaTitulo(${e._uid},this.value)"/>
       <select style="padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" onchange="setEntregaResponsavel(${e._uid},this.value)">
         <option value="">Responsável...</option>
         ${allProfiles.map(p=>`<option value="${p.id}" ${e.responsavelId===p.id?'selected':''}>${p.nome}</option>`).join('')}
@@ -2005,12 +2030,13 @@ function renderModalEntregas(){
       </select>
       <button class="icon-btn" onclick="removeModalEntrega(${e._uid})">✕</button>
     </div>`).join('')
-    : '<div style="font-size:12.5px;color:var(--muted);padding:4px 0">Nenhum encaminhamento. Use o botão abaixo para adicionar.</div>';
+    : '<div style="font-size:12.5px;color:var(--muted);padding:4px 0">Nenhuma definição. Use o botão abaixo para adicionar.</div>';
 }
 function addModalEntrega(){
-  _modalEntregas.push({_uid:++_entregaCount, titulo:'', data:new Date().toISOString().slice(0,10), status:'pendente', responsavelId:''});
+  _modalEntregas.push({_uid:++_entregaCount, titulo:'', data:new Date().toISOString().slice(0,10), status:'pendente', responsavelId:'', pautaItemOrdem:null});
   renderModalEntregas();
 }
+function setEntregaPauta(uid,v){ const e=_modalEntregas.find(x=>x._uid===uid); if(e) e.pautaItemOrdem=v?parseInt(v,10):null; }
 function removeModalEntrega(uid){
   _modalEntregas = _modalEntregas.filter(e=>e._uid!==uid);
   renderModalEntregas();
@@ -2024,29 +2050,17 @@ let _modalPauta = [];
 let _pautaCount = 0;
 function renderModalPauta(){
   const el = document.getElementById('a-pauta'); if(!el) return;
-  const conv = _selectedConvocacaoId ? convocacoesData.find(c=>c.id===_selectedConvocacaoId) : null;
-  const convPauta = conv ? conv.pauta : [];
-  const parentSelect = (uid, cur) => convPauta.length
-    ? `<select style="font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card-2);color:var(--ink);margin-bottom:6px;width:100%" onchange="setPautaParent(${uid},this.value)">
-        <option value="">Tópico independente</option>
-        ${convPauta.map((cp,ci)=>`<option value="${cp.id}"${cur===cp.id?' selected':''}>${ci+1}. ${cp.titulo}</option>`).join('')}
-      </select>`
-    : '';
   el.innerHTML = _modalPauta.length
     ? _modalPauta.map((it,idx)=>`
-    <div style="margin-bottom:10px;padding:10px;border:1.5px solid var(--line);border-radius:10px">
-      ${parentSelect(it._uid, it.convocacaoPautaId||'')}
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-        <span style="font-size:12px;color:var(--muted);font-weight:700">${idx+1}.</span>
-        <input style="flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" placeholder="Título do item" value="${it.titulo.replace(/"/g,'&quot;')}" oninput="setPautaTitulo(${it._uid},this.value)"/>
-        <button class="icon-btn" onclick="removeModalPauta(${it._uid})">✕</button>
-      </div>
-      <textarea style="width:100%;min-height:50px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:12.5px;resize:vertical" placeholder="Descrição (opcional)" oninput="setPautaDescricao(${it._uid},this.value)">${(it.descricao||'').replace(/</g,'&lt;')}</textarea>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--muted);font-weight:700;min-width:18px">${idx+1}.</span>
+      <input style="flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" placeholder="Título do item" value="${it.titulo.replace(/"/g,'&quot;')}" oninput="setPautaTitulo(${it._uid},this.value)"/>
+      <button class="icon-btn" onclick="removeModalPauta(${it._uid})">✕</button>
     </div>`).join('')
     : '<div style="font-size:12.5px;color:var(--muted);padding:4px 0">Nenhum item de pauta. Use o botão abaixo para adicionar.</div>';
 }
 function addModalPauta(){
-  _modalPauta.push({_uid:++_pautaCount, titulo:'', descricao:'', convocacaoPautaId:null});
+  _modalPauta.push({_uid:++_pautaCount, titulo:''});
   renderModalPauta();
 }
 function removeModalPauta(uid){
@@ -2054,17 +2068,25 @@ function removeModalPauta(uid){
   renderModalPauta();
 }
 function setPautaTitulo(uid, v){ const it=_modalPauta.find(x=>x._uid===uid); if(it) it.titulo=v; }
-function setPautaDescricao(uid, v){ const it=_modalPauta.find(x=>x._uid===uid); if(it) it.descricao=v; }
-function setPautaParent(uid, v){ const it=_modalPauta.find(x=>x._uid===uid); if(it) it.convocacaoPautaId=v||null; }
-function onConvocacaoSelect(convId){ _selectedConvocacaoId=convId||null; renderModalPauta(); }
+function onConvocacaoSelect(convId){
+  _selectedConvocacaoId=convId||null;
+  if(convId){
+    const c=convocacoesData.find(x=>x.id===convId);
+    const titleEl=document.getElementById('a-title');
+    if(c && titleEl && !titleEl.value.trim()) titleEl.value=c.titulo;
+  }
+  renderModalPauta();
+}
 
 function _ataModalHTML(titulo, a){
   const isEdit=!!a;
   const today=new Date().toISOString().slice(0,10);
-  const obraChecks=projects.map(p=>{
+  const geralSel = isEdit && a.obras.length === 0;
+  const geralLabel = `<label class="check${geralSel?' on':''}" onclick="toggleGeralObra(this,'a-obras',true)"><input type="checkbox" value="__geral__"${geralSel?' checked':''}> Geral</label>`;
+  const obraChecks= geralLabel + (projects.map(p=>{
     const sel=isEdit&&a.obras.some(o=>o.id===p.id);
-    return `<label class="check${sel?' on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}"${sel?' checked':''}> ${p.nome}</label>`;
-  }).join('')||'<span style="color:var(--muted);font-size:13px">Nenhuma obra cadastrada.</span>';
+    return `<label class="check${sel?' on':''}" onclick="toggleGeralObra(this,'a-obras',false)"><input type="checkbox" value="${p.id}"${sel?' checked':''}> ${p.nome}</label>`;
+  }).join('')||'');
   const pessoasChecks=allProfiles.filter(p=>p.id!==session?.user?.id).map(p=>{
     const sel=isEdit&&a.pessoas.some(x=>x.id===p.id);
     return `<label class="check${sel?' on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}"${sel?' checked':''}> ${p.nome}</label>`;
@@ -2098,12 +2120,10 @@ function _ataModalHTML(titulo, a){
       </div>
 
       <div class="field">
-        <label>Encaminhamentos</label>
+        <label>Definições</label>
         <div id="a-entregas"></div>
-        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addModalEntrega()">+ Encaminhamento</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addModalEntrega()">+ Definição</button>
       </div>
-
-      <div class="field"><label>Link complementar (Drive, opcional)</label><input id="a-drive" value="${isEdit?(a.drive_url||'').replace(/"/g,'&quot;'):''}" placeholder="https://drive.google.com/..."/></div>
 
       <div class="field"><label>Obras relacionadas</label>
         <div class="checks" id="a-obras" style="grid-template-columns:1fr 1fr">${obraChecks}</div>
@@ -2129,8 +2149,8 @@ function modalEditAta(ataId){
   if(!isControlador()) return;
   const a=atasData.find(x=>x.id===ataId); if(!a) return;
   _editingAtaId=ataId; _selectedConvocacaoId=a.convocacaoId||null;
-  _modalEntregas=(a.entregas||[]).map(e=>({_uid:++_entregaCount, id:e.id, titulo:e.titulo, data:e.data, status:e.status, responsavelId:e.responsavelId||''}));
-  _modalPauta=(a.pauta||[]).map(it=>({_uid:++_pautaCount, id:it.id, titulo:it.titulo, descricao:it.descricao||'', convocacaoPautaId:it.convocacaoPautaId||null}));
+  _modalEntregas=(a.entregas||[]).map(e=>({_uid:++_entregaCount, id:e.id, titulo:e.titulo, data:e.data, status:e.status, responsavelId:e.responsavelId||'', pautaItemOrdem:e.pautaItemOrdem||null}));
+  _modalPauta=(a.pauta||[]).map(it=>({_uid:++_pautaCount, id:it.id, titulo:it.titulo}));
   openModal(_ataModalHTML('Editar ata de reunião', a));
   renderModalEntregas(); renderModalPauta();
 }
@@ -2139,38 +2159,37 @@ function _ataFields(){
   const titulo=document.getElementById('a-title').value.trim();
   if(!titulo){toast('Informe o título da ata');return null;}
   const data=document.getElementById('a-data').value||new Date().toISOString().slice(0,10);
-  const drive=document.getElementById('a-drive').value.trim();
-  const obraIds=[...document.querySelectorAll('#a-obras input:checked')].map(i=>i.value);
+  const obraIds=[...document.querySelectorAll('#a-obras input:checked')].map(i=>i.value).filter(v=>v!=='__geral__');
   const pessoaIds=[...document.querySelectorAll('#a-pessoas input:checked')].map(i=>i.value);
   const presentesIds=[...document.querySelectorAll('#a-presentes input:checked')].map(i=>i.value);
   const convEl=document.getElementById('a-conv');
   const convocacaoId=convEl ? (convEl.value||null) : (_selectedConvocacaoId||null);
-  const pauta=_modalPauta.filter(it=>it.titulo.trim()).map((it,idx)=>({titulo:it.titulo.trim(), descricao:it.descricao.trim()||null, ordem:idx, convocacaoPautaId:it.convocacaoPautaId||null}));
-  const encaminhamentos=_modalEntregas.filter(e=>e.titulo.trim()&&e.data).map(e=>({titulo:e.titulo.trim(), data:e.data, status:e.status||'pendente', responsavelId:e.responsavelId||null}));
-  return {titulo,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId:obraIds[0]||null,convocacaoId};
+  const pauta=_modalPauta.filter(it=>it.titulo.trim()).map((it,idx)=>({titulo:it.titulo.trim(), ordem:idx}));
+  const encaminhamentos=_modalEntregas.filter(e=>e.titulo.trim()&&e.data).map(e=>({titulo:e.titulo.trim(), data:e.data, status:e.status||'pendente', responsavelId:e.responsavelId||null, pautaItemOrdem:e.pautaItemOrdem||null}));
+  return {titulo,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId:obraIds[0]||null,convocacaoId};
 }
 
 async function _saveEncaminhamentos(ataId, firstObraId, encaminhamentos){
   if(!encaminhamentos.length) return;
   const {data:prazoRows, error:prazoErr} = await sb.from('prazos').insert(encaminhamentos.map(e=>({
-    ata_id:ataId, obra_id:firstObraId, titulo:e.titulo, data:e.data, status:e.status, responsavel_id:e.responsavelId, created_by:session.user.id
+    ata_id:ataId, obra_id:firstObraId, titulo:e.titulo, data:e.data, status:e.status, responsavel_id:e.responsavelId, pauta_item_ordem:e.pautaItemOrdem||null, created_by:session.user.id
   }))).select();
-  if(prazoErr){ toast('Erro ao salvar encaminhamentos: '+prazoErr.message); return; }
+  if(prazoErr){ toast('Erro ao salvar definições: '+prazoErr.message); return; }
   const pessoasRows = (prazoRows||[]).filter(pr=>pr.responsavel_id).map(pr=>({prazo_id:pr.id, user_id:pr.responsavel_id}));
   if(pessoasRows.length) await sb.from('prazo_pessoas').insert(pessoasRows);
 }
 
 async function saveAta(){
   const f=_ataFields(); if(!f) return;
-  const {titulo,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId,convocacaoId}=f;
+  const {titulo,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId,convocacaoId}=f;
   const {data:ataRow,error}=await sb.from('atas').insert({
-    obra_id:firstObraId, titulo, data, drive_url:drive||null, cls:'gold', created_by:session.user.id, convocacao_id:convocacaoId||null
+    obra_id:firstObraId, titulo, data, cls:'gold', created_by:session.user.id, convocacao_id:convocacaoId||null
   }).select().single();
   if(error){toast('Erro ao registrar ata: '+error.message);return;}
   if(obraIds.length) await sb.from('ata_obras').insert(obraIds.map(oid=>({ata_id:ataRow.id,obra_id:oid})));
   if(pessoaIds.length) await sb.from('ata_pessoas').insert(pessoaIds.map(uid=>({ata_id:ataRow.id,user_id:uid})));
   if(presentesIds.length) await sb.from('ata_presentes').insert(presentesIds.map(uid=>({ata_id:ataRow.id,user_id:uid})));
-  if(pauta.length) await sb.from('ata_pauta').insert(pauta.map(it=>({ata_id:ataRow.id, ordem:it.ordem, titulo:it.titulo, descricao:it.descricao, convocacao_pauta_id:it.convocacaoPautaId||null})));
+  if(pauta.length) await sb.from('ata_pauta').insert(pauta.map(it=>({ata_id:ataRow.id, ordem:it.ordem, titulo:it.titulo})));
   await _saveEncaminhamentos(ataRow.id, firstObraId, encaminhamentos);
   closeModal(); state.view='atas'; state.projId=null;
   await loadData(); render();
@@ -2180,9 +2199,9 @@ async function saveAta(){
 async function _doUpdateAta(){
   if(!_editingAtaId) return;
   const f=_ataFields(); if(!f) return;
-  const {titulo,drive,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId,convocacaoId}=f;
+  const {titulo,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId,convocacaoId}=f;
   const ataId=_editingAtaId;
-  const {error}=await sb.from('atas').update({titulo,data,drive_url:drive||null,obra_id:firstObraId,convocacao_id:convocacaoId||null}).eq('id',ataId);
+  const {error}=await sb.from('atas').update({titulo,data,obra_id:firstObraId,convocacao_id:convocacaoId||null}).eq('id',ataId);
   if(error){toast('Erro ao atualizar ata: '+error.message);return;}
   await sb.from('ata_obras').delete().eq('ata_id',ataId);
   if(obraIds.length) await sb.from('ata_obras').insert(obraIds.map(oid=>({ata_id:ataId,obra_id:oid})));
@@ -2191,7 +2210,7 @@ async function _doUpdateAta(){
   await sb.from('ata_presentes').delete().eq('ata_id',ataId);
   if(presentesIds.length) await sb.from('ata_presentes').insert(presentesIds.map(uid=>({ata_id:ataId,user_id:uid})));
   await sb.from('ata_pauta').delete().eq('ata_id',ataId);
-  if(pauta.length) await sb.from('ata_pauta').insert(pauta.map(it=>({ata_id:ataId, ordem:it.ordem, titulo:it.titulo, descricao:it.descricao, convocacao_pauta_id:it.convocacaoPautaId||null})));
+  if(pauta.length) await sb.from('ata_pauta').insert(pauta.map(it=>({ata_id:ataId, ordem:it.ordem, titulo:it.titulo})));
   await sb.from('prazos').delete().eq('ata_id',ataId);
   await _saveEncaminhamentos(ataId, firstObraId, encaminhamentos);
   closeModal(); await loadData(); render();
@@ -2216,7 +2235,7 @@ function sendConvocacaoEmail(convId){
   const pautaTxt = c.pauta.length ? c.pauta.map((it,i)=>`${i+1}. ${it.titulo}`).join('\n') : 'A definir';
   const pessoasTxt = c.pessoas.length ? c.pessoas.map(p=>`- ${p.nome}`).join('\n') : '—';
   const body = encodeURIComponent(`Convocação de Reunião\n\nTítulo: ${c.titulo}\nData e hora: ${dtFmt}${c.local?'\nLocal: '+c.local:''}\n\nParticipantes convocados:\n${pessoasTxt}\n\nPauta:\n${pautaTxt}\n\n---\nEsta convocação foi gerada pela Plataforma Dib & Dib.`);
-  window.open(`mailto:${emails.join(',')}?subject=${subject}&body=${body}`);
+  window.location.href=`mailto:${emails.join(',')}?subject=${subject}&body=${body}`;
 }
 
 function criarAtaDaConvocacao(convId){
@@ -2224,18 +2243,25 @@ function criarAtaDaConvocacao(convId){
   const c = convocacoesData.find(x=>x.id===convId); if(!c) return;
   _editingAtaId=null; _selectedConvocacaoId=convId; _entregaCount=0; _pautaCount=0;
   _modalEntregas=[];
-  _modalPauta=c.pauta.map(it=>({_uid:++_pautaCount, titulo:it.titulo, descricao:'', convocacaoPautaId:it.id}));
+  _modalPauta=c.pauta.map(it=>({_uid:++_pautaCount, titulo:it.titulo}));
   openModal(_ataModalHTML('Nova ata (da convocação)', null));
+  const titleEl=document.getElementById('a-title');
+  if(titleEl) titleEl.value=c.titulo;
   const dataEl=document.getElementById('a-data');
   if(dataEl && c.rawDataReuniao) dataEl.value=c.rawDataReuniao.slice(0,10);
   const convEl=document.getElementById('a-conv');
   if(convEl) convEl.value=convId;
+  if(c.obras.length===0){
+    const geralCb=document.querySelector('#a-obras input[value="__geral__"]');
+    if(geralCb){ geralCb.checked=true; geralCb.closest('label').classList.add('on'); }
+  } else {
+    c.obras.forEach(o=>{
+      const cb=document.querySelector(`#a-obras input[value="${o.id}"]`);
+      if(cb){ cb.checked=true; cb.closest('label').classList.add('on'); }
+    });
+  }
   c.pessoas.forEach(p=>{
     const cb=document.querySelector(`#a-presentes input[value="${p.id}"]`);
-    if(cb){ cb.checked=true; cb.closest('label').classList.add('on'); }
-  });
-  c.obras.forEach(o=>{
-    const cb=document.querySelector(`#a-obras input[value="${o.id}"]`);
     if(cb){ cb.checked=true; cb.closest('label').classList.add('on'); }
   });
   renderModalEntregas(); renderModalPauta();
@@ -2261,10 +2287,12 @@ function _convModalHTML(titulo, c){
   const defDt=new Date(Date.now()+60*60*1000); defDt.setMinutes(0,0,0);
   const defVal=new Date(defDt.getTime()-defDt.getTimezoneOffset()*60000).toISOString().slice(0,16);
   const editVal=isEdit ? c.rawDataReuniao.slice(0,16) : defVal;
-  const obraChecks=projects.map(p=>{
+  const convGeralSel = isEdit && (c.obras||[]).length === 0;
+  const convGeralLabel = `<label class="check${convGeralSel?' on':''}" onclick="toggleGeralObra(this,'conv-obras',true)"><input type="checkbox" value="__geral__"${convGeralSel?' checked':''}> Geral</label>`;
+  const obraChecks= convGeralLabel + (projects.map(p=>{
     const sel=isEdit&&(c.obras||[]).some(o=>o.id===p.id);
-    return `<label class="check${sel?' on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}"${sel?' checked':''}> ${p.nome}</label>`;
-  }).join('')||'<span style="color:var(--muted);font-size:13px">Nenhuma obra cadastrada.</span>';
+    return `<label class="check${sel?' on':''}" onclick="toggleGeralObra(this,'conv-obras',false)"><input type="checkbox" value="${p.id}"${sel?' checked':''}> ${p.nome}</label>`;
+  }).join('')||'');
   const pessoasChecks=allProfiles.map(p=>{
     const sel=isEdit&&(c.pessoas||[]).some(x=>x.id===p.id);
     return `<label class="check${sel?' on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}"${sel?' checked':''}> ${p.nome}</label>`;
@@ -2318,7 +2346,7 @@ function _convFields(){
   if(!dt){toast('Informe a data e hora da reunião');return null;}
   const local=document.getElementById('conv-local').value.trim();
   const pessoaIds=[...document.querySelectorAll('#conv-pessoas input:checked')].map(i=>i.value);
-  const obraIds=[...document.querySelectorAll('#conv-obras input:checked')].map(i=>i.value);
+  const obraIds=[...document.querySelectorAll('#conv-obras input:checked')].map(i=>i.value).filter(v=>v!=='__geral__');
   const pauta=_modalConvPauta.filter(it=>it.titulo.trim()).map((it,idx)=>({titulo:it.titulo.trim(),ordem:idx}));
   return {titulo,dt,local,pessoaIds,obraIds,pauta};
 }
@@ -2371,29 +2399,13 @@ async function deleteConvocacao(convId, titulo){
 
 /* ----- Exportação de ata em PDF (via window.print() + @media print) ----- */
 function ataPrintHTML(a){
-  const obrasTxt = a.obras.length ? a.obras.map(o=>o.nome).join(', ') : '—';
+  const obrasTxt = a.obras.length ? a.obras.map(o=>o.nome).join(', ') : 'Geral';
   const presentesTxt = (a.presentes||[]).length ? a.presentes.map(p=>p.nome).join(', ') : '—';
-  const conv = a.convocacaoId ? convocacoesData.find(c=>c.id===a.convocacaoId) : null;
-  const convPauta = conv ? conv.pauta : [];
-  let pautaHtml;
-  if(!(a.pauta||[]).length){ pautaHtml='<p>—</p>'; }
-  else if(convPauta.length){
-    const standAlone = a.pauta.filter(it=>!it.convocacaoPautaId);
-    const linked = a.pauta.filter(it=>it.convocacaoPautaId);
-    const items = convPauta.map((cp,ci)=>{
-      const subs = linked.filter(it=>it.convocacaoPautaId===cp.id);
-      const subHtml = subs.length
-        ? `<ol style="padding-left:18px">${subs.map((it,si)=>`<li><em style="font-size:12px;color:#888">${ci+1}.${si+1}</em> <strong>${it.titulo}</strong>${it.descricao?`<div style="margin-left:8px">${it.descricao}</div>`:''}</li>`).join('')}</ol>`
-        : '';
-      return `<li><strong>${cp.titulo}</strong>${subHtml}</li>`;
-    });
-    if(standAlone.length) items.push(...standAlone.map(it=>`<li><strong>${it.titulo}</strong>${it.descricao?`<div>${it.descricao}</div>`:''}</li>`));
-    pautaHtml = `<ol>${items.join('')}</ol>`;
-  } else {
-    pautaHtml = `<ol>${a.pauta.map(it=>`<li><strong>${it.titulo}</strong>${it.descricao?`<div>${it.descricao}</div>`:''}</li>`).join('')}</ol>`;
-  }
+  const pautaHtml = (a.pauta||[]).length
+    ? `<ol>${a.pauta.map(it=>`<li><strong>${it.titulo}</strong></li>`).join('')}</ol>`
+    : '<p>—</p>';
   const encHtml = (a.entregas||[]).length
-    ? `<table style="width:100%;border-collapse:collapse;border:1px solid #dde5ef;border-top:none"><thead><tr><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef">Ação</th><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef;width:190px">Responsável</th><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef;width:100px">Prazo</th></tr></thead><tbody>${a.entregas.map(e=>`<tr><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${e.titulo}</td><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${e.responsavelNome||'—'}</td><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${formatDate(e.data)}</td></tr>`).join('')}</tbody></table>`
+    ? `<table style="width:100%;border-collapse:collapse;border:1px solid #dde5ef;border-top:none"><thead><tr><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef">Item</th><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef">Definição</th><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef;width:190px">Responsável</th><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef;width:100px">Prazo</th></tr></thead><tbody>${a.entregas.map(e=>`<tr><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px;white-space:nowrap;color:#4a6480">${e.pautaItemOrdem!=null?'Item '+e.pautaItemOrdem:'—'}</td><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${e.titulo}</td><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${e.responsavelNome||'—'}</td><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${formatDate(e.data)}</td></tr>`).join('')}</tbody></table>`
     : `<p style="margin:0;font-size:13px;color:#777">—</p>`;
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;color:#1a2535;max-width:780px;margin:0 auto;line-height:1.5">
@@ -2403,7 +2415,7 @@ function ataPrintHTML(a){
           <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#7a90aa;margin-bottom:3px">Documento</div>
           <div style="font-size:17px;font-weight:800;color:#1a2b3c;letter-spacing:0.5px">ATA DE REUNIÃO</div>
           <div style="font-size:11px;color:#4a6480;margin-top:5px">${a.data}</div>
-          ${a.obras.length?`<div style="font-size:11px;color:#7a90aa">Obra(s): ${obrasTxt}</div>`:''}
+          <div style="font-size:11px;color:#7a90aa">Obra(s): ${obrasTxt}</div>
         </div>
       </div>
       <h1 style="font-size:20px;font-weight:800;color:#1a2b3c;margin:0 0 22px">${a.titulo}</h1>
@@ -2416,7 +2428,7 @@ function ataPrintHTML(a){
         <div style="padding:12px 16px;border:1px solid #dde5ef;border-top:none;font-size:13px">${pautaHtml}</div>
       </div>
       <div style="margin-bottom:22px">
-        <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Encaminhamentos</div>
+        <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Definições</div>
         ${encHtml}
       </div>
     </div>`;
