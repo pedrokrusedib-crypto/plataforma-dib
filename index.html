@@ -1151,9 +1151,10 @@ function viewAtas(){
     const isCriador = !!(uid && a.created_by === uid);
     const nonCreatorPresentes = (a.presentes||[]).filter(p=>p.id!==a.created_by);
     const allConfirmed = nonCreatorPresentes.length===0 || nonCreatorPresentes.every(p=>(a.assinaturas||[]).includes(p.id));
+    const showCheck = isCriador || allConfirmed;
     const visTag = a.pessoas.length
-      ? `<span style="font-size:11.5px;color:var(--muted)">${allConfirmed?'<span style=\"color:var(--green)\">✓</span>':'👁'} ${a.pessoas.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`
-      : `<span style="font-size:11.5px;color:var(--muted)">${allConfirmed?'<span style=\"color:var(--green)\">✓</span>':'👁'} Todos</span>`;
+      ? `<span style="font-size:11.5px;color:var(--muted)">${showCheck?'<span style=\"color:var(--green)\">✓</span>':'👁'} ${a.pessoas.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`
+      : `<span style="font-size:11.5px;color:var(--muted)">${showCheck?'<span style=\"color:var(--green)\">✓</span>':'👁'} Todos</span>`;
     const obraBadges = a.obras.length
       ? a.obras.map(o=>`<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${o.nome}</span>`).join(' ')
       : '<span class="badge b-gray" style="font-size:11px;padding:2px 8px">Geral</span>';
@@ -2431,10 +2432,26 @@ function ataPrintHTML(a){
 }
 function exportAtaPdf(ataId){
   const a = atasData.find(x=>x.id===ataId); if(!a) return;
-  const w = window.open('', '_blank');
-  if(!w){ toast('Permita pop-ups para exportar o PDF'); return; }
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ata - ${a.titulo.replace(/</g,'&lt;')}</title><style>@page{size:A4 portrait;margin:12mm}body{margin:0;padding:8mm;font-family:Arial,Helvetica,sans-serif;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}@media print{body{padding:0}.no-print{display:none}}</style></head><body><div class="no-print" style="position:fixed;top:0;right:0;padding:8px;background:rgba(0,0,0,.6);border-radius:0 0 0 8px;z-index:999"><button onclick="window.print()" style="padding:6px 14px;background:#fff;color:#1a2b3c;border:none;border-radius:5px;font-size:13px;cursor:pointer;font-weight:600">🖨 Salvar PDF</button></div>${ataPrintHTML(a)}<script>window.onload=function(){window.print();};<\/script></body></html>`);
-  w.document.close();
+  toast('Gerando PDF…');
+  if(window.html2pdf){ _doExportAtaPdf(a); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+  s.onload = () => _doExportAtaPdf(a);
+  s.onerror = () => toast('Erro ao carregar gerador de PDF');
+  document.head.appendChild(s);
+}
+function _doExportAtaPdf(a){
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;font-family:Arial,Helvetica,sans-serif;background:#fff;color:#1a2535';
+  div.innerHTML = ataPrintHTML(a);
+  document.body.appendChild(div);
+  html2pdf().set({
+    margin: [10,10,10,10],
+    filename: `Ata - ${a.titulo}.pdf`,
+    image: {type:'jpeg', quality:0.97},
+    html2canvas: {scale:2, useCORS:true, logging:false},
+    jsPDF: {unit:'mm', format:'a4', orientation:'portrait'}
+  }).from(div).save().then(()=>{ document.body.removeChild(div); toast('PDF salvo ✓'); }).catch(e=>{ document.body.removeChild(div); toast('Erro: '+e.message); });
 }
 
 function modalNewDisc(){
