@@ -1992,18 +1992,16 @@ async function assinarAta(ataId){
   await loadData(); render(); toast('Leitura confirmada ✓');
 }
 
-function toggleGeralObra(label, containerId, isGeral){
-  const wasOn = label.classList.contains('on');
-  label.classList.toggle('on');
-  const cb = label.querySelector('input');
-  cb.checked = !wasOn;
-  if(isGeral && !wasOn){
-    document.querySelectorAll(`#${containerId} input[type=checkbox]`).forEach(c=>{
-      if(c.value!=='__geral__'){ c.checked=false; c.closest('label').classList.remove('on'); }
-    });
-  } else if(!isGeral && !wasOn){
-    const geralCb=document.querySelector(`#${containerId} input[value="__geral__"]`);
-    if(geralCb){ geralCb.checked=false; geralCb.closest('label').classList.remove('on'); }
+function toggleGeralObra(input, containerId, isGeral){
+  if(input.checked){
+    if(isGeral){
+      document.querySelectorAll(`#${containerId} input[type=checkbox]`).forEach(cb=>{
+        if(cb.value!=='__geral__'){ cb.checked=false; cb.closest('label').classList.remove('on'); }
+      });
+    } else {
+      const geralCb=document.querySelector(`#${containerId} input[value="__geral__"]`);
+      if(geralCb){ geralCb.checked=false; geralCb.closest('label').classList.remove('on'); }
+    }
   }
 }
 
@@ -2082,10 +2080,10 @@ function _ataModalHTML(titulo, a){
   const isEdit=!!a;
   const today=new Date().toISOString().slice(0,10);
   const geralSel = isEdit && a.obras.length === 0;
-  const geralLabel = `<label class="check${geralSel?' on':''}" onclick="toggleGeralObra(this,'a-obras',true)"><input type="checkbox" value="__geral__"${geralSel?' checked':''}> Geral</label>`;
+  const geralLabel = `<label class="check${geralSel?' on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="__geral__"${geralSel?' checked':''} onchange="toggleGeralObra(this,'a-obras',true)"> Geral</label>`;
   const obraChecks= geralLabel + (projects.map(p=>{
     const sel=isEdit&&a.obras.some(o=>o.id===p.id);
-    return `<label class="check${sel?' on':''}" onclick="toggleGeralObra(this,'a-obras',false)"><input type="checkbox" value="${p.id}"${sel?' checked':''}> ${p.nome}</label>`;
+    return `<label class="check${sel?' on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}"${sel?' checked':''} onchange="toggleGeralObra(this,'a-obras',false)"> ${p.nome}</label>`;
   }).join('')||'');
   const pessoasChecks=allProfiles.filter(p=>p.id!==session?.user?.id).map(p=>{
     const sel=isEdit&&a.pessoas.some(x=>x.id===p.id);
@@ -2288,10 +2286,10 @@ function _convModalHTML(titulo, c){
   const defVal=new Date(defDt.getTime()-defDt.getTimezoneOffset()*60000).toISOString().slice(0,16);
   const editVal=isEdit ? c.rawDataReuniao.slice(0,16) : defVal;
   const convGeralSel = isEdit && (c.obras||[]).length === 0;
-  const convGeralLabel = `<label class="check${convGeralSel?' on':''}" onclick="toggleGeralObra(this,'conv-obras',true)"><input type="checkbox" value="__geral__"${convGeralSel?' checked':''}> Geral</label>`;
+  const convGeralLabel = `<label class="check${convGeralSel?' on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="__geral__"${convGeralSel?' checked':''} onchange="toggleGeralObra(this,'conv-obras',true)"> Geral</label>`;
   const obraChecks= convGeralLabel + (projects.map(p=>{
     const sel=isEdit&&(c.obras||[]).some(o=>o.id===p.id);
-    return `<label class="check${sel?' on':''}" onclick="toggleGeralObra(this,'conv-obras',false)"><input type="checkbox" value="${p.id}"${sel?' checked':''}> ${p.nome}</label>`;
+    return `<label class="check${sel?' on':''}" onclick="this.classList.toggle('on')"><input type="checkbox" value="${p.id}"${sel?' checked':''} onchange="toggleGeralObra(this,'conv-obras',false)"> ${p.nome}</label>`;
   }).join('')||'');
   const pessoasChecks=allProfiles.map(p=>{
     const sel=isEdit&&(c.pessoas||[]).some(x=>x.id===p.id);
