@@ -1148,7 +1148,9 @@ function viewAtas(){
   // nó de ata
   function ataNode(a){
     const uid = session?.user?.id;
-    const allConfirmed = (a.presentes||[]).length>0 && (a.presentes||[]).every(p=>(a.assinaturas||[]).includes(p.id));
+    const isCriador = !!(uid && a.created_by === uid);
+    const nonCreatorPresentes = (a.presentes||[]).filter(p=>p.id!==a.created_by);
+    const allConfirmed = nonCreatorPresentes.length===0 || nonCreatorPresentes.every(p=>(a.assinaturas||[]).includes(p.id));
     const visTag = a.pessoas.length
       ? `<span style="font-size:11.5px;color:var(--muted)">${allConfirmed?'<span style=\"color:var(--green)\">✓</span>':'👁'} ${a.pessoas.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`
       : `<span style="font-size:11.5px;color:var(--muted)">${allConfirmed?'<span style=\"color:var(--green)\">✓</span>':'👁'} Todos</span>`;
@@ -1181,10 +1183,10 @@ function viewAtas(){
       </div>` : '';
     const isPresente = (a.presentes||[]).some(p=>p.id===uid);
     const jaAssinou = (a.assinaturas||[]).includes(uid);
-    const naoAssinaram = (a.presentes||[]).filter(p=>!(a.assinaturas||[]).includes(p.id));
+    const naoAssinaram = (a.presentes||[]).filter(p=>p.id!==a.created_by && !(a.assinaturas||[]).includes(p.id));
     const assinaturaHtml = (a.presentes||[]).length ? `
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        ${isPresente && !jaAssinou ? `<button class="btn btn-primary btn-sm" onclick="assinarAta('${a.id}')">✓ Confirmar de acordo</button>` : ''}
+        ${!isCriador && isPresente && !jaAssinou ? `<button class="btn btn-primary btn-sm" onclick="assinarAta('${a.id}')">✓ Confirmar de acordo</button>` : ''}
         ${naoAssinaram.length===0
           ? `<span style="font-size:11.5px;color:var(--green)">✓ Todos confirmaram</span>`
           : `<span style="font-size:11.5px;color:var(--muted)">Aguardando: ${naoAssinaram.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`}
@@ -2399,7 +2401,7 @@ function ataPrintHTML(a){
     ? `<ol>${a.pauta.map(it=>`<li><strong>${it.titulo}</strong></li>`).join('')}</ol>`
     : '<p>—</p>';
   const encHtml = (a.entregas||[]).length
-    ? `<table style="width:100%;border-collapse:collapse;border:1px solid #dde5ef;border-top:none"><thead><tr><th style="text-align:center;padding:9px 8px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef;width:36px">Nº</th><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef">Definição</th><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef;width:190px">Responsável</th><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef;width:100px">Prazo</th></tr></thead><tbody>${a.entregas.map(e=>`<tr><td style="padding:10px 8px;border-bottom:1px solid #eef1f7;font-size:12px;text-align:center;white-space:nowrap;color:#4a6480;width:36px">${e.pautaItemOrdem!=null?e.pautaItemOrdem:'—'}</td><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${e.titulo}</td><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${e.responsavelNome||'—'}</td><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${formatDate(e.data)}</td></tr>`).join('')}</tbody></table>`
+    ? `<table style="width:100%;border-collapse:collapse;border:1px solid #dde5ef;border-top:none"><thead><tr><th style="text-align:center;padding:9px 8px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef;width:46px">Nº item</th><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef">Definição</th><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef;width:190px">Responsável</th><th style="text-align:left;padding:9px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef;width:100px">Prazo</th></tr></thead><tbody>${a.entregas.map(e=>`<tr><td style="padding:10px 8px;border-bottom:1px solid #eef1f7;font-size:12px;text-align:center;white-space:nowrap;color:#4a6480;width:36px">${e.pautaItemOrdem!=null?e.pautaItemOrdem:'—'}</td><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${e.titulo}</td><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${e.responsavelNome||'—'}</td><td style="padding:10px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${formatDate(e.data)}</td></tr>`).join('')}</tbody></table>`
     : `<p style="margin:0;font-size:13px;color:#777">—</p>`;
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;color:#1a2535;max-width:100%;line-height:1.5">
@@ -2429,11 +2431,10 @@ function ataPrintHTML(a){
 }
 function exportAtaPdf(ataId){
   const a = atasData.find(x=>x.id===ataId); if(!a) return;
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ata - ${a.titulo}</title><style>@page{size:A4 portrait;margin:12mm}body{margin:0;padding:8mm;font-family:Arial,Helvetica,sans-serif;background:#fff}@media print{body{padding:0}}</style></head><body>${ataPrintHTML(a)}<script>setTimeout(function(){window.print();},350);window.onafterprint=function(){window.close();};<\/script></body></html>`;
-  const blob = new Blob([html], {type:'text/html'});
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
-  setTimeout(()=>URL.revokeObjectURL(url), 15000);
+  const w = window.open('', '_blank');
+  if(!w){ toast('Permita pop-ups para exportar o PDF'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ata - ${a.titulo.replace(/</g,'&lt;')}</title><style>@page{size:A4 portrait;margin:12mm}body{margin:0;padding:8mm;font-family:Arial,Helvetica,sans-serif;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}@media print{body{padding:0}.no-print{display:none}}</style></head><body><div class="no-print" style="position:fixed;top:0;right:0;padding:8px;background:rgba(0,0,0,.6);border-radius:0 0 0 8px;z-index:999"><button onclick="window.print()" style="padding:6px 14px;background:#fff;color:#1a2b3c;border:none;border-radius:5px;font-size:13px;cursor:pointer;font-weight:600">🖨 Salvar PDF</button></div>${ataPrintHTML(a)}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+  w.document.close();
 }
 
 function modalNewDisc(){
