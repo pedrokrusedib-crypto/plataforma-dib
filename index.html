@@ -251,8 +251,10 @@
   .tnode::before{content:"";position:absolute;left:-26px;top:4px;width:14px;height:14px;border-radius:50%;background:var(--card);border:3px solid var(--blue)}
   .tnode.gold::before{border-color:var(--gold)}
   .tnode.green::before{border-color:var(--green)}
-  .tnode.conv::before{border-color:#7c3aed}
-  .tnode.conv .tcard{border-left:3px solid #7c3aed}
+  .tnode.conv::before{border-color:#fff}
+  .tnode.conv .tcard{border-left:3px solid #fff}
+  .tnode.ata::before{border-color:#274b77}
+  .tnode.ata .tcard{border-left:3px solid #274b77}
   .tnode .tdate{font-size:12px;color:var(--muted);font-weight:600}
   .tnode .tcard{margin-top:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
   .tnode .tcard b{color:var(--ink)}
@@ -1149,9 +1151,6 @@ function viewAtas(){
   function ataNode(a){
     const uid = session?.user?.id;
     const isCriador = !!(uid && a.created_by === uid);
-    const visTag = a.pessoas.length
-      ? `<span style="font-size:11.5px;color:var(--muted)">👁 Visível para: ${a.pessoas.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`
-      : `<span style="font-size:11.5px;color:var(--muted)">👁 Visível para: Todos</span>`;
     const obraBadges = a.obras.length
       ? a.obras.map(o=>`<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${o.nome}</span>`).join(' ')
       : '<span class="badge b-gray" style="font-size:11px;padding:2px 8px">Geral</span>';
@@ -1181,7 +1180,7 @@ function viewAtas(){
       </div>` : '';
     const isPresente = (a.presentes||[]).some(p=>p.id===uid);
     const jaAssinou = (a.assinaturas||[]).includes(uid);
-    const jaSinaram = (a.presentes||[]).filter(p=>p.id!==a.created_by && (a.assinaturas||[]).includes(p.id));
+    const jaSinaram = (a.presentes||[]).filter(p=>p.id===a.created_by || (a.assinaturas||[]).includes(p.id));
     const naoAssinaram = (a.presentes||[]).filter(p=>p.id!==a.created_by && !(a.assinaturas||[]).includes(p.id));
     const assinaturaHtml = (a.presentes||[]).length ? `
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
@@ -1192,13 +1191,13 @@ function viewAtas(){
              <div style="font-size:11.5px;color:var(--muted)">Aguardando: ${naoAssinaram.map(p=>p.nome).join(', ')}</div>`}
       </div>` : '';
     return `
-    <div class="tnode ${a.cls}">
+    <div class="tnode ata">
       <div class="tdate">📅 ${a.data}</div>
       <div class="tcard">
         <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px">
           <b style="flex:1">${a.titulo}</b>
           ${obraBadges}
-          <span class="badge b-gray" style="font-size:10px;padding:2px 7px">Ata</span>
+          <span class="badge" style="font-size:10px;padding:2px 7px;background:#1a2b3c;color:#fff;border:1px solid #33517a;border-radius:20px">Ata</span>
           <button class="icon-btn" title="Exportar PDF" onclick="exportAtaPdf('${a.id}')">🖨️</button>
           ${adminBtns}
         </div>
@@ -1206,7 +1205,6 @@ function viewAtas(){
         ${pautaHtml}
         ${entregasHtml}
         ${assinaturaHtml}
-        <div style="margin-top:10px">${visTag}</div>
       </div>
     </div>`;
   }
@@ -1216,7 +1214,7 @@ function viewAtas(){
     const ds = String(c.rawDataReuniao).slice(0,10);
     const obraBadges = c.obras.length ? c.obras.map(o=>`<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${o.nome}</span>`).join(' ') : '';
     const pessoasChips = c.pessoas.length
-      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${c.pessoas.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome.split(' ')[0]}</span>`).join('')}</div>`
+      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${c.pessoas.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome}</span>`).join('')}</div>`
       : '';
     const pautaHtml = c.pauta.length
       ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)"><div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px">Pauta</div><ol style="padding-left:18px;display:flex;flex-direction:column;gap:4px">${c.pauta.map(it=>`<li style="font-size:13px;color:var(--ink-2)">${it.titulo}</li>`).join('')}</ol></div>`
@@ -1235,7 +1233,7 @@ function viewAtas(){
         <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px">
           <b style="flex:1">${c.titulo}</b>
           ${obraBadges}
-          <span class="badge" style="font-size:10px;padding:2px 7px;background:rgba(124,58,237,.12);color:#7c3aed;border-radius:20px">Convocação</span>
+          <span class="badge" style="font-size:10px;padding:2px 7px;background:#fff;color:#13202f;border-radius:20px">Convocação</span>
         </div>
         ${c.local?`<div style="font-size:13px;color:var(--muted)">📍 ${c.local}</div>`:''}
         ${pessoasChips}
@@ -1248,7 +1246,7 @@ function viewAtas(){
   // timeline unificada, ordenada por data (mais recente primeiro)
   const allItems = [
     ...filteredConvs.map(c=>({ tipo:'conv', sortKey: String(c.rawDataReuniao).slice(0,10), item:c })),
-    ...filteredAtas.map(a=>({ tipo:'ata', sortKey: a.data, item:a }))
+    ...filteredAtas.map(a=>({ tipo:'ata', sortKey: String(a.rawData).slice(0,10), item:a }))
   ].sort((a,b)=>b.sortKey.localeCompare(a.sortKey));
 
   const visible = typeFilter==='conv' ? allItems.filter(x=>x.tipo==='conv')
@@ -1318,7 +1316,7 @@ function viewConvocacoes(){
       ? c.obras.map(o=>`<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${o.nome}</span>`).join(' ')
       : '';
     const pessoasChips = c.pessoas.length
-      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${c.pessoas.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome.split(' ')[0]}</span>`).join('')}</div>`
+      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${c.pessoas.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome}</span>`).join('')}</div>`
       : `<span style="font-size:12px;color:var(--muted)">Sem participantes definidos</span>`;
     const pautaHtml = c.pauta.length
       ? `<ol style="padding-left:18px;margin-top:8px;display:flex;flex-direction:column;gap:4px">${c.pauta.map(it=>`<li style="font-size:13px;color:var(--ink-2)">${it.titulo}</li>`).join('')}</ol>`
