@@ -677,6 +677,13 @@ function todayStr(){
 function daysUntil(dateStr){
   return Math.round((new Date(dateStr+'T00:00:00') - new Date(todayStr()+'T00:00:00'))/86400000);
 }
+function formatDataHora(ts){
+  if(!ts) return '';
+  const d = new Date(ts);
+  if(isNaN(d)) return '';
+  const p2 = n=>String(n).padStart(2,'0');
+  return `${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+}
 
 /* ============================================================
    CARREGAMENTO DE DADOS (Supabase)
@@ -825,10 +832,10 @@ async function loadData(){
       if(ox!==oy) return ox-oy;
       return x.data<y.data?-1:x.data>y.data?1:0;
     });
-    const assinaturas = ataAssinaturasRows.filter(s=>s.ata_id===a.id).map(s=>s.user_id);
-    const externos = ataExternosRows.filter(x=>x.ata_id===a.id).map(x=>({id:x.id, nome:x.nome, email:x.email, token:x.token, confirmado:!!x.confirmado}));
+    const assinaturas = ataAssinaturasRows.filter(s=>s.ata_id===a.id).map(s=>({userId:s.user_id, em:s.signed_at||null}));
+    const externos = ataExternosRows.filter(x=>x.ata_id===a.id).map(x=>({id:x.id, nome:x.nome, email:x.email, token:x.token, confirmado:!!x.confirmado, confirmadoEm:x.confirmado_em||null}));
 
-    return {id:a.id, titulo:a.titulo, data:formatDate(a.data), rawData:a.data, cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, convocacaoId:a.convocacao_id||null, obras, pessoas, presentes, pauta, entregas, assinaturas, externos};
+    return {id:a.id, titulo:a.titulo, data:formatDate(a.data), rawData:a.data, createdAt:a.created_at||null, cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, convocacaoId:a.convocacao_id||null, obras, pessoas, presentes, pauta, entregas, assinaturas, externos};
   });
 
   const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
@@ -1190,31 +1197,26 @@ function viewAtas(){
         }).join('')}
       </div>` : '';
     const isPresente = (a.presentes||[]).some(p=>p.id===uid);
-    const jaAssinou = (a.assinaturas||[]).includes(uid);
-    const jaSinaram = (a.presentes||[]).filter(p=>p.id===a.created_by || (a.assinaturas||[]).includes(p.id));
+    const assinMap = {}; (a.assinaturas||[]).forEach(s=>{ assinMap[s.userId]=s.em||true; });
+    const jaAssinou = !!(uid && assinMap[uid]);
+    const jaSinaram = (a.presentes||[]).filter(p=>p.id===a.created_by || assinMap[p.id])
+      .map(p=>({id:p.id, nome:p.nome, em: p.id===a.created_by ? a.createdAt : (assinMap[p.id]===true?null:assinMap[p.id])}));
     const criadorP = allProfiles.find(p=>p.id===a.created_by);
-    if(criadorP && !jaSinaram.some(p=>p.id===criadorP.id)) jaSinaram.unshift(criadorP);
-    const naoAssinaram = (a.presentes||[]).filter(p=>p.id!==a.created_by && !(a.assinaturas||[]).includes(p.id));
-    const extConfirmados = (a.externos||[]).filter(x=>x.confirmado);
+    if(criadorP && !jaSinaram.some(p=>p.id===criadorP.id)) jaSinaram.unshift({id:criadorP.id, nome:criadorP.nome, em:a.createdAt});
+    const naoAssinaram = (a.presentes||[]).filter(p=>p.id!==a.created_by && !assinMap[p.id]);
+    const extConfirmados = (a.externos||[]).filter(x=>x.confirmado).map(x=>({nome:x.nome, em:x.confirmadoEm}));
     const extPendentes = (a.externos||[]).filter(x=>!x.confirmado);
-    const confirmadosNomes = [...jaSinaram.map(p=>p.nome), ...extConfirmados.map(x=>x.nome)];
+    const confirmados = [...jaSinaram, ...extConfirmados];
     const aguardandoNomes = [...naoAssinaram.map(p=>p.nome), ...extPendentes.map(x=>x.nome)];
-    const enviarBtns = isControlador() && extPendentes.length ? `
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-        ${extPendentes.map(x=>`<button class="btn btn-ghost btn-sm" style="font-size:11.5px" onclick="enviarAtaExterno('${a.id}','${x.id}')" title="Enviar ata + link de confirmação para ${x.email}">✉️ ${x.nome}</button>`).join('')}
-      </div>` : '';
     const assinaturaHtml = ((a.presentes||[]).length || (a.externos||[]).length) ? `
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
         ${!isCriador && isPresente && !jaAssinou ? `<button class="btn btn-primary btn-sm" style="margin-bottom:6px" onclick="assinarAta('${a.id}')">✓ Confirmar de acordo</button>` : ''}
-        ${aguardandoNomes.length===0
-          ? `<div style="font-size:11.5px;color:var(--green)">✓ Todos confirmaram</div>`
-          : `${confirmadosNomes.length ? `<div style="font-size:11.5px;color:var(--green);margin-bottom:2px">✓ ${confirmadosNomes.join(', ')}</div>` : ''}
-             <div style="font-size:12px;color:var(--red);font-weight:700">⚠ Aguardando: ${aguardandoNomes.join(', ')}</div>`}
-        ${enviarBtns}
+        ${confirmados.length ? `<div style="font-size:11.5px;color:var(--green);margin-bottom:2px">✓ ${confirmados.map(c=>c.nome+(c.em?` <span style="opacity:.75;font-size:10.5px">(${formatDataHora(c.em)})</span>`:'')).join(', ')}</div>` : ''}
+        ${aguardandoNomes.length ? `<div style="font-size:12px;color:var(--red);font-weight:700">⚠ Aguardando: ${aguardandoNomes.join(', ')}</div>` : `<div style="font-size:11.5px;color:var(--green)">Todos confirmaram ✓</div>`}
       </div>` : '';
     return `
     <div class="tnode ata">
-      <div class="tdate">📅 ${a.data}</div>
+      <div class="tdate">📅 ${a.data}${a.createdAt?` <span style="font-weight:400;font-size:11px;color:var(--muted)">· postada em ${formatDataHora(a.createdAt)}</span>`:''}</div>
       <div class="tcard">
         <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px">
           <b style="flex:1">${a.titulo}</b>
@@ -2027,35 +2029,22 @@ async function _enviarAtasExternos(ataId, extIds){
   let pdf = null;
   try{ pdf = await _gerarAtaPdfBase64(a); }catch(e){ console.warn('Geração de PDF falhou:', e); }
   const pdfNome = `Ata - ${a.titulo.replace(/[\\/:*?"<>|]/g,'-')}.pdf`;
-  for(const id of extIds){
-    sb.functions.invoke('enviar-ata-externo',{body:{externoId:id, pdfBase64:pdf, pdfNome}}).catch(()=>{});
-  }
-}
-
-async function enviarAtaExterno(ataId, extId){
-  const a = atasData.find(x=>x.id===ataId); if(!a) return;
-  const x = (a.externos||[]).find(e=>e.id===extId); if(!x) return;
-  toast('Gerando PDF e enviando…');
-  try{
-    let pdf = null;
-    try{ pdf = await _gerarAtaPdfBase64(a); }catch(e){ console.warn('Geração de PDF falhou:', e); }
-    const {data, error} = await sb.functions.invoke('enviar-ata-externo', {body:{externoId: extId, pdfBase64: pdf, pdfNome: `Ata - ${a.titulo.replace(/[\\/:*?"<>|]/g,'-')}.pdf`}});
-    if(error) throw error;
-    if(data && data.error) throw new Error(data.error);
-    toast('E-mail enviado para '+x.email+' ✓');
-    return;
-  }catch(err){
-    console.warn('Envio automático falhou, abrindo e-mail manual:', err);
-    toast('Envio automático indisponível — abrindo seu e-mail…');
-  }
-  const link = location.origin + location.pathname + '?confirmar=' + x.token;
-  const pautaTxt = (a.pauta||[]).length ? a.pauta.map((it,i)=>`${i+1}. ${it.titulo}`).join('\n') : '—';
-  const defsTxt = (a.entregas||[]).length
-    ? a.entregas.map(e=>`- ${e.pautaItemOrdem!=null?e.pautaItemOrdem+'. ':''}${e.titulo}${e.responsavelNome?' ('+e.responsavelNome+')':''} — prazo ${formatDate(e.data)}`).join('\n')
-    : '—';
-  const subject = encodeURIComponent(`Ata de reunião: ${a.titulo}`);
-  const body = encodeURIComponent(`Olá, ${x.nome}!\n\nSegue a ata da reunião "${a.titulo}" (${a.data}).\n\nPauta:\n${pautaTxt}\n\nDefinições:\n${defsTxt}\n\nPara registrar seu DE ACORDO com esta ata, clique no link abaixo:\n${link}\n\n---\nPlataforma Dib & Dib`);
-  window.location.href = `mailto:${x.email}?subject=${subject}&body=${body}`;
+  const results = await Promise.all(extIds.map(async id=>{
+    const ext = (a.externos||[]).find(e=>e.id===id);
+    const nome = ext ? ext.nome : 'externo';
+    try{
+      const {data, error} = await sb.functions.invoke('enviar-ata-externo', {body:{externoId:id, pdfBase64:pdf, pdfNome}});
+      if(error) throw error;
+      if(data && data.error) throw new Error(data.error);
+      return {ok:true, nome};
+    }catch(err){
+      console.warn('Envio de e-mail falhou para', nome, err);
+      return {ok:false, nome};
+    }
+  }));
+  const falhas = results.filter(r=>!r.ok);
+  if(falhas.length) toast('⚠ Falha ao enviar e-mail para: '+falhas.map(f=>f.nome).join(', '));
+  else toast('Ata enviada por e-mail aos participantes externos ✓');
 }
 
 function toggleGeralObra(input, containerId, isGeral){}
@@ -2528,6 +2517,7 @@ function ataPrintHTML(a){
           <div style="font-size:17px;font-weight:800;color:#1a2b3c;letter-spacing:0.5px">ATA DE REUNIÃO</div>
           <div style="font-size:11px;color:#4a6480;margin-top:5px">${a.data}</div>
           <div style="font-size:11px;color:#7a90aa">Obra(s): ${obrasTxt}</div>
+          ${a.createdAt?`<div style="font-size:10px;color:#7a90aa;margin-top:2px">Registrada em ${formatDataHora(a.createdAt)}</div>`:''}
         </div>
       </div>
       <h1 style="font-size:20px;font-weight:800;color:#1a2b3c;margin:0 0 22px">${a.titulo}</h1>
