@@ -2021,9 +2021,20 @@ async function assinarAta(ataId){
   await loadData(); render(); toast('Leitura confirmada ✓');
 }
 
-function enviarAtaExterno(ataId, extId){
+async function enviarAtaExterno(ataId, extId){
   const a = atasData.find(x=>x.id===ataId); if(!a) return;
   const x = (a.externos||[]).find(e=>e.id===extId); if(!x) return;
+  toast('Enviando e-mail para '+x.nome+'…');
+  try{
+    const {data, error} = await sb.functions.invoke('enviar-ata-externo', {body:{externoId: extId}});
+    if(error) throw error;
+    if(data && data.error) throw new Error(data.error);
+    toast('E-mail enviado para '+x.email+' ✓');
+    return;
+  }catch(err){
+    console.warn('Envio automático falhou, abrindo e-mail manual:', err);
+    toast('Envio automático indisponível — abrindo seu e-mail…');
+  }
   const link = location.origin + location.pathname + '?confirmar=' + x.token;
   const pautaTxt = (a.pauta||[]).length ? a.pauta.map((it,i)=>`${i+1}. ${it.titulo}`).join('\n') : '—';
   const defsTxt = (a.entregas||[]).length
@@ -2253,7 +2264,10 @@ async function saveAta(){
   if(pessoaIds.length) await sb.from('ata_pessoas').insert(pessoaIds.map(uid=>({ata_id:ataRow.id,user_id:uid})));
   if(presentesIds.length) await sb.from('ata_presentes').insert(presentesIds.map(uid=>({ata_id:ataRow.id,user_id:uid})));
   if(pauta.length) await sb.from('ata_pauta').insert(pauta.map(it=>({ata_id:ataRow.id, ordem:it.ordem, titulo:it.titulo})));
-  if(externos.length) await sb.from('ata_externos').insert(externos.map(x=>({ata_id:ataRow.id, nome:x.nome, email:x.email})));
+  if(externos.length){
+    const {data:extRows} = await sb.from('ata_externos').insert(externos.map(x=>({ata_id:ataRow.id, nome:x.nome, email:x.email}))).select();
+    (extRows||[]).forEach(r=>sb.functions.invoke('enviar-ata-externo',{body:{externoId:r.id}}).catch(()=>{}));
+  }
   await _saveEncaminhamentos(ataRow.id, firstObraId, encaminhamentos);
   closeModal(); state.view='atas'; state.projId=null;
   await loadData(); render();
@@ -2284,7 +2298,10 @@ async function _doUpdateAta(){
   if(extRemover.length) await sb.from('ata_externos').delete().in('id', extRemover);
   for(const x of externos){
     if(x.id) await sb.from('ata_externos').update({nome:x.nome, email:x.email}).eq('id', x.id);
-    else await sb.from('ata_externos').insert({ata_id:ataId, nome:x.nome, email:x.email});
+    else {
+      const {data:novo} = await sb.from('ata_externos').insert({ata_id:ataId, nome:x.nome, email:x.email}).select().single();
+      if(novo) sb.functions.invoke('enviar-ata-externo',{body:{externoId:novo.id}}).catch(()=>{});
+    }
   }
   closeModal(); await loadData(); render();
   toast('Ata atualizada ✓');
