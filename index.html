@@ -706,7 +706,7 @@ async function loadData(){
   }
 
   // Tabelas opcionais — allSettled: falha silenciosa se coluna/tabela não existir
-  const [ataObrasSettled, prazosSettled, ataPautaSettled, ataPresentesSettled, convsSettled, convPautaSettled, convPessoasSettled, convObrasSettled, ataAssinaturasSettled] = await Promise.allSettled([
+  const [ataObrasSettled, prazosSettled, ataPautaSettled, ataPresentesSettled, convsSettled, convPautaSettled, convPessoasSettled, convObrasSettled, ataAssinaturasSettled, ataExternosSettled] = await Promise.allSettled([
     sb.from('ata_obras').select('*'),
     sb.from('prazos').select('*').not('ata_id','is',null).order('data'),
     sb.from('ata_pauta').select('*').order('ordem'),
@@ -716,6 +716,7 @@ async function loadData(){
     sb.from('convocacao_pessoas').select('*'),
     sb.from('convocacao_obras').select('*'),
     sb.from('ata_assinaturas').select('*'),
+    sb.from('ata_externos').select('*'),
   ]);
   const ataObrasRows = (ataObrasSettled.status==='fulfilled' && !ataObrasSettled.value?.error)
     ? (ataObrasSettled.value?.data||[]) : [];
@@ -735,6 +736,8 @@ async function loadData(){
     ? (convObrasSettled.value?.data||[]) : [];
   const ataAssinaturasRows = (ataAssinaturasSettled.status==='fulfilled' && !ataAssinaturasSettled.value?.error)
     ? (ataAssinaturasSettled.value?.data||[]) : [];
+  const ataExternosRows = (ataExternosSettled.status==='fulfilled' && !ataExternosSettled.value?.error)
+    ? (ataExternosSettled.value?.data||[]) : [];
 
 
   dismissedNotifs = new Set((notifDismissalsRes.data||[]).map(r=>r.notif_key));
@@ -816,10 +819,16 @@ async function loadData(){
     const entregas = prazosRows.filter(pr=>pr.ata_id===a.id).map(pr=>{
       const rp = pr.responsavel_id && profileById[pr.responsavel_id];
       return {id:pr.id, titulo:pr.titulo, data:pr.data, status:pr.status||'pendente', obraId:pr.obra_id, responsavelId:pr.responsavel_id||null, responsavelNome:(rp&&rp.nome)||null, pautaItemOrdem:pr.pauta_item_ordem||null};
-    }).sort((x,y)=>x.data<y.data?-1:x.data>y.data?1:0);
+    }).sort((x,y)=>{
+      const ox = x.pautaItemOrdem==null ? Infinity : x.pautaItemOrdem;
+      const oy = y.pautaItemOrdem==null ? Infinity : y.pautaItemOrdem;
+      if(ox!==oy) return ox-oy;
+      return x.data<y.data?-1:x.data>y.data?1:0;
+    });
     const assinaturas = ataAssinaturasRows.filter(s=>s.ata_id===a.id).map(s=>s.user_id);
+    const externos = ataExternosRows.filter(x=>x.ata_id===a.id).map(x=>({id:x.id, nome:x.nome, email:x.email, token:x.token, confirmado:!!x.confirmado}));
 
-    return {id:a.id, titulo:a.titulo, data:formatDate(a.data), rawData:a.data, cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, convocacaoId:a.convocacao_id||null, obras, pessoas, presentes, pauta, entregas, assinaturas};
+    return {id:a.id, titulo:a.titulo, data:formatDate(a.data), rawData:a.data, cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, convocacaoId:a.convocacao_id||null, obras, pessoas, presentes, pauta, entregas, assinaturas, externos};
   });
 
   const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
@@ -1158,9 +1167,10 @@ function viewAtas(){
     const adminBtns = isControlador() ? `
       <button class="icon-btn" title="Editar ata" onclick="modalEditAta('${a.id}')">✏️</button>
       <button class="icon-btn" title="Excluir ata" style="color:#c0392b;opacity:.7" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.7'" onclick="deleteAta('${a.id}','${a.titulo.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">🗑</button>` : '';
-    const presentesHtml = (a.presentes||[]).length ? `
+    const extChips = (a.externos||[]).map(x=>`<span title="${x.email}" style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px dashed var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:#566a85">${initials(x.nome)}</span>${x.nome}</span>`).join('');
+    const presentesHtml = ((a.presentes||[]).length || (a.externos||[]).length) ? `
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-        ${a.presentes.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome}</span>`).join('')}
+        ${a.presentes.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome}</span>`).join('')}${extChips}
       </div>` : '';
     const pautaHtml = buildPautaHtml(a);
     const entregasHtml = (a.entregas||[]).length ? `
@@ -1185,13 +1195,22 @@ function viewAtas(){
     const criadorP = allProfiles.find(p=>p.id===a.created_by);
     if(criadorP && !jaSinaram.some(p=>p.id===criadorP.id)) jaSinaram.unshift(criadorP);
     const naoAssinaram = (a.presentes||[]).filter(p=>p.id!==a.created_by && !(a.assinaturas||[]).includes(p.id));
-    const assinaturaHtml = (a.presentes||[]).length ? `
+    const extConfirmados = (a.externos||[]).filter(x=>x.confirmado);
+    const extPendentes = (a.externos||[]).filter(x=>!x.confirmado);
+    const confirmadosNomes = [...jaSinaram.map(p=>p.nome), ...extConfirmados.map(x=>x.nome)];
+    const aguardandoNomes = [...naoAssinaram.map(p=>p.nome), ...extPendentes.map(x=>x.nome)];
+    const enviarBtns = isControlador() && extPendentes.length ? `
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        ${extPendentes.map(x=>`<button class="btn btn-ghost btn-sm" style="font-size:11.5px" onclick="enviarAtaExterno('${a.id}','${x.id}')" title="Enviar ata + link de confirmação para ${x.email}">✉️ ${x.nome}</button>`).join('')}
+      </div>` : '';
+    const assinaturaHtml = ((a.presentes||[]).length || (a.externos||[]).length) ? `
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
         ${!isCriador && isPresente && !jaAssinou ? `<button class="btn btn-primary btn-sm" style="margin-bottom:6px" onclick="assinarAta('${a.id}')">✓ Confirmar de acordo</button>` : ''}
-        ${naoAssinaram.length===0
+        ${aguardandoNomes.length===0
           ? `<div style="font-size:11.5px;color:var(--green)">✓ Todos confirmaram</div>`
-          : `${jaSinaram.length ? `<div style="font-size:11.5px;color:var(--green);margin-bottom:2px">✓ ${jaSinaram.map(p=>p.nome).join(', ')}</div>` : ''}
-             <div style="font-size:11.5px;color:var(--muted)">Aguardando: ${naoAssinaram.map(p=>p.nome).join(', ')}</div>`}
+          : `${confirmadosNomes.length ? `<div style="font-size:11.5px;color:var(--green);margin-bottom:2px">✓ ${confirmadosNomes.join(', ')}</div>` : ''}
+             <div style="font-size:12px;color:var(--red);font-weight:700">⚠ Aguardando: ${aguardandoNomes.join(', ')}</div>`}
+        ${enviarBtns}
       </div>` : '';
     return `
     <div class="tnode ata">
@@ -2002,6 +2021,19 @@ async function assinarAta(ataId){
   await loadData(); render(); toast('Leitura confirmada ✓');
 }
 
+function enviarAtaExterno(ataId, extId){
+  const a = atasData.find(x=>x.id===ataId); if(!a) return;
+  const x = (a.externos||[]).find(e=>e.id===extId); if(!x) return;
+  const link = location.origin + location.pathname + '?confirmar=' + x.token;
+  const pautaTxt = (a.pauta||[]).length ? a.pauta.map((it,i)=>`${i+1}. ${it.titulo}`).join('\n') : '—';
+  const defsTxt = (a.entregas||[]).length
+    ? a.entregas.map(e=>`- ${e.pautaItemOrdem!=null?e.pautaItemOrdem+'. ':''}${e.titulo}${e.responsavelNome?' ('+e.responsavelNome+')':''} — prazo ${formatDate(e.data)}`).join('\n')
+    : '—';
+  const subject = encodeURIComponent(`Ata de reunião: ${a.titulo}`);
+  const body = encodeURIComponent(`Olá, ${x.nome}!\n\nSegue a ata da reunião "${a.titulo}" (${a.data}).\n\nPauta:\n${pautaTxt}\n\nDefinições:\n${defsTxt}\n\nPara registrar seu DE ACORDO com esta ata, clique no link abaixo:\n${link}\n\n---\nPlataforma Dib & Dib`);
+  window.location.href = `mailto:${x.email}?subject=${subject}&body=${body}`;
+}
+
 function toggleGeralObra(input, containerId, isGeral){}
 
 let _modalEntregas = [];
@@ -2042,6 +2074,31 @@ function setEntregaTitulo(uid, v){ const e=_modalEntregas.find(x=>x._uid===uid);
 function setEntregaData(uid, v){ const e=_modalEntregas.find(x=>x._uid===uid); if(e) e.data=v; }
 function setEntregaResponsavel(uid, v){ const e=_modalEntregas.find(x=>x._uid===uid); if(e) e.responsavelId=v; }
 function setEntregaStatus(uid, v){ const e=_modalEntregas.find(x=>x._uid===uid); if(e) e.status=v; }
+
+let _modalExternos = [];
+let _externoCount = 0;
+function renderModalExternos(){
+  const el = document.getElementById('a-externos'); if(!el) return;
+  el.innerHTML = _modalExternos.length
+    ? _modalExternos.map(x=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+      <input style="flex:1 1 130px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" placeholder="Nome" value="${(x.nome||'').replace(/"/g,'&quot;')}" oninput="setExternoNome(${x._uid},this.value)"/>
+      <input type="email" style="flex:1 1 170px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" placeholder="email@exemplo.com" value="${(x.email||'').replace(/"/g,'&quot;')}" oninput="setExternoEmail(${x._uid},this.value)"/>
+      ${x.confirmado?'<span style="font-size:11.5px;color:var(--green);white-space:nowrap">✓ confirmou</span>':''}
+      <button class="icon-btn" onclick="removeModalExterno(${x._uid})">✕</button>
+    </div>`).join('')
+    : '<div style="font-size:12.5px;color:var(--muted);padding:4px 0">Nenhum participante externo.</div>';
+}
+function addModalExterno(){
+  _modalExternos.push({_uid:++_externoCount, id:null, nome:'', email:'', confirmado:false});
+  renderModalExternos();
+}
+function removeModalExterno(uid){
+  _modalExternos = _modalExternos.filter(x=>x._uid!==uid);
+  renderModalExternos();
+}
+function setExternoNome(uid, v){ const x=_modalExternos.find(e=>e._uid===uid); if(x) x.nome=v; }
+function setExternoEmail(uid, v){ const x=_modalExternos.find(e=>e._uid===uid); if(x) x.email=v; }
 
 let _modalPauta = [];
 let _pautaCount = 0;
@@ -2111,6 +2168,13 @@ function _ataModalHTML(titulo, a){
       </div>
 
       <div class="field">
+        <label>Participantes externos (sem acesso à plataforma)</label>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Recebem a ata por e-mail e confirmam o de acordo por link, sem login.</p>
+        <div id="a-externos"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addModalExterno()">+ Participante externo</button>
+      </div>
+
+      <div class="field">
         <label>Pauta / itens discutidos</label>
         <div id="a-pauta"></div>
         <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addModalPauta()">+ Adicionar item</button>
@@ -2137,9 +2201,9 @@ function _ataModalHTML(titulo, a){
 
 function modalNewAta(){
   if(!isControlador()) return;
-  _editingAtaId=null; _selectedConvocacaoId=null; _modalEntregas=[]; _entregaCount=0; _modalPauta=[]; _pautaCount=0;
+  _editingAtaId=null; _selectedConvocacaoId=null; _modalEntregas=[]; _entregaCount=0; _modalPauta=[]; _pautaCount=0; _modalExternos=[]; _externoCount=0;
   openModal(_ataModalHTML('Nova ata de reunião', null));
-  renderModalEntregas(); renderModalPauta();
+  renderModalEntregas(); renderModalPauta(); renderModalExternos();
 }
 
 function modalEditAta(ataId){
@@ -2148,8 +2212,9 @@ function modalEditAta(ataId){
   _editingAtaId=ataId; _selectedConvocacaoId=a.convocacaoId||null;
   _modalEntregas=(a.entregas||[]).map(e=>({_uid:++_entregaCount, id:e.id, titulo:e.titulo, data:e.data, status:e.status, responsavelId:e.responsavelId||'', pautaItemOrdem:e.pautaItemOrdem||null}));
   _modalPauta=(a.pauta||[]).map(it=>({_uid:++_pautaCount, id:it.id, titulo:it.titulo}));
+  _modalExternos=(a.externos||[]).map(x=>({_uid:++_externoCount, id:x.id, nome:x.nome, email:x.email, confirmado:x.confirmado}));
   openModal(_ataModalHTML('Editar ata de reunião', a));
-  renderModalEntregas(); renderModalPauta();
+  renderModalEntregas(); renderModalPauta(); renderModalExternos();
 }
 
 function _ataFields(){
@@ -2163,7 +2228,8 @@ function _ataFields(){
   const convocacaoId=convEl ? (convEl.value||null) : (_selectedConvocacaoId||null);
   const pauta=_modalPauta.filter(it=>it.titulo.trim()).map((it,idx)=>({titulo:it.titulo.trim(), ordem:idx}));
   const encaminhamentos=_modalEntregas.filter(e=>e.titulo.trim()&&e.data).map(e=>({titulo:e.titulo.trim(), data:e.data, status:e.status||'pendente', responsavelId:e.responsavelId||null, pautaItemOrdem:e.pautaItemOrdem||null}));
-  return {titulo,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId:obraIds[0]||null,convocacaoId};
+  const externos=_modalExternos.filter(x=>x.nome.trim()&&x.email.trim()).map(x=>({id:x.id||null, nome:x.nome.trim(), email:x.email.trim()}));
+  return {titulo,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,externos,firstObraId:obraIds[0]||null,convocacaoId};
 }
 
 async function _saveEncaminhamentos(ataId, firstObraId, encaminhamentos){
@@ -2178,7 +2244,7 @@ async function _saveEncaminhamentos(ataId, firstObraId, encaminhamentos){
 
 async function saveAta(){
   const f=_ataFields(); if(!f) return;
-  const {titulo,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId,convocacaoId}=f;
+  const {titulo,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,externos,firstObraId,convocacaoId}=f;
   const {data:ataRow,error}=await sb.from('atas').insert({
     obra_id:firstObraId, titulo, data, cls:'gold', created_by:session.user.id, convocacao_id:convocacaoId||null
   }).select().single();
@@ -2187,6 +2253,7 @@ async function saveAta(){
   if(pessoaIds.length) await sb.from('ata_pessoas').insert(pessoaIds.map(uid=>({ata_id:ataRow.id,user_id:uid})));
   if(presentesIds.length) await sb.from('ata_presentes').insert(presentesIds.map(uid=>({ata_id:ataRow.id,user_id:uid})));
   if(pauta.length) await sb.from('ata_pauta').insert(pauta.map(it=>({ata_id:ataRow.id, ordem:it.ordem, titulo:it.titulo})));
+  if(externos.length) await sb.from('ata_externos').insert(externos.map(x=>({ata_id:ataRow.id, nome:x.nome, email:x.email})));
   await _saveEncaminhamentos(ataRow.id, firstObraId, encaminhamentos);
   closeModal(); state.view='atas'; state.projId=null;
   await loadData(); render();
@@ -2196,7 +2263,7 @@ async function saveAta(){
 async function _doUpdateAta(){
   if(!_editingAtaId) return;
   const f=_ataFields(); if(!f) return;
-  const {titulo,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,firstObraId,convocacaoId}=f;
+  const {titulo,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,externos,firstObraId,convocacaoId}=f;
   const ataId=_editingAtaId;
   const {error}=await sb.from('atas').update({titulo,data,obra_id:firstObraId,convocacao_id:convocacaoId||null}).eq('id',ataId);
   if(error){toast('Erro ao atualizar ata: '+error.message);return;}
@@ -2210,6 +2277,15 @@ async function _doUpdateAta(){
   if(pauta.length) await sb.from('ata_pauta').insert(pauta.map(it=>({ata_id:ataId, ordem:it.ordem, titulo:it.titulo})));
   await sb.from('prazos').delete().eq('ata_id',ataId);
   await _saveEncaminhamentos(ataId, firstObraId, encaminhamentos);
+  // externos: diff em vez de delete+insert para preservar token e confirmação
+  const extAntes = (atasData.find(x=>x.id===ataId)||{}).externos||[];
+  const keepIds = externos.filter(x=>x.id).map(x=>x.id);
+  const extRemover = extAntes.filter(x=>!keepIds.includes(x.id)).map(x=>x.id);
+  if(extRemover.length) await sb.from('ata_externos').delete().in('id', extRemover);
+  for(const x of externos){
+    if(x.id) await sb.from('ata_externos').update({nome:x.nome, email:x.email}).eq('id', x.id);
+    else await sb.from('ata_externos').insert({ata_id:ataId, nome:x.nome, email:x.email});
+  }
   closeModal(); await loadData(); render();
   toast('Ata atualizada ✓');
 }
@@ -2397,7 +2473,12 @@ async function deleteConvocacao(convId, titulo){
 /* ----- Exportação de ata em PDF (via window.print() + @media print) ----- */
 function ataPrintHTML(a){
   const obrasTxt = a.obras.length ? a.obras.map(o=>o.nome).join(', ') : 'Geral';
-  const presentesTxt = (a.presentes||[]).length ? a.presentes.map(p=>p.nome).join(', ') : '—';
+  const presNames = [...(a.presentes||[]).map(p=>p.nome), ...(a.externos||[]).map(x=>x.nome)];
+  const presRows = [];
+  for(let i=0;i<presNames.length;i+=3) presRows.push(presNames.slice(i,i+3));
+  const presTable = presRows.length
+    ? `<table style="width:100%;border-collapse:collapse;border:1px solid #dde5ef;border-top:none"><tbody>${presRows.map(r=>`<tr>${[0,1,2].map(j=>`<td style="padding:8px 12px;border-bottom:1px solid #eef1f7;font-size:12px;width:33.33%">${r[j]||''}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+    : `<div style="padding:10px 12px;border:1px solid #dde5ef;border-top:none;font-size:13px;color:#777">—</div>`;
   const pautaHtml = (a.pauta||[]).length
     ? `<ol>${a.pauta.map(it=>`<li><strong>${it.titulo}</strong></li>`).join('')}</ol>`
     : '<p>—</p>';
@@ -2418,7 +2499,7 @@ function ataPrintHTML(a){
       <h1 style="font-size:20px;font-weight:800;color:#1a2b3c;margin:0 0 22px">${a.titulo}</h1>
       <div style="margin-bottom:22px">
         <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Participantes presentes</div>
-        ${(a.presentes||[]).length?`<table style="width:100%;border-collapse:collapse;border:1px solid #dde5ef;border-top:none"><thead><tr><th style="text-align:left;padding:8px 12px;font-size:11px;color:#4a6480;font-weight:600;background:#f0f4f9;border-bottom:1px solid #dde5ef">Nome</th></tr></thead><tbody>${(a.presentes||[]).map(p=>`<tr><td style="padding:11px 12px;border-bottom:1px solid #eef1f7;font-size:13px">${p.nome}</td></tr>`).join('')}</tbody></table>`:`<div style="padding:10px 12px;border:1px solid #dde5ef;border-top:none;font-size:13px;color:#777">${presentesTxt}</div>`}
+        ${presTable}
       </div>
       <div style="margin-bottom:22px">
         <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Pauta</div>
@@ -2667,7 +2748,27 @@ async function initAuth(){
   });
 }
 
-initAuth();
+// Confirmação de "de acordo" por participante externo (link do e-mail, sem login)
+async function handleConfirmToken(){
+  const token = new URLSearchParams(location.search).get('confirmar');
+  if(!token) return false;
+  const wrap = (inner)=>`<div style="min-height:100vh;display:grid;place-items:center;background:var(--canvas);padding:20px"><div style="max-width:420px;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:36px 28px">${inner}</div></div>`;
+  document.body.innerHTML = wrap('<div style="font-size:15px;color:var(--ink-2)">Registrando seu de acordo…</div>');
+  try{
+    const {data,error} = await sb.rpc('confirmar_ata_externo', {p_token: token});
+    if(error) throw error;
+    if(data && data.ok){
+      document.body.innerHTML = wrap(`<div style="font-size:44px;margin-bottom:12px">✅</div><div style="font-size:18px;font-weight:700;color:var(--ink);margin-bottom:8px">De acordo registrado!</div><div style="font-size:14px;color:var(--ink-2)">Obrigado, ${data.nome}. Sua confirmação já consta na ata.</div>`);
+    } else {
+      document.body.innerHTML = wrap('<div style="font-size:44px;margin-bottom:12px">⚠️</div><div style="font-size:16px;font-weight:700;color:var(--ink)">Link inválido ou expirado</div><div style="font-size:13.5px;color:var(--ink-2);margin-top:8px">Peça um novo link a quem enviou a ata.</div>');
+    }
+  }catch(e){
+    document.body.innerHTML = wrap(`<div style="font-size:44px;margin-bottom:12px">⚠️</div><div style="font-size:16px;font-weight:700;color:var(--ink)">Erro ao confirmar</div><div style="font-size:13.5px;color:var(--ink-2);margin-top:8px">${e.message||e}</div>`);
+  }
+  return true;
+}
+
+(async()=>{ if(await handleConfirmToken()) return; initAuth(); })();
 </script>
 </body>
 </html>
