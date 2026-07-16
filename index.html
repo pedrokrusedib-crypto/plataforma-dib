@@ -1163,7 +1163,7 @@ function viewAtas(){
       <button class="icon-btn" title="Excluir ata" style="color:#c0392b;opacity:.7" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.7'" onclick="deleteAta('${a.id}','${a.titulo.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">🗑</button>` : '';
     const presentesHtml = (a.presentes||[]).length ? `
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-        ${a.presentes.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome.split(' ')[0]}</span>`).join('')}
+        ${a.presentes.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome}</span>`).join('')}
       </div>` : '';
     const pautaHtml = buildPautaHtml(a);
     const entregasHtml = (a.entregas||[]).length ? `
@@ -1184,13 +1184,15 @@ function viewAtas(){
       </div>` : '';
     const isPresente = (a.presentes||[]).some(p=>p.id===uid);
     const jaAssinou = (a.assinaturas||[]).includes(uid);
+    const jaSinaram = (a.presentes||[]).filter(p=>p.id!==a.created_by && (a.assinaturas||[]).includes(p.id));
     const naoAssinaram = (a.presentes||[]).filter(p=>p.id!==a.created_by && !(a.assinaturas||[]).includes(p.id));
     const assinaturaHtml = (a.presentes||[]).length ? `
-      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        ${!isCriador && isPresente && !jaAssinou ? `<button class="btn btn-primary btn-sm" onclick="assinarAta('${a.id}')">✓ Confirmar de acordo</button>` : ''}
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
+        ${!isCriador && isPresente && !jaAssinou ? `<button class="btn btn-primary btn-sm" style="margin-bottom:6px" onclick="assinarAta('${a.id}')">✓ Confirmar de acordo</button>` : ''}
         ${naoAssinaram.length===0
-          ? `<span style="font-size:11.5px;color:var(--green)">✓ Todos confirmaram</span>`
-          : `<span style="font-size:11.5px;color:var(--muted)">Aguardando: ${naoAssinaram.map(p=>p.nome.split(' ')[0]).join(', ')}</span>`}
+          ? `<div style="font-size:11.5px;color:var(--green)">✓ Todos confirmaram</div>`
+          : `${jaSinaram.length ? `<div style="font-size:11.5px;color:var(--green);margin-bottom:2px">✓ ${jaSinaram.map(p=>p.nome).join(', ')}</div>` : ''}
+             <div style="font-size:11.5px;color:var(--muted)">Aguardando: ${naoAssinaram.map(p=>p.nome).join(', ')}</div>`}
       </div>` : '';
     return `
     <div class="tnode ${a.cls}">
@@ -2442,7 +2444,7 @@ function exportAtaPdf(ataId){
 }
 function _doExportAtaPdf(a){
   const div = document.createElement('div');
-  div.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;font-family:Arial,Helvetica,sans-serif;background:#fff;color:#1a2535';
+  div.style.cssText = 'position:fixed;left:0;top:0;width:794px;opacity:0.001;pointer-events:none;z-index:9999;font-family:Arial,Helvetica,sans-serif;background:#fff;color:#1a2535';
   div.innerHTML = ataPrintHTML(a);
   document.body.appendChild(div);
   html2pdf().set({
