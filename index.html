@@ -253,8 +253,8 @@
   .tnode.green::before{border-color:var(--green)}
   .tnode.conv::before{border-color:#fff}
   .tnode.conv .tcard{border-left:3px solid #fff}
-  .tnode.ata::before{border-color:#274b77}
-  .tnode.ata .tcard{border-left:3px solid #274b77}
+  .tnode.ata::before{border-color:#3a6bb0}
+  .tnode.ata .tcard{border-left:3px solid #3a6bb0}
   .tnode .tdate{font-size:12px;color:var(--muted);font-weight:600}
   .tnode .tcard{margin-top:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
   .tnode .tcard b{color:var(--ink)}
@@ -1060,7 +1060,8 @@ function viewAgenda(){
   const pendentes = items.filter(e=>e.status==='pendente');
   const concluidas = items.filter(e=>e.status==='concluido');
   const myConvs = convocacoesData.filter(c=>
-    isControlador() || (uid && c.pessoas.some(p=>p.id===uid))
+    (isControlador() || (uid && c.pessoas.some(p=>p.id===uid)))
+    && String(c.rawDataReuniao).slice(0,10) >= todayStr()
   ).sort((a,b)=>a.rawDataReuniao<b.rawDataReuniao?-1:a.rawDataReuniao>b.rawDataReuniao?1:0);
   const hoje = todayStr();
   function entregaCard(e){
@@ -1181,6 +1182,8 @@ function viewAtas(){
     const isPresente = (a.presentes||[]).some(p=>p.id===uid);
     const jaAssinou = (a.assinaturas||[]).includes(uid);
     const jaSinaram = (a.presentes||[]).filter(p=>p.id===a.created_by || (a.assinaturas||[]).includes(p.id));
+    const criadorP = allProfiles.find(p=>p.id===a.created_by);
+    if(criadorP && !jaSinaram.some(p=>p.id===criadorP.id)) jaSinaram.unshift(criadorP);
     const naoAssinaram = (a.presentes||[]).filter(p=>p.id!==a.created_by && !(a.assinaturas||[]).includes(p.id));
     const assinaturaHtml = (a.presentes||[]).length ? `
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
@@ -1197,7 +1200,7 @@ function viewAtas(){
         <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px">
           <b style="flex:1">${a.titulo}</b>
           ${obraBadges}
-          <span class="badge" style="font-size:10px;padding:2px 7px;background:#1a2b3c;color:#fff;border:1px solid #33517a;border-radius:20px">Ata</span>
+          <span class="badge" style="font-size:10px;padding:2px 7px;background:#24466e;color:#fff;border:1px solid #3a6bb0;border-radius:20px">Ata</span>
           <button class="icon-btn" title="Exportar PDF" onclick="exportAtaPdf('${a.id}')">🖨️</button>
           ${adminBtns}
         </div>
