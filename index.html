@@ -2693,31 +2693,20 @@ async function deleteConvocacao(convId, titulo){
 /* ----- Exportação de ata em PDF (via window.print() + @media print) ----- */
 function ataPrintHTML(a){
   const obrasTxt = a.obras.length ? a.obras.map(o=>o.nome).join(', ') : 'Geral';
-  // Registro dos "de acordo" — é o que dá valor probatório ao documento
+  // O "de acordo" vai junto do nome do participante, não em lista separada
   const assinMapP = {}; (a.assinaturas||[]).forEach(s=>{ assinMapP[s.userId]=s.em||null; });
-  const confirmadosP = (a.presentes||[]).filter(p=>p.id===a.created_by || assinMapP[p.id])
-    .map(p=>({nome:p.nome, em: p.id===a.created_by ? a.createdAt : assinMapP[p.id], obs: p.id===a.created_by?'redator':''}));
-  const criadorPP = allProfiles.find(p=>p.id===a.created_by);
-  if(criadorPP && !confirmadosP.some(p=>p.nome===criadorPP.nome)) confirmadosP.unshift({nome:criadorPP.nome, em:a.createdAt, obs:'redator'});
-  (a.externos||[]).filter(x=>x.confirmado).forEach(x=>confirmadosP.push({nome:x.nome, em:x.confirmadoEm, obs:'externo'}));
-  const pendentesP = [
-    ...(a.presentes||[]).filter(p=>p.id!==a.created_by && !assinMapP[p.id]).map(p=>p.nome),
-    ...(a.externos||[]).filter(x=>!x.confirmado).map(x=>x.nome)
+  const presCells = [
+    ...(a.presentes||[]).map(p=>({nome:p.nome, ok: p.id===a.created_by || !!assinMapP[p.id], em: p.id===a.created_by ? a.createdAt : assinMapP[p.id]})),
+    ...(a.externos||[]).map(x=>({nome:x.nome, ok: !!x.confirmado, em: x.confirmadoEm}))
   ];
-  const acordoHtml = (confirmadosP.length || pendentesP.length) ? `
-      <div style="margin-bottom:22px">
-        <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">De acordo</div>
-        <table style="width:100%;border-collapse:collapse;border:1px solid #dde5ef;border-top:none"><tbody>
-        ${confirmadosP.map(c=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${c.nome}${c.obs?` <span style="color:#7a90aa;font-size:10px">(${c.obs})</span>`:''}</td><td style="padding:8px 12px;border-bottom:1px solid #eef1f7;font-size:11.5px;color:#1f7a4d;white-space:nowrap;width:190px">✓ Confirmado em ${formatDataHora(c.em)||'—'}</td></tr>`).join('')}
-        ${pendentesP.map(n=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${n}</td><td style="padding:8px 12px;border-bottom:1px solid #eef1f7;font-size:11.5px;color:#9aa5b1;white-space:nowrap;width:190px">Aguardando confirmação</td></tr>`).join('')}
-        </tbody></table>
-        <div style="font-size:9.5px;color:#7a90aa;margin-top:5px">Confirmações registradas eletronicamente na Plataforma Dib &amp; Dib.</div>
-      </div>` : '';
-  const presNames = [...(a.presentes||[]).map(p=>p.nome), ...(a.externos||[]).map(x=>x.nome)];
+  const algumOk = presCells.some(c=>c.ok);
+  const celula = (c) => c
+    ? `<span style="font-size:12px">${c.nome}</span>${c.ok?` <span style="color:#1f7a4d;font-weight:700">✓</span><span style="color:#7a90aa;font-size:9px"> ${formatDataHora(c.em)||''}</span>`:''}`
+    : '';
   const presRows = [];
-  for(let i=0;i<presNames.length;i+=3) presRows.push(presNames.slice(i,i+3));
+  for(let i=0;i<presCells.length;i+=3) presRows.push(presCells.slice(i,i+3));
   const presTable = presRows.length
-    ? `<table style="width:100%;border-collapse:collapse;border:1px solid #dde5ef;border-top:none"><tbody>${presRows.map(r=>`<tr>${[0,1,2].map(j=>`<td style="padding:8px 12px;border-bottom:1px solid #eef1f7;font-size:12px;width:33.33%">${r[j]||''}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+    ? `<table style="width:100%;border-collapse:collapse;border:1px solid #dde5ef;border-top:none"><tbody>${presRows.map(r=>`<tr>${[0,1,2].map(j=>`<td style="padding:8px 12px;border-bottom:1px solid #eef1f7;width:33.33%;vertical-align:top">${celula(r[j])}</td>`).join('')}</tr>`).join('')}</tbody></table>${algumOk?`<div style="font-size:9.5px;color:#7a90aa;margin-top:5px">✓ De acordo confirmado eletronicamente na Plataforma Dib &amp; Dib.</div>`:''}`
     : `<div style="padding:10px 12px;border:1px solid #dde5ef;border-top:none;font-size:13px;color:#777">—</div>`;
   const pautaHtml = (a.pauta||[]).length
     ? `<ol>${a.pauta.map(it=>`<li><strong>${it.titulo}</strong></li>`).join('')}</ol>`
@@ -2759,7 +2748,6 @@ function ataPrintHTML(a){
         </tbody></table>
         <div style="font-size:9.5px;color:#7a90aa;margin-top:5px">Arquivos disponíveis na Plataforma Dib &amp; Dib.</div>
       </div>` : ''}
-      ${acordoHtml}
     </div>`;
 }
 function _ensureHtml2pdf(){
