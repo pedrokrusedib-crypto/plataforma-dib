@@ -1161,13 +1161,49 @@ function viewAgenda(){
     </div>`;
 }
 
+// render() recria o DOM: devolve o foco e o cursor ao campo de busca
+function setAtaBusca(v){
+  state.ataBusca = v;
+  render();
+  const el = document.getElementById('ata-busca');
+  if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+}
+
 function viewAtas(){
   const obraFilter = state.ataObraFilter||'';
   const typeFilter = state.ataTypeFilter||'all';
+  const busca = normalizeSearch(state.ataBusca||'');
+  const periodo = state.ataPeriodo||'all';
   const hoje = todayStr();
 
-  const filteredAtas = obraFilter ? atasData.filter(a=>a.obras.length===0||a.obras.some(o=>o.id===obraFilter)) : atasData;
-  const filteredConvs = obraFilter ? convocacoesData.filter(c=>c.obras.length===0||c.obras.some(o=>o.id===obraFilter)) : convocacoesData;
+  // corte do período: compara com a data ISO (YYYY-MM-DD)
+  const corte = (()=>{
+    if(periodo==='all') return null;
+    const d = new Date();
+    if(periodo==='30') d.setDate(d.getDate()-30);
+    else if(periodo==='90') d.setDate(d.getDate()-90);
+    else if(periodo==='ano') return `${d.getFullYear()}-01-01`;
+    return d.toISOString().slice(0,10);
+  })();
+  const dentroPeriodo = iso => !corte || String(iso).slice(0,10) >= corte;
+  const casaBusca = txt => !busca || normalizeSearch(txt).includes(busca);
+
+  let filteredAtas = obraFilter ? atasData.filter(a=>a.obras.length===0||a.obras.some(o=>o.id===obraFilter)) : atasData;
+  let filteredConvs = obraFilter ? convocacoesData.filter(c=>c.obras.length===0||c.obras.some(o=>o.id===obraFilter)) : convocacoesData;
+  filteredAtas = filteredAtas.filter(a=>dentroPeriodo(a.rawData) && casaBusca([
+    a.titulo,
+    (a.pauta||[]).map(p=>p.titulo).join(' '),
+    (a.entregas||[]).map(e=>e.titulo+' '+(e.responsavelNome||'')).join(' '),
+    (a.presentes||[]).map(p=>p.nome).join(' '),
+    (a.externos||[]).map(x=>x.nome).join(' '),
+    a.obras.map(o=>o.nome).join(' ')
+  ].join(' ')));
+  filteredConvs = filteredConvs.filter(c=>dentroPeriodo(c.rawDataReuniao) && casaBusca([
+    c.titulo, c.local||'',
+    (c.pauta||[]).map(p=>p.titulo).join(' '),
+    (c.pessoas||[]).map(p=>p.nome).join(' '),
+    c.obras.map(o=>o.nome).join(' ')
+  ].join(' ')));
 
   // nó de ata
   function ataNode(a){
@@ -1303,7 +1339,21 @@ function viewAtas(){
     </div>
     <div class="chat-tabs" style="margin-bottom:8px">${typeTabsHtml}</div>
     <div class="chat-tabs">${obraTabsHtml}</div>
-    <div class="tline">${nodes||'<div class="empty"><div class="e-ico">📋</div>Sem registros.</div>'}</div>`;
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0 4px">
+      <div style="position:relative;flex:1 1 260px">
+        <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--muted);pointer-events:none">🔍</span>
+        <input id="ata-busca" value="${(state.ataBusca||'').replace(/"/g,'&quot;')}" oninput="setAtaBusca(this.value)" placeholder="Buscar por título, pauta, definição, participante..." style="width:100%;box-sizing:border-box;padding:9px 32px 9px 32px;border:1.5px solid var(--line);border-radius:9px;background:var(--card-2);color:var(--ink);font-size:13px"/>
+        ${state.ataBusca?`<button onclick="setAtaBusca('')" title="Limpar busca" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px">✕</button>`:''}
+      </div>
+      <select onchange="state.ataPeriodo=this.value;render()" style="padding:9px 10px;border:1.5px solid var(--line);border-radius:9px;background:var(--card-2);color:var(--ink);font-size:13px">
+        <option value="all" ${periodo==='all'?'selected':''}>Todo o período</option>
+        <option value="30" ${periodo==='30'?'selected':''}>Últimos 30 dias</option>
+        <option value="90" ${periodo==='90'?'selected':''}>Últimos 90 dias</option>
+        <option value="ano" ${periodo==='ano'?'selected':''}>Este ano</option>
+      </select>
+      ${(busca||periodo!=='all')?`<span style="font-size:12px;color:var(--muted)">${visible.length} resultado${visible.length===1?'':'s'}</span>`:''}
+    </div>
+    <div class="tline">${nodes||`<div class="empty"><div class="e-ico">🔍</div>${busca||periodo!=='all'?'Nada encontrado com esses filtros.':'Sem registros.'}</div>`}</div>`;
 }
 
 async function toggleEntregaStatus(prazoId){
