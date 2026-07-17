@@ -255,6 +255,8 @@
   .tnode.conv .tcard{border-left:3px solid #fff}
   .tnode.ata::before{border-color:#3a6bb0}
   .tnode.ata .tcard{border-left:3px solid #3a6bb0}
+  .tnode.ata.rascunho::before{border-color:var(--amber);border-style:dashed}
+  .tnode.ata.rascunho .tcard{border-left:3px dashed var(--amber)}
   .tnode .tdate{font-size:12px;color:var(--muted);font-weight:600}
   .tnode .tcard{margin-top:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
   .tnode .tcard b{color:var(--ink)}
@@ -840,7 +842,7 @@ async function loadData(){
     const assinaturas = ataAssinaturasRows.filter(s=>s.ata_id===a.id).map(s=>({userId:s.user_id, em:s.signed_at||null}));
     const externos = ataExternosRows.filter(x=>x.ata_id===a.id).map(x=>({id:x.id, nome:x.nome, email:x.email, token:x.token, confirmado:!!x.confirmado, confirmadoEm:x.confirmado_em||null}));
 
-    return {id:a.id, titulo:a.titulo, data:formatDate(a.data), rawData:a.data, createdAt:a.created_at||null, cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, convocacaoId:a.convocacao_id||null, obras, pessoas, presentes, pauta, entregas, assinaturas, externos};
+    return {id:a.id, titulo:a.titulo, data:formatDate(a.data), rawData:a.data, createdAt:a.created_at||null, status:a.status||'publicada', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, convocacaoId:a.convocacao_id||null, obras, pessoas, presentes, pauta, entregas, assinaturas, externos};
   });
 
   const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
@@ -1188,7 +1190,9 @@ function viewAtas(){
   const dentroPeriodo = iso => !corte || String(iso).slice(0,10) >= corte;
   const casaBusca = txt => !busca || normalizeSearch(txt).includes(busca);
 
-  let filteredAtas = obraFilter ? atasData.filter(a=>a.obras.length===0||a.obras.some(o=>o.id===obraFilter)) : atasData;
+  // rascunho é trabalho em andamento: só quem administra enxerga
+  const atasVisiveis = isControlador() ? atasData : atasData.filter(a=>a.status!=='rascunho');
+  let filteredAtas = obraFilter ? atasVisiveis.filter(a=>a.obras.length===0||a.obras.some(o=>o.id===obraFilter)) : atasVisiveis;
   let filteredConvs = obraFilter ? convocacoesData.filter(c=>c.obras.length===0||c.obras.some(o=>o.id===obraFilter)) : convocacoesData;
   filteredAtas = filteredAtas.filter(a=>dentroPeriodo(a.rawData) && casaBusca([
     a.titulo,
@@ -1213,6 +1217,7 @@ function viewAtas(){
       ? a.obras.map(o=>`<span class="badge b-blue" style="font-size:11px;padding:2px 8px">${o.nome}</span>`).join(' ')
       : '<span class="badge b-gray" style="font-size:11px;padding:2px 8px">Geral</span>';
     const adminBtns = isControlador() ? `
+      ${a.status==='rascunho'?`<button class="btn btn-primary btn-sm" style="font-size:11.5px;padding:4px 10px" title="Publicar e notificar os participantes" onclick="publicarAta('${a.id}')">📤 Publicar</button>`:''}
       <button class="icon-btn" title="Editar ata" onclick="modalEditAta('${a.id}')">✏️</button>
       <button class="icon-btn" title="Excluir ata" style="color:#c0392b;opacity:.7" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.7'" onclick="deleteAta('${a.id}','${a.titulo.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">🗑</button>` : '';
     const extChips = (a.externos||[]).map(x=>`<span title="${x.email}" style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px dashed var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:#566a85">${initials(x.nome)}</span>${x.nome}</span>`).join('');
@@ -1259,8 +1264,10 @@ function viewAtas(){
         ${aguardandoNomes.length ? `<div style="font-size:12px;color:var(--red);font-weight:700">⚠ Aguardando: ${aguardandoNomes.join(', ')}</div>` : `<div style="font-size:11.5px;color:var(--green)">Todos confirmaram ✓</div>`}
       </div>` : '';
     return `
-    <div class="tnode ata">
-      <div class="tdate"><span class="badge" style="font-size:10px;padding:2px 8px;background:#24466e;color:#fff;border:1px solid #3a6bb0;border-radius:20px;margin-right:7px;vertical-align:middle">Ata</span>📅 ${a.data}${a.createdAt?` <span style="font-weight:400;font-size:11px;color:var(--muted)">· postada em ${formatDataHora(a.createdAt)}</span>`:''}</div>
+    <div class="tnode ata${a.status==='rascunho'?' rascunho':''}">
+      <div class="tdate">${a.status==='rascunho'
+        ? `<span class="badge" style="font-size:10px;padding:2px 8px;background:var(--amber-bg);color:var(--amber);border:1px dashed var(--amber);border-radius:20px;margin-right:7px;vertical-align:middle">✎ Rascunho</span>`
+        : `<span class="badge" style="font-size:10px;padding:2px 8px;background:#24466e;color:#fff;border:1px solid #3a6bb0;border-radius:20px;margin-right:7px;vertical-align:middle">Ata</span>`}📅 ${a.data}${a.createdAt?` <span style="font-weight:400;font-size:11px;color:var(--muted)">· ${a.status==='rascunho'?'criada':'postada'} em ${formatDataHora(a.createdAt)}</span>`:''}</div>
       <div class="tcard">
         <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px">
           <b style="flex:1">${a.titulo}</b>
@@ -2079,6 +2086,20 @@ async function assinarAta(ataId){
   await loadData(); render(); toast('Leitura confirmada ✓');
 }
 
+// Publicar: o trigger trg_notify_atas_publicada avisa os usuários da
+// plataforma; os externos recebem PDF + link daqui.
+async function publicarAta(ataId){
+  if(!isControlador()) return;
+  const a = atasData.find(x=>x.id===ataId); if(!a) return;
+  const externos = (a.externos||[]).length;
+  if(!confirm(`Publicar a ata "${a.titulo}"?\n\nOs participantes serão notificados por e-mail${externos?` e os ${externos} participante(s) externo(s) receberão o PDF com o pedido de de acordo`:''}.`)) return;
+  const {error} = await sb.from('atas').update({status:'publicada'}).eq('id', ataId);
+  if(error){ toast('Erro ao publicar: '+error.message); return; }
+  await loadData(); render();
+  toast('Ata publicada ✓');
+  _enviarAtasExternos(ataId, (a.externos||[]).map(x=>x.id));
+}
+
 async function _enviarAtasExternos(ataId, extIds){
   if(!extIds || !extIds.length) return;
   const a = atasData.find(x=>x.id===ataId); if(!a) return;
@@ -2270,7 +2291,11 @@ function _ataModalHTML(titulo, a){
         <div class="checks" id="a-pessoas" style="grid-template-columns:1fr">${pessoasChecks||'<span style="color:var(--muted);font-size:13px">Nenhum outro usuário.</span>'}</div>
       </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="${saveFn}">${isEdit?'Salvar alterações':'Salvar ata'}</button></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancelar</button>
+      ${isEdit?'':`<button class="btn btn-ghost btn-sm" title="Salvar sem notificar ninguém — você publica depois" onclick="saveAta(true)">✎ Salvar rascunho</button>`}
+      <button class="btn btn-primary btn-sm" onclick="${saveFn}">${isEdit?'Salvar alterações':'Salvar e publicar'}</button>
+    </div>
   </div>`;
 }
 
@@ -2317,11 +2342,12 @@ async function _saveEncaminhamentos(ataId, firstObraId, encaminhamentos){
   if(pessoasRows.length) await sb.from('prazo_pessoas').insert(pessoasRows);
 }
 
-async function saveAta(){
+async function saveAta(comoRascunho){
   const f=_ataFields(); if(!f) return;
   const {titulo,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,externos,firstObraId,convocacaoId}=f;
+  const status = comoRascunho ? 'rascunho' : 'publicada';
   const {data:ataRow,error}=await sb.from('atas').insert({
-    obra_id:firstObraId, titulo, data, cls:'gold', created_by:session.user.id, convocacao_id:convocacaoId||null
+    obra_id:firstObraId, titulo, data, cls:'gold', status, created_by:session.user.id, convocacao_id:convocacaoId||null
   }).select().single();
   if(error){toast('Erro ao registrar ata: '+error.message);return;}
   if(obraIds.length) await sb.from('ata_obras').insert(obraIds.map(oid=>({ata_id:ataRow.id,obra_id:oid})));
@@ -2336,8 +2362,9 @@ async function saveAta(){
   await _saveEncaminhamentos(ataRow.id, firstObraId, encaminhamentos);
   closeModal(); state.view='atas'; state.projId=null;
   await loadData(); render();
-  toast('Ata registrada ✓');
-  _enviarAtasExternos(ataRow.id, novosExternosIds);
+  toast(comoRascunho ? 'Rascunho salvo — ninguém foi notificado ✎' : 'Ata registrada ✓');
+  // rascunho não notifica ninguém; o envio acontece ao publicar
+  if(!comoRascunho) _enviarAtasExternos(ataRow.id, novosExternosIds);
 }
 
 // Impressão digital do conteúdo que os participantes concordaram.
@@ -2409,8 +2436,10 @@ async function _doUpdateAta(){
     reenviarIds = (todosExt||[]).map(r=>r.id);
   }
   closeModal(); await loadData(); render();
-  toast(resetarAcordos ? 'Ata atualizada — novo de acordo solicitado ✓' : 'Ata atualizada ✓');
-  _enviarAtasExternos(ataId, reenviarIds);
+  const eraRascunho = ataAntes && ataAntes.status==='rascunho';
+  toast(eraRascunho ? 'Rascunho atualizado ✎' : (resetarAcordos ? 'Ata atualizada — novo de acordo solicitado ✓' : 'Ata atualizada ✓'));
+  // rascunho não notifica: os externos recebem quando a ata for publicada
+  if(!eraRascunho) _enviarAtasExternos(ataId, reenviarIds);
 }
 
 async function deleteAta(ataId, titulo){
@@ -2640,6 +2669,7 @@ function ataPrintHTML(a){
           ${a.createdAt?`<div style="font-size:10px;color:#7a90aa;margin-top:2px">Registrada em ${formatDataHora(a.createdAt)}</div>`:''}
         </div>
       </div>
+      ${a.status==='rascunho'?`<div style="border:1.5px dashed #c9922e;background:#fdf6e6;color:#8a6318;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;text-align:center;padding:7px;border-radius:4px;margin-bottom:16px">Rascunho — documento não publicado</div>`:''}
       <h1 style="font-size:20px;font-weight:800;color:#1a2b3c;margin:0 0 22px">${a.titulo}</h1>
       <div style="margin-bottom:22px">
         <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Participantes presentes</div>
