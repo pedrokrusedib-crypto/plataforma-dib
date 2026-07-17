@@ -720,7 +720,7 @@ async function loadData(){
   }
 
   // Tabelas opcionais — allSettled: falha silenciosa se coluna/tabela não existir
-  const [ataObrasSettled, prazosSettled, ataPautaSettled, ataPresentesSettled, convsSettled, convPautaSettled, convPessoasSettled, convObrasSettled, ataAssinaturasSettled, ataExternosSettled] = await Promise.allSettled([
+  const [ataObrasSettled, prazosSettled, ataPautaSettled, ataPresentesSettled, convsSettled, convPautaSettled, convPessoasSettled, convObrasSettled, ataAssinaturasSettled, ataExternosSettled, ataAnexosSettled] = await Promise.allSettled([
     sb.from('ata_obras').select('*'),
     sb.from('prazos').select('*').not('ata_id','is',null).order('data'),
     sb.from('ata_pauta').select('*').order('ordem'),
@@ -731,6 +731,7 @@ async function loadData(){
     sb.from('convocacao_obras').select('*'),
     sb.from('ata_assinaturas').select('*'),
     sb.from('ata_externos').select('*'),
+    sb.from('ata_anexos').select('*').order('created_at'),
   ]);
   const ataObrasRows = (ataObrasSettled.status==='fulfilled' && !ataObrasSettled.value?.error)
     ? (ataObrasSettled.value?.data||[]) : [];
@@ -752,6 +753,8 @@ async function loadData(){
     ? (ataAssinaturasSettled.value?.data||[]) : [];
   const ataExternosRows = (ataExternosSettled.status==='fulfilled' && !ataExternosSettled.value?.error)
     ? (ataExternosSettled.value?.data||[]) : [];
+  const ataAnexosRows = (ataAnexosSettled.status==='fulfilled' && !ataAnexosSettled.value?.error)
+    ? (ataAnexosSettled.value?.data||[]) : [];
 
 
   dismissedNotifs = new Set((notifDismissalsRes.data||[]).map(r=>r.notif_key));
@@ -841,8 +844,9 @@ async function loadData(){
     });
     const assinaturas = ataAssinaturasRows.filter(s=>s.ata_id===a.id).map(s=>({userId:s.user_id, em:s.signed_at||null}));
     const externos = ataExternosRows.filter(x=>x.ata_id===a.id).map(x=>({id:x.id, nome:x.nome, email:x.email, token:x.token, confirmado:!!x.confirmado, confirmadoEm:x.confirmado_em||null}));
+    const anexos = ataAnexosRows.filter(an=>an.ata_id===a.id).map(an=>({id:an.id, nome:an.nome, path:an.path, tamanho:an.tamanho, tipo:an.tipo}));
 
-    return {id:a.id, titulo:a.titulo, data:formatDate(a.data), rawData:a.data, createdAt:a.created_at||null, status:a.status||'publicada', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, convocacaoId:a.convocacao_id||null, obras, pessoas, presentes, pauta, entregas, assinaturas, externos};
+    return {id:a.id, titulo:a.titulo, data:formatDate(a.data), rawData:a.data, createdAt:a.created_at||null, status:a.status||'publicada', cls:a.cls||'gold', created_by:a.created_by, obra_id:a.obra_id||null, convocacaoId:a.convocacao_id||null, obras, pessoas, presentes, pauta, entregas, assinaturas, externos, anexos};
   });
 
   const obraNomeById = Object.fromEntries(obrasRows.map(o=>[o.id,o.nome]));
@@ -1228,6 +1232,13 @@ function viewAtas(){
           </div>`;
         }).join('')}
       </div>` : '';
+    const anexosHtml = (a.anexos||[]).length ? `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
+        <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px">Anexos</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${a.anexos.map(an=>`<button onclick="abrirAnexo('${an.path.replace(/'/g,"\\'")}')" title="${escHtml(an.nome)}${an.tamanho?' · '+fmtTamanho(an.tamanho):''}" style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;color:var(--ink);cursor:pointer;max-width:240px" onmouseenter="this.style.borderColor='var(--blue)'" onmouseleave="this.style.borderColor='var(--line)'"><span>${iconeAnexo(an.tipo,an.nome)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(an.nome)}</span></button>`).join('')}
+        </div>
+      </div>` : '';
     const isPresente = (a.presentes||[]).some(p=>p.id===uid);
     const jaAssinou = !!(uid && okDe(uid));
     const aguardandoNomes = [
@@ -1255,6 +1266,7 @@ function viewAtas(){
         ${presentesHtml}
         ${pautaHtml}
         ${entregasHtml}
+        ${anexosHtml}
         ${assinaturaHtml}
       </div>
     </div>`;
@@ -2143,6 +2155,77 @@ function setEntregaData(uid, v){ const e=_modalEntregas.find(x=>x._uid===uid); i
 function setEntregaResponsavel(uid, v){ const e=_modalEntregas.find(x=>x._uid===uid); if(e) e.responsavelId=v; }
 function setEntregaStatus(uid, v){ const e=_modalEntregas.find(x=>x._uid===uid); if(e) e.status=v; }
 
+/* ----- Anexos da ata (fotos, plantas, PDFs) ----- */
+let _modalAnexos = [];      // já salvos no banco
+let _anexosPendentes = [];  // escolhidos agora, sobem ao salvar
+const ANEXO_MAX_MB = 15;
+
+function fmtTamanho(b){
+  if(!b && b!==0) return '';
+  return b < 1024*1024 ? Math.max(1,Math.round(b/1024))+' KB' : (b/1048576).toFixed(1)+' MB';
+}
+function iconeAnexo(tipo, nome){
+  const t = (tipo||'')+' '+(nome||'').toLowerCase();
+  if(/image|\.(png|jpe?g|gif|webp|heic)/.test(t)) return '🖼️';
+  if(/pdf/.test(t)) return '📕';
+  if(/(dwg|dxf)/.test(t)) return '📐';
+  if(/(xls|sheet|csv)/.test(t)) return '📊';
+  return '📎';
+}
+function renderModalAnexos(){
+  const el = document.getElementById('a-anexos'); if(!el) return;
+  const linha = (icone, nome, tamanho, acao, aviso) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:var(--card-2)">
+      <span style="font-size:15px">${icone}</span>
+      <span style="flex:1;min-width:0;font-size:12.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(nome)}</span>
+      ${aviso||''}
+      <span style="font-size:11px;color:var(--muted);white-space:nowrap">${tamanho}</span>
+      ${acao}
+    </div>`;
+  const salvos = _modalAnexos.map(an=>linha(iconeAnexo(an.tipo,an.nome), an.nome, fmtTamanho(an.tamanho),
+    `<button class="icon-btn" title="Remover anexo" onclick="removerAnexoSalvo('${an.id}')">✕</button>`)).join('');
+  const pendentes = _anexosPendentes.map((f,i)=>linha(iconeAnexo(f.type,f.name), f.name, fmtTamanho(f.size),
+    `<button class="icon-btn" title="Tirar da lista" onclick="removerAnexoPendente(${i})">✕</button>`,
+    `<span style="font-size:10.5px;color:var(--amber);white-space:nowrap">novo</span>`)).join('');
+  el.innerHTML = (salvos+pendentes) || '<div style="font-size:12.5px;color:var(--muted);padding:4px 0">Nenhum anexo.</div>';
+}
+function onAnexosEscolhidos(input){
+  for(const f of Array.from(input.files||[])){
+    if(f.size > ANEXO_MAX_MB*1024*1024){ toast(`"${f.name}" passa de ${ANEXO_MAX_MB} MB e foi ignorado`); continue; }
+    _anexosPendentes.push(f);
+  }
+  input.value = '';
+  renderModalAnexos();
+}
+function removerAnexoPendente(i){ _anexosPendentes.splice(i,1); renderModalAnexos(); }
+async function removerAnexoSalvo(id){
+  const an = _modalAnexos.find(x=>x.id===id); if(!an) return;
+  if(!confirm(`Remover o anexo "${an.nome}"?`)) return;
+  await sb.storage.from('ata-anexos').remove([an.path]);
+  const {error} = await sb.from('ata_anexos').delete().eq('id', id);
+  if(error){ toast('Erro ao remover anexo: '+error.message); return; }
+  _modalAnexos = _modalAnexos.filter(x=>x.id!==id);
+  renderModalAnexos();
+}
+// sobe os pendentes; o path começa com o id da ata para o RLS do bucket casar
+async function _subirAnexos(ataId){
+  if(!_anexosPendentes.length) return;
+  for(const f of _anexosPendentes){
+    const path = `${ataId}/${Date.now()}_${sanitizeFilename(f.name)}`;
+    const {error:eUp} = await sb.storage.from('ata-anexos').upload(path, f, {upsert:false, contentType:f.type||undefined});
+    if(eUp){ toast(`Falha ao subir "${f.name}": ${eUp.message}`); continue; }
+    const {error:eIns} = await sb.from('ata_anexos').insert({ata_id:ataId, nome:f.name, path, tamanho:f.size, tipo:f.type||null, created_by:session.user.id});
+    if(eIns) toast(`Anexo "${f.name}" subiu mas não registrou: ${eIns.message}`);
+  }
+  _anexosPendentes = [];
+}
+// bucket privado: link temporário só para quem está logado
+async function abrirAnexo(path, nome){
+  const {data, error} = await sb.storage.from('ata-anexos').createSignedUrl(path, 60);
+  if(error || !data?.signedUrl){ toast('Erro ao abrir anexo: '+((error&&error.message)||'sem URL')); return; }
+  window.open(data.signedUrl, '_blank');
+}
+
 let _modalExternos = [];
 let _externoCount = 0;
 function renderModalExternos(){
@@ -2254,6 +2337,14 @@ function _ataModalHTML(titulo, a){
         <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addModalEntrega()">+ Definição</button>
       </div>
 
+      <div class="field">
+        <label>Anexos</label>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Fotos, plantas, PDFs — até ${ANEXO_MAX_MB} MB por arquivo.</p>
+        <div id="a-anexos"></div>
+        <input type="file" id="a-anexo-input" multiple style="display:none" onchange="onAnexosEscolhidos(this)"/>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="document.getElementById('a-anexo-input').click()">📎 Adicionar arquivo</button>
+      </div>
+
       <div class="field"><label>Obras relacionadas</label>
         <div class="checks" id="a-obras" style="grid-template-columns:1fr 1fr">${obraChecks}</div>
       </div>
@@ -2273,9 +2364,9 @@ function _ataModalHTML(titulo, a){
 
 function modalNewAta(){
   if(!isControlador()) return;
-  _editingAtaId=null; _selectedConvocacaoId=null; _modalEntregas=[]; _entregaCount=0; _modalPauta=[]; _pautaCount=0; _modalExternos=[]; _externoCount=0;
+  _editingAtaId=null; _selectedConvocacaoId=null; _modalEntregas=[]; _entregaCount=0; _modalPauta=[]; _pautaCount=0; _modalExternos=[]; _externoCount=0; _modalAnexos=[]; _anexosPendentes=[];
   openModal(_ataModalHTML('Nova ata de reunião', null));
-  renderModalEntregas(); renderModalPauta(); renderModalExternos();
+  renderModalEntregas(); renderModalPauta(); renderModalExternos(); renderModalAnexos();
 }
 
 function modalEditAta(ataId){
@@ -2285,8 +2376,9 @@ function modalEditAta(ataId){
   _modalEntregas=(a.entregas||[]).map(e=>({_uid:++_entregaCount, id:e.id, titulo:e.titulo, data:e.data, status:e.status, responsavelId:e.responsavelId||'', pautaItemOrdem:e.pautaItemOrdem||null}));
   _modalPauta=(a.pauta||[]).map(it=>({_uid:++_pautaCount, id:it.id, titulo:it.titulo}));
   _modalExternos=(a.externos||[]).map(x=>({_uid:++_externoCount, id:x.id, nome:x.nome, email:x.email, confirmado:x.confirmado}));
+  _modalAnexos=(a.anexos||[]).slice(); _anexosPendentes=[];
   openModal(_ataModalHTML('Editar ata de reunião', a));
-  renderModalEntregas(); renderModalPauta(); renderModalExternos();
+  renderModalEntregas(); renderModalPauta(); renderModalExternos(); renderModalAnexos();
 }
 
 function _ataFields(){
@@ -2332,6 +2424,8 @@ async function saveAta(comoRascunho){
     novosExternosIds = (extRows||[]).map(r=>r.id);
   }
   await _saveEncaminhamentos(ataRow.id, firstObraId, encaminhamentos);
+  if(_anexosPendentes.length) toast('Enviando anexos…');
+  await _subirAnexos(ataRow.id);
   closeModal(); state.view='atas'; state.projId=null;
   await loadData(); render();
   toast(comoRascunho ? 'Rascunho salvo — ninguém foi notificado ✎' : 'Ata registrada ✓');
@@ -2398,6 +2492,8 @@ async function _doUpdateAta(){
       if(novo) novosExternosIds.push(novo.id);
     }
   }
+  if(_anexosPendentes.length) toast('Enviando anexos…');
+  await _subirAnexos(ataId);
   let reenviarIds = novosExternosIds;
   if(resetarAcordos){
     const {error:eAss} = await sb.from('ata_assinaturas').delete().eq('ata_id', ataId);
@@ -2655,6 +2751,14 @@ function ataPrintHTML(a){
         <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Definições</div>
         ${encHtml}
       </div>
+      ${(a.anexos||[]).length ? `
+      <div style="margin-bottom:22px">
+        <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Anexos</div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #dde5ef;border-top:none"><tbody>
+        ${a.anexos.map(an=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${an.nome}</td><td style="padding:8px 12px;border-bottom:1px solid #eef1f7;font-size:11px;color:#7a90aa;white-space:nowrap;width:90px">${fmtTamanho(an.tamanho)}</td></tr>`).join('')}
+        </tbody></table>
+        <div style="font-size:9.5px;color:#7a90aa;margin-top:5px">Arquivos disponíveis na Plataforma Dib &amp; Dib.</div>
+      </div>` : ''}
       ${acordoHtml}
     </div>`;
 }
