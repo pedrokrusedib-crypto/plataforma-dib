@@ -1163,18 +1163,9 @@ function viewAgenda(){
     </div>`;
 }
 
-// render() recria o DOM: devolve o foco e o cursor ao campo de busca
-function setAtaBusca(v){
-  state.ataBusca = v;
-  render();
-  const el = document.getElementById('ata-busca');
-  if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
-}
-
 function viewAtas(){
   const obraFilter = state.ataObraFilter||'';
   const typeFilter = state.ataTypeFilter||'all';
-  const busca = normalizeSearch(state.ataBusca||'');
   const periodo = state.ataPeriodo||'all';
   const hoje = todayStr();
 
@@ -1188,26 +1179,13 @@ function viewAtas(){
     return d.toISOString().slice(0,10);
   })();
   const dentroPeriodo = iso => !corte || String(iso).slice(0,10) >= corte;
-  const casaBusca = txt => !busca || normalizeSearch(txt).includes(busca);
 
   // rascunho é trabalho em andamento: só quem administra enxerga
   const atasVisiveis = isControlador() ? atasData : atasData.filter(a=>a.status!=='rascunho');
   let filteredAtas = obraFilter ? atasVisiveis.filter(a=>a.obras.length===0||a.obras.some(o=>o.id===obraFilter)) : atasVisiveis;
   let filteredConvs = obraFilter ? convocacoesData.filter(c=>c.obras.length===0||c.obras.some(o=>o.id===obraFilter)) : convocacoesData;
-  filteredAtas = filteredAtas.filter(a=>dentroPeriodo(a.rawData) && casaBusca([
-    a.titulo,
-    (a.pauta||[]).map(p=>p.titulo).join(' '),
-    (a.entregas||[]).map(e=>e.titulo+' '+(e.responsavelNome||'')).join(' '),
-    (a.presentes||[]).map(p=>p.nome).join(' '),
-    (a.externos||[]).map(x=>x.nome).join(' '),
-    a.obras.map(o=>o.nome).join(' ')
-  ].join(' ')));
-  filteredConvs = filteredConvs.filter(c=>dentroPeriodo(c.rawDataReuniao) && casaBusca([
-    c.titulo, c.local||'',
-    (c.pauta||[]).map(p=>p.titulo).join(' '),
-    (c.pessoas||[]).map(p=>p.nome).join(' '),
-    c.obras.map(o=>o.nome).join(' ')
-  ].join(' ')));
+  filteredAtas = filteredAtas.filter(a=>dentroPeriodo(a.rawData));
+  filteredConvs = filteredConvs.filter(c=>dentroPeriodo(c.rawDataReuniao));
 
   // nó de ata
   function ataNode(a){
@@ -1220,10 +1198,15 @@ function viewAtas(){
       ${a.status==='rascunho'?`<button class="btn btn-primary btn-sm" style="font-size:11.5px;padding:4px 10px" title="Publicar e notificar os participantes" onclick="publicarAta('${a.id}')">📤 Publicar</button>`:''}
       <button class="icon-btn" title="Editar ata" onclick="modalEditAta('${a.id}')">✏️</button>
       <button class="icon-btn" title="Excluir ata" style="color:#c0392b;opacity:.7" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity='.7'" onclick="deleteAta('${a.id}','${a.titulo.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">🗑</button>` : '';
-    const extChips = (a.externos||[]).map(x=>`<span title="${x.email}" style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px dashed var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:#566a85">${initials(x.nome)}</span>${x.nome}</span>`).join('');
+    // quem deu o de acordo (criador entra automático) — o ✓ vai no próprio chip
+    const assinMap = {}; (a.assinaturas||[]).forEach(s=>{ assinMap[s.userId]=s.em||true; });
+    const okDe = (id) => id===a.created_by || !!assinMap[id];
+    const quandoDe = (id) => id===a.created_by ? a.createdAt : (assinMap[id]===true?null:assinMap[id]);
+    const check = (quando) => `<span title="De acordo em ${formatDataHora(quando)||'—'}" style="color:var(--green);font-weight:700;margin-left:1px">✓</span>`;
+    const extChips = (a.externos||[]).map(x=>`<span title="${x.email}" style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px dashed var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:#566a85">${initials(x.nome)}</span>${x.nome}${x.confirmado?check(x.confirmadoEm):''}</span>`).join('');
     const presentesHtml = ((a.presentes||[]).length || (a.externos||[]).length) ? `
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-        ${a.presentes.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome}</span>`).join('')}${extChips}
+        ${a.presentes.map(p=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:30px;padding:3px 10px 3px 3px;font-size:12px;color:var(--ink)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}">${p.ini}</span>${p.nome}${okDe(p.id)?check(quandoDe(p.id)):''}</span>`).join('')}${extChips}
       </div>` : '';
     const pautaHtml = buildPautaHtml(a);
     const entregasHtml = (a.entregas||[]).length ? `
@@ -1246,22 +1229,16 @@ function viewAtas(){
         }).join('')}
       </div>` : '';
     const isPresente = (a.presentes||[]).some(p=>p.id===uid);
-    const assinMap = {}; (a.assinaturas||[]).forEach(s=>{ assinMap[s.userId]=s.em||true; });
-    const jaAssinou = !!(uid && assinMap[uid]);
-    const jaSinaram = (a.presentes||[]).filter(p=>p.id===a.created_by || assinMap[p.id])
-      .map(p=>({id:p.id, nome:p.nome, em: p.id===a.created_by ? a.createdAt : (assinMap[p.id]===true?null:assinMap[p.id])}));
-    const criadorP = allProfiles.find(p=>p.id===a.created_by);
-    if(criadorP && !jaSinaram.some(p=>p.id===criadorP.id)) jaSinaram.unshift({id:criadorP.id, nome:criadorP.nome, em:a.createdAt});
-    const naoAssinaram = (a.presentes||[]).filter(p=>p.id!==a.created_by && !assinMap[p.id]);
-    const extConfirmados = (a.externos||[]).filter(x=>x.confirmado).map(x=>({nome:x.nome, em:x.confirmadoEm}));
-    const extPendentes = (a.externos||[]).filter(x=>!x.confirmado);
-    const confirmados = [...jaSinaram, ...extConfirmados];
-    const aguardandoNomes = [...naoAssinaram.map(p=>p.nome), ...extPendentes.map(x=>x.nome)];
-    const assinaturaHtml = ((a.presentes||[]).length || (a.externos||[]).length) ? `
+    const jaAssinou = !!(uid && okDe(uid));
+    const aguardandoNomes = [
+      ...(a.presentes||[]).filter(p=>!okDe(p.id)).map(p=>p.nome),
+      ...(a.externos||[]).filter(x=>!x.confirmado).map(x=>x.nome)
+    ];
+    const podeAssinar = !isCriador && isPresente && !jaAssinou;
+    const assinaturaHtml = (podeAssinar || aguardandoNomes.length) ? `
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-2)">
-        ${!isCriador && isPresente && !jaAssinou ? `<button class="btn btn-primary btn-sm" style="margin-bottom:6px" onclick="assinarAta('${a.id}')">✓ Confirmar de acordo</button>` : ''}
-        ${confirmados.length ? `<div style="font-size:11.5px;color:var(--green);margin-bottom:2px">✓ ${confirmados.map(c=>c.nome+(c.em?` <span style="opacity:.75;font-size:10.5px">(${formatDataHora(c.em)})</span>`:'')).join(', ')}</div>` : ''}
-        ${aguardandoNomes.length ? `<div style="font-size:12px;color:var(--red);font-weight:700">⚠ Aguardando: ${aguardandoNomes.join(', ')}</div>` : `<div style="font-size:11.5px;color:var(--green)">Todos confirmaram ✓</div>`}
+        ${podeAssinar ? `<button class="btn btn-primary btn-sm" style="margin-bottom:6px" onclick="assinarAta('${a.id}')">✓ Confirmar de acordo</button>` : ''}
+        ${aguardandoNomes.length ? `<div style="font-size:12px;color:var(--red);font-weight:700">⚠ Aguardando: ${aguardandoNomes.join(', ')}</div>` : ''}
       </div>` : '';
     return `
     <div class="tnode ata${a.status==='rascunho'?' rascunho':''}">
@@ -1347,20 +1324,15 @@ function viewAtas(){
     <div class="chat-tabs" style="margin-bottom:8px">${typeTabsHtml}</div>
     <div class="chat-tabs">${obraTabsHtml}</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0 4px">
-      <div style="position:relative;flex:1 1 260px">
-        <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--muted);pointer-events:none">🔍</span>
-        <input id="ata-busca" value="${(state.ataBusca||'').replace(/"/g,'&quot;')}" oninput="setAtaBusca(this.value)" placeholder="Buscar por título, pauta, definição, participante..." style="width:100%;box-sizing:border-box;padding:9px 32px 9px 32px;border:1.5px solid var(--line);border-radius:9px;background:var(--card-2);color:var(--ink);font-size:13px"/>
-        ${state.ataBusca?`<button onclick="setAtaBusca('')" title="Limpar busca" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px">✕</button>`:''}
-      </div>
       <select onchange="state.ataPeriodo=this.value;render()" style="padding:9px 10px;border:1.5px solid var(--line);border-radius:9px;background:var(--card-2);color:var(--ink);font-size:13px">
         <option value="all" ${periodo==='all'?'selected':''}>Todo o período</option>
         <option value="30" ${periodo==='30'?'selected':''}>Últimos 30 dias</option>
         <option value="90" ${periodo==='90'?'selected':''}>Últimos 90 dias</option>
         <option value="ano" ${periodo==='ano'?'selected':''}>Este ano</option>
       </select>
-      ${(busca||periodo!=='all')?`<span style="font-size:12px;color:var(--muted)">${visible.length} resultado${visible.length===1?'':'s'}</span>`:''}
+      ${periodo!=='all'?`<span style="font-size:12px;color:var(--muted)">${visible.length} registro${visible.length===1?'':'s'}</span>`:''}
     </div>
-    <div class="tline">${nodes||`<div class="empty"><div class="e-ico">🔍</div>${busca||periodo!=='all'?'Nada encontrado com esses filtros.':'Sem registros.'}</div>`}</div>`;
+    <div class="tline">${nodes||`<div class="empty"><div class="e-ico">📋</div>${periodo!=='all'?'Nada nesse período.':'Sem registros.'}</div>`}</div>`;
 }
 
 async function toggleEntregaStatus(prazoId){
