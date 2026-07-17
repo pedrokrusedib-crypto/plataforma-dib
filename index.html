@@ -1194,10 +1194,13 @@ function viewAtas(){
           else if(e.data<hoje) tag='<span class="badge b-red" style="font-size:11px"><span class="bdot"></span>Atrasada</span>';
           else tag='<span class="badge b-gray" style="font-size:11px"><span class="bdot"></span>Pendente</span>';
           const pautaPrefix = e.pautaItemOrdem!=null ? `<span style="font-size:11px;color:var(--muted);margin-right:4px">${e.pautaItemOrdem}.</span>` : '';
+          // RLS de prazos só permite UPDATE a controlador — botão segue essa regra
+          const podeConcluir = isControlador();
           return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;flex-wrap:wrap">
             <span style="font-size:12.5px;flex:1;min-width:0">${pautaPrefix}${e.titulo}${e.responsavelNome?` <span style="color:var(--muted)">· ${e.responsavelNome}</span>`:''}</span>
             <span style="font-size:11.5px;color:var(--muted);white-space:nowrap">${formatDate(e.data)}</span>
             ${tag}
+            ${podeConcluir?`<button class="icon-btn" style="width:26px;height:26px;font-size:12px" title="${e.status==='pendente'?'Marcar como concluída':'Reabrir'}" onclick="toggleEntregaStatus('${e.id}')">${e.status==='pendente'?'✓':'↺'}</button>`:''}
           </div>`;
         }).join('')}
       </div>` : '';
@@ -2059,24 +2062,30 @@ function renderModalEntregas(){
   const pautaOpts = _modalPauta.length
     ? `<option value="">— item de pauta</option>${_modalPauta.map((it,idx)=>`<option value="${idx+1}">${idx+1}. ${it.titulo||'(sem título)'}</option>`).join('')}`
     : `<option value="">— item de pauta</option>`;
+  const ctrl = 'padding:7px 9px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:12.5px';
   el.innerHTML = _modalEntregas.length
     ? _modalEntregas.map(e=>`
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-      <select style="width:110px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:12px" onchange="setEntregaPauta(${e._uid},this.value)">${pautaOpts.replace(`value="${e.pautaItemOrdem||''}"`,`value="${e.pautaItemOrdem||''}" selected`)}</select>
-      <input style="flex:1 1 140px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" placeholder="Definição / ação" value="${e.titulo.replace(/"/g,'&quot;')}" oninput="setEntregaTitulo(${e._uid},this.value)"/>
-      <select style="padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" onchange="setEntregaResponsavel(${e._uid},this.value)">
-        <option value="">Responsável...</option>
-        ${allProfiles.map(p=>`<option value="${p.id}" ${e.responsavelId===p.id?'selected':''}>${p.nome}</option>`).join('')}
-      </select>
-      <input type="date" style="width:140px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" value="${e.data}" oninput="setEntregaData(${e._uid},this.value)"/>
-      <select style="padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--ink);font-size:13px" onchange="setEntregaStatus(${e._uid},this.value)">
-        <option value="pendente" ${e.status==='pendente'?'selected':''}>Pendente</option>
-        <option value="concluido" ${e.status==='concluido'?'selected':''}>Concluído</option>
-      </select>
-      <button class="icon-btn" onclick="removeModalEntrega(${e._uid})">✕</button>
+    <div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;background:var(--card)">
+      <textarea rows="3" style="width:100%;box-sizing:border-box;${ctrl};font-size:13px;line-height:1.5;resize:vertical;min-height:66px;font-family:inherit" placeholder="Definição / ação acordada" oninput="setEntregaTitulo(${e._uid},this.value);autoGrow(this)">${escHtml(e.titulo)}</textarea>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
+        <select style="width:110px;${ctrl};font-size:12px" onchange="setEntregaPauta(${e._uid},this.value)">${pautaOpts.replace(`value="${e.pautaItemOrdem||''}"`,`value="${e.pautaItemOrdem||''}" selected`)}</select>
+        <select style="flex:1 1 150px;${ctrl}" onchange="setEntregaResponsavel(${e._uid},this.value)">
+          <option value="">Responsável...</option>
+          ${allProfiles.map(p=>`<option value="${p.id}" ${e.responsavelId===p.id?'selected':''}>${p.nome}</option>`).join('')}
+        </select>
+        <input type="date" style="width:135px;${ctrl}" value="${e.data}" oninput="setEntregaData(${e._uid},this.value)"/>
+        <select style="${ctrl}" onchange="setEntregaStatus(${e._uid},this.value)">
+          <option value="pendente" ${e.status==='pendente'?'selected':''}>Pendente</option>
+          <option value="concluido" ${e.status==='concluido'?'selected':''}>Concluído</option>
+        </select>
+        <button class="icon-btn" style="margin-left:auto" title="Remover definição" onclick="removeModalEntrega(${e._uid})">✕</button>
+      </div>
     </div>`).join('')
     : '<div style="font-size:12.5px;color:var(--muted);padding:4px 0">Nenhuma definição. Use o botão abaixo para adicionar.</div>';
+  el.querySelectorAll('textarea').forEach(autoGrow);
 }
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function autoGrow(t){ t.style.height='auto'; t.style.height=Math.max(66, t.scrollHeight)+'px'; }
 function addModalEntrega(){
   _modalEntregas.push({_uid:++_entregaCount, titulo:'', data:new Date().toISOString().slice(0,10), status:'pendente', responsavelId:'', pautaItemOrdem:null});
   renderModalEntregas();
@@ -2281,11 +2290,40 @@ async function saveAta(){
   _enviarAtasExternos(ataRow.id, novosExternosIds);
 }
 
+// Impressão digital do conteúdo que os participantes concordaram.
+// status fica de fora: concluir uma definição não altera o que foi acordado.
+function _fingerprintAta(pauta, entregas){
+  const p = (pauta||[]).map(it=>String(it.titulo||'').trim()).join('|');
+  const d = (entregas||[]).map(e=>[
+    e.pautaItemOrdem==null?'':e.pautaItemOrdem,
+    String(e.titulo||'').trim(),
+    e.data||'',
+    e.responsavelId||''
+  ].join('~')).sort().join('|');
+  return p+'||'+d;
+}
+
 async function _doUpdateAta(){
   if(!_editingAtaId) return;
   const f=_ataFields(); if(!f) return;
   const {titulo,data,obraIds,pessoaIds,presentesIds,pauta,encaminhamentos,externos,firstObraId,convocacaoId}=f;
   const ataId=_editingAtaId;
+
+  // Conteúdo alterado invalida os "de acordo" já dados
+  const ataAntes = atasData.find(x=>x.id===ataId);
+  const mudouConteudo = !!ataAntes && _fingerprintAta(ataAntes.pauta, ataAntes.entregas) !== _fingerprintAta(pauta, encaminhamentos);
+  const confirmaram = ataAntes
+    ? [...(ataAntes.assinaturas||[]).map(s=>{
+        const p=(ataAntes.presentes||[]).find(x=>x.id===s.userId)||allProfiles.find(x=>x.id===s.userId);
+        return p?p.nome:null;
+      }).filter(Boolean), ...(ataAntes.externos||[]).filter(x=>x.confirmado).map(x=>x.nome)]
+    : [];
+  let resetarAcordos = false;
+  if(mudouConteudo && confirmaram.length){
+    if(!confirm(`Você alterou a pauta ou as definições desta ata.\n\n${confirmaram.length===1?'Já havia confirmado':'Já haviam confirmado'} de acordo: ${confirmaram.join(', ')}.\n\nAs confirmações serão canceladas e um novo de acordo será pedido, para ninguém constar concordando com um texto que não leu.\n\nContinuar?`)) return;
+    resetarAcordos = true;
+  }
+
   const {error}=await sb.from('atas').update({titulo,data,obra_id:firstObraId,convocacao_id:convocacaoId||null}).eq('id',ataId);
   if(error){toast('Erro ao atualizar ata: '+error.message);return;}
   await sb.from('ata_obras').delete().eq('ata_id',ataId);
@@ -2311,9 +2349,18 @@ async function _doUpdateAta(){
       if(novo) novosExternosIds.push(novo.id);
     }
   }
+  let reenviarIds = novosExternosIds;
+  if(resetarAcordos){
+    const {error:eAss} = await sb.from('ata_assinaturas').delete().eq('ata_id', ataId);
+    const {error:eExt} = await sb.from('ata_externos').update({confirmado:false, confirmado_em:null}).eq('ata_id', ataId);
+    if(eAss||eExt) toast('Atenção: falha ao cancelar confirmações — '+((eAss||eExt).message));
+    // todo externo precisa reconfirmar, não só os novos
+    const {data:todosExt} = await sb.from('ata_externos').select('id').eq('ata_id', ataId);
+    reenviarIds = (todosExt||[]).map(r=>r.id);
+  }
   closeModal(); await loadData(); render();
-  toast('Ata atualizada ✓');
-  _enviarAtasExternos(ataId, novosExternosIds);
+  toast(resetarAcordos ? 'Ata atualizada — novo de acordo solicitado ✓' : 'Ata atualizada ✓');
+  _enviarAtasExternos(ataId, reenviarIds);
 }
 
 async function deleteAta(ataId, titulo){
@@ -2499,6 +2546,26 @@ async function deleteConvocacao(convId, titulo){
 /* ----- Exportação de ata em PDF (via window.print() + @media print) ----- */
 function ataPrintHTML(a){
   const obrasTxt = a.obras.length ? a.obras.map(o=>o.nome).join(', ') : 'Geral';
+  // Registro dos "de acordo" — é o que dá valor probatório ao documento
+  const assinMapP = {}; (a.assinaturas||[]).forEach(s=>{ assinMapP[s.userId]=s.em||null; });
+  const confirmadosP = (a.presentes||[]).filter(p=>p.id===a.created_by || assinMapP[p.id])
+    .map(p=>({nome:p.nome, em: p.id===a.created_by ? a.createdAt : assinMapP[p.id], obs: p.id===a.created_by?'redator':''}));
+  const criadorPP = allProfiles.find(p=>p.id===a.created_by);
+  if(criadorPP && !confirmadosP.some(p=>p.nome===criadorPP.nome)) confirmadosP.unshift({nome:criadorPP.nome, em:a.createdAt, obs:'redator'});
+  (a.externos||[]).filter(x=>x.confirmado).forEach(x=>confirmadosP.push({nome:x.nome, em:x.confirmadoEm, obs:'externo'}));
+  const pendentesP = [
+    ...(a.presentes||[]).filter(p=>p.id!==a.created_by && !assinMapP[p.id]).map(p=>p.nome),
+    ...(a.externos||[]).filter(x=>!x.confirmado).map(x=>x.nome)
+  ];
+  const acordoHtml = (confirmadosP.length || pendentesP.length) ? `
+      <div style="margin-bottom:22px">
+        <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">De acordo</div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #dde5ef;border-top:none"><tbody>
+        ${confirmadosP.map(c=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${c.nome}${c.obs?` <span style="color:#7a90aa;font-size:10px">(${c.obs})</span>`:''}</td><td style="padding:8px 12px;border-bottom:1px solid #eef1f7;font-size:11.5px;color:#1f7a4d;white-space:nowrap;width:190px">✓ Confirmado em ${formatDataHora(c.em)||'—'}</td></tr>`).join('')}
+        ${pendentesP.map(n=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #eef1f7;font-size:12px">${n}</td><td style="padding:8px 12px;border-bottom:1px solid #eef1f7;font-size:11.5px;color:#9aa5b1;white-space:nowrap;width:190px">Aguardando confirmação</td></tr>`).join('')}
+        </tbody></table>
+        <div style="font-size:9.5px;color:#7a90aa;margin-top:5px">Confirmações registradas eletronicamente na Plataforma Dib &amp; Dib.</div>
+      </div>` : '';
   const presNames = [...(a.presentes||[]).map(p=>p.nome), ...(a.externos||[]).map(x=>x.nome)];
   const presRows = [];
   for(let i=0;i<presNames.length;i+=3) presRows.push(presNames.slice(i,i+3));
@@ -2536,6 +2603,7 @@ function ataPrintHTML(a){
         <div style="background:#1a2b3c;color:#fff;font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:7px 12px;border-radius:4px 4px 0 0">Definições</div>
         ${encHtml}
       </div>
+      ${acordoHtml}
     </div>`;
 }
 function _ensureHtml2pdf(){
